@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ordem Tracker</title>
+<meta name="description" content="Projeto de fã, não oficial. Contagem de viewers ao vivo das lives de Ordem Paranormal na Twitch, Kick e YouTube.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=Inter+Tight:wght@700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#121212;--panel:#181818;--panel2:#242424;--line:#2a2a2a;--line2:#3a3a3a;--tx:#ededed;--mut:#8a8a8a;
+  --twitch:#9146ff;--kick:#53fc18;--yt:#ff2b2b;--tiktok:#25f4ee;--red:#ef4444;--up:#d6d6d6;
+  --grade:rgba(255,255,255,.05);--rn:url(/rn-branco.png);--sombra:0 10px 32px rgba(0,0,0,.4),inset 0 0 0 1px rgba(255,255,255,.06);--area:38}
+:root[data-tema="claro"]{--bg:#f3f3f3;--panel:#fff;--panel2:#e7e7e7;--line:#ddd;--line2:#cfcfcf;--tx:#151515;--mut:#6e6e6e;
+  --kick:#2fbf00;--tiktok:#0aa6a0;--up:#2b2b2b;--grade:rgba(0,0,0,.06);--rn:url(/rn-preto.png);--sombra:0 0 0 1px rgba(0,0,0,.08);--area:1a}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden}
+body{display:grid;grid-template-rows:auto 1fr auto auto;grid-template-columns:minmax(0,1fr);gap:1.4vh;padding:1.8vh 2vw .8vh;
+  background:var(--bg);color:var(--tx);font-family:Inter,system-ui,sans-serif;font-size:clamp(11px,1.5vh,15px);transition:background-color .3s,color .3s}
+.num{font-variant-numeric:tabular-nums}
+.mut{color:var(--mut)}
+.lbl{color:var(--mut);font-size:.9em}
+.cap{font-size:.78em;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+
+.top{display:flex;align-items:center;gap:1.6em;height:clamp(28px,4.4vh,44px);font:500 clamp(12px,1.6vh,15px)/1 Inter,sans-serif}
+.marcas{display:flex;align-items:center;height:100%}
+.rn-logo{flex:none;display:inline-block;background:var(--rn) center/contain no-repeat}
+.marcas .rn-logo{aspect-ratio:1;height:170%;margin:0 -.4em}
+.sp{flex:1}
+.tbtn{display:inline-flex;align-items:center;gap:.5em;background:none;border:0;padding:.4em 0;color:var(--mut);font:inherit;cursor:pointer;transition:color .2s}
+.tbtn:hover,.tbtn:focus-visible{color:var(--tx)}
+.tbtn svg{width:1.15em;height:1.15em;flex:none}
+:root[data-tema="claro"] .i-lua,:root:not([data-tema="claro"]) .i-sol{display:none}
+.clockw{display:flex;align-items:center;gap:.5em;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dot{width:.45em;height:.45em;border-radius:50%;background:var(--red);animation:pulse 1.6s ease-in-out infinite}
+body.encerrado .clockw .dot{display:none}
+@keyframes pulse{50%{opacity:.35}}
+
+.main{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:1.2vw;min-height:0}
+.col{display:flex;flex-direction:column;min-height:0;animation:sobe .7s cubic-bezier(.2,.8,.2,1) both}
+.col+.col{border-left:1px solid var(--line);padding-left:1.6vw;animation-delay:.12s}
+.hero{display:flex;flex-direction:column;justify-content:center;flex:1;min-height:0}
+.capa{flex:none;aspect-ratio:2/1;width:100%;max-height:36vh;margin-bottom:2vh;border-radius:18px;background:var(--panel2) center top/cover no-repeat;box-shadow:var(--sombra);
+  opacity:0;transform:scale(.97);transition:opacity .8s ease,transform .8s cubic-bezier(.2,.8,.2,1)}
+.capa.on{opacity:1;transform:none}
+.big,#rec{font-family:"Inter Tight",Inter,sans-serif}
+.big{font-size:clamp(36px,min(14vh,8.5vw),150px);font-weight:800;letter-spacing:-.03em;line-height:1;transition:color .4s}
+
+.plats{flex:none;display:flex;flex-wrap:wrap;justify-content:space-between;gap:.3em .8em;margin:1.4vh 0 .8vh;white-space:nowrap;font-size:clamp(10px,1.1vw,15px)}
+.plats b{font-size:1.15em}
+.ico{display:inline-block;width:auto;height:1.05em;vertical-align:-.17em;margin-right:.4em}
+.bar{flex:none;display:flex;height:clamp(30px,5vh,52px);border-radius:12px;overflow:hidden;background:var(--panel2)}
+.seg{display:flex;align-items:center;padding:0 .8em;min-width:0;font-weight:700;font-size:clamp(13px,2.1vh,21px);line-height:1;white-space:nowrap;overflow:hidden;transition:flex-basis 1.2s cubic-bezier(.2,.8,.2,1)}
+.seg[style*="flex-basis: 0%"]{padding:0}
+.seg.tw{background:var(--twitch);color:#fff}.seg.kk{background:var(--kick);color:#063}
+.seg.yt{background:var(--yt);color:#fff;justify-content:flex-end}.seg.tt{background:var(--tiktok);color:#06302f}
+
+.hr{height:1px;background:var(--line);margin:2.6vh 0}
+.recs{display:grid;gap:1.1vh}
+#rec{font-size:clamp(20px,4vh,40px);font-weight:800;letter-spacing:-.02em;margin-right:.35em;transition:color .4s}
+#recq{font-size:.9em}
+.picos{display:flex;flex-wrap:wrap;gap:.3em 1em;font-size:.88em;color:var(--mut);white-space:nowrap}
+.picos b{color:var(--tx);font-weight:600}
+
+.chartbox{flex:1;display:flex;flex-direction:column;min-height:0}
+.chartbox .cw{position:relative;flex:1;min-height:0}
+
+.strip{display:flex;align-items:stretch;border-top:1px solid var(--line);padding-top:1.4vh;animation:sobe .7s .24s cubic-bezier(.2,.8,.2,1) both}
+.st{flex:1;display:flex;flex-direction:column;gap:.2vh;padding:0 1.2vw;min-width:0;border-left:1px solid var(--line)}
+.st:first-child{border-left:0;padding-left:0}
+.st .lbl{font-size:.82em;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st b{font-size:clamp(13px,2.3vh,22px);font-weight:600;transition:color .4s;white-space:nowrap}
+.st i{font-style:normal;font-size:.8em;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.up{color:var(--up)!important}.down{color:var(--red)!important}
+
+.aviso{font-size:.68em;color:var(--mut);opacity:.8;text-align:center;line-height:1.2;margin-top:-.4vh;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .3s}
+.aviso a{color:inherit}
+
+.modal{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);display:grid;place-items:center;padding:3vh;opacity:0;pointer-events:none;transition:opacity .25s}
+.modal.on{opacity:1;pointer-events:auto}
+.modal-box,.eps-box{background:var(--panel);border:1px solid var(--line);transform:translateY(10px) scale(.98);transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+.modal.on .modal-box,.modal.on .eps-box{transform:none}
+.modal-box{border-radius:20px;padding:20px;display:grid;grid-template-columns:auto 240px;gap:20px;max-height:94vh}
+.modal-box img{max-height:calc(94vh - 40px);max-width:52vw;border-radius:12px;display:block;background:#111}
+.modal-side{display:flex;flex-direction:column;gap:10px}
+.modal-side .rn-logo{width:8em;height:8em;margin:-1.5em 0 -1.5em -1em}
+.modal-side h3,.eps-top h3{margin:0;font:600 18px Inter,sans-serif}
+.modal-side p{margin:0;color:var(--mut);font-size:.9em;line-height:1.45}
+.fmt{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.sbtn{display:flex;align-items:center;justify-content:center;gap:.5em;border:1px solid var(--line);background:var(--panel2);color:var(--tx);border-radius:12px;padding:.8em 1em;font:600 .95em Inter,sans-serif;cursor:pointer;text-decoration:none;transition:border-color .2s}
+.sbtn:hover{border-color:var(--mut)}.fmt .sbtn.on{border-color:var(--tx)}
+.sbtn.pri{background:var(--tx);color:var(--bg);border-color:var(--tx)}.sbtn.pri:hover{opacity:.85}
+.fechar{margin-top:auto;background:none;border:0;color:var(--mut);cursor:pointer;font:500 .9em Inter,sans-serif}
+.fechar:hover{color:var(--tx)}
+
+.eps-box{border-radius:16px;width:min(920px,94vw);max-height:88vh;display:flex;flex-direction:column}
+.eps-top{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--line)}
+.eps-top .fechar{margin:0}
+.eps-lista{overflow:auto;padding:6px 22px 14px}
+.eps-lista .lbl{margin-top:12px}
+.ep{display:grid;grid-template-columns:168px minmax(0,1fr) auto;gap:18px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)}
+.ep:last-child{border-bottom:0}
+.ep img{width:168px;aspect-ratio:16/9;object-fit:cover;border-radius:8px;background:var(--panel2);display:block}
+.ep h4{margin:0 0 4px;font:600 15px Inter,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ep .data{color:var(--mut);font-size:13px;margin-bottom:8px}
+.ep .nums{display:flex;gap:22px;font-size:13px;color:var(--mut);flex-wrap:wrap}
+.ep .nums b{display:block;color:var(--tx);font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+.ep .acoes{display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+.ep .acoes a{color:var(--tx);font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;border-bottom:1px solid var(--line2);padding-bottom:1px}
+.ep .acoes a:hover{border-color:var(--tx)}
+.ep .vivo{color:var(--red);font-weight:700;font-size:12px;letter-spacing:.06em}
+.ep>a{display:block;border-radius:8px;overflow:hidden}
+.ep>a img{transition:transform .3s}.ep>a:hover img{transform:scale(1.04)}
+.st .tags{display:flex;gap:.8em;overflow:hidden}
+.tag{display:inline-flex;align-items:center;white-space:nowrap}
+.tag .ico{height:.95em;margin-right:.3em}
+
+@keyframes sobe{from{opacity:0;transform:translateY(10px)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:700px){.modal-box{grid-template-columns:1fr}.modal-box img{max-width:100%;max-height:55vh}}
+@media (max-width:640px){.ep{grid-template-columns:110px 1fr}.ep img{width:110px}.ep .acoes{grid-column:1/-1;flex-direction:row;align-items:center}}
+@media (max-aspect-ratio:1/1){
+  html,body{height:auto;overflow:auto}
+  body{padding:16px;gap:16px;font-size:14px}
+  .main{grid-template-columns:1fr}
+  .col+.col{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:16px}
+  .capa{max-height:none}
+  .big{font-size:clamp(48px,16vw,96px)}
+  .plats{flex-wrap:wrap;justify-content:flex-start;gap:.6em 1.4em;font-size:14px}
+  .picos{flex-wrap:wrap;gap:.4em 1.2em}
+  .chartbox{height:260px;flex:none}
+  .strip{flex-wrap:wrap;row-gap:12px}
+  .st{flex:1 0 33%;padding:0 12px 0 0;border-left:0}
+  .top .tbtn span{display:none}
+  .prox .mut{display:none}
+  .aviso{white-space:normal}
+  .st .tags{flex-wrap:wrap;gap:.2em .8em}
+}
+.estado{color:var(--mut);font-weight:500;margin-right:.3em}
+.estado.vivo{color:var(--red);font-weight:600}
+.ep-titulo{margin:.3vh 0 1vh;font:600 clamp(16px,2.6vh,26px)/1.15 "Inter Tight",Inter,sans-serif;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ep-titulo .mut{font-weight:500}
+.prox{display:flex;align-items:center;gap:.4em;color:var(--tx);text-decoration:none;white-space:nowrap}
+.prox[hidden]{display:none}
+.prox:hover .mut{color:var(--tx)}
+.prox b{font-weight:600}
+.cor{display:inline-flex;align-items:center;gap:.35em;white-space:nowrap}
+.cor::before{content:"";width:.55em;height:.55em;border-radius:2px;background:var(--c)}
+.st .tags{display:flex;gap:.9em;overflow:hidden}
+.ico{height:.95em}
+.hero>*{flex-shrink:0}
+.hero>.capa{flex-shrink:1;min-height:0}
+.capa{aspect-ratio:16/9;width:100%;max-height:none;background-position:center}
+.lado{border-top:1px solid var(--line);padding-top:1.4vh;margin-top:1.2vh;display:grid;grid-template-columns:auto 1fr;align-items:end;gap:1.5vw}
+.lado .picos{justify-content:flex-end}
+.ico{width:1.05em;height:1.05em;object-fit:contain}
+.ico[src*="kick"]{width:1em;height:1em}
+@media (max-aspect-ratio:1/1){.lado{grid-template-columns:1fr}.lado .picos{justify-content:flex-start}}
+.hero{justify-content:flex-start;padding-top:.6vh}
+.hero .big{font-size:clamp(32px,min(10vh,6.4vw),118px)}
+.ep-titulo{font-size:clamp(18px,3.4vh,34px);margin:.6vh 0 .8vh}
+.main{grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr)}
+.capa{position:relative;overflow:hidden;cursor:pointer}
+.capa::after{content:"Onde assistir";position:absolute;right:12px;bottom:12px;padding:.45em .8em;border-radius:99px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);color:#fff;font-size:.8em;font-weight:600;opacity:0;transform:translateY(6px);transition:.25s}
+.capa:hover::after{opacity:1;transform:none}
+.capa.aberta::after{opacity:0}
+.onde{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.4vh;background:rgba(8,8,8,.62);backdrop-filter:blur(10px) saturate(1.2);opacity:0;pointer-events:none;transition:opacity .3s}
+.capa.aberta .onde{opacity:1;pointer-events:auto}
+.onde-t{color:#fff;font:600 clamp(13px,1.8vh,17px) Inter,sans-serif;letter-spacing:.04em;opacity:0;transform:translateY(-8px);transition:.35s .05s}
+.onde-l{display:grid;grid-template-columns:repeat(4,auto);gap:1vw}
+.onde-l a{display:flex;flex-direction:column;align-items:center;gap:.6em;padding:1.1em 1.4em;min-width:6.5em;border-radius:16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#fff;text-decoration:none;font:600 1em Inter,sans-serif;
+  opacity:0;transform:translateY(14px) scale(.9);transition:transform .45s cubic-bezier(.2,.9,.25,1.25),opacity .3s,background .2s,border-color .2s}
+.onde-l img{width:2.8em;height:2.8em;object-fit:contain;transition:transform .3s cubic-bezier(.2,.9,.25,1.4)}
+.onde-l a:hover{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.3)}
+.onde-l a:hover img{transform:scale(1.15) rotate(-4deg)}
+.capa.aberta .onde-t,.capa.aberta .onde-l a{opacity:1;transform:none}
+.capa.aberta .onde-l a:nth-child(2){transition-delay:.06s}.capa.aberta .onde-l a:nth-child(3){transition-delay:.12s}.capa.aberta .onde-l a:nth-child(4){transition-delay:.18s}
+.capa.on:hover{transform:none}
+#rec{font-size:clamp(26px,5.4vh,54px)}
+#recq{font-size:1em}
+.lado .cap{font-size:.85em}
+.lado .picos{font-size:1.05em;gap:.4em 1.4em}
+.lado .picos b{font-size:1.1em}
+@media (max-width:640px){.onde-l{grid-template-columns:repeat(2,auto)}}
+.top .tbtn span{display:none}
+.top .tbtn svg{width:1.3em;height:1.3em}
+.top{gap:1.3em}
+.prox .mut{display:none}
+[data-dica]{position:relative}
+[data-dica]::after{content:attr(data-dica);position:absolute;top:calc(100% + 10px);left:50%;z-index:60;padding:.5em .8em;border-radius:8px;background:var(--panel);border:1px solid var(--line);
+  box-shadow:0 8px 24px rgba(0,0,0,.25);color:var(--tx);font:500 12px/1 Inter,sans-serif;white-space:nowrap;pointer-events:none;
+  opacity:0;transform:translate(-50%,-4px);transition:opacity .18s,transform .18s}
+[data-dica]:hover::after,[data-dica]:focus-visible::after{opacity:1;transform:translate(-50%,0);transition-delay:.25s}
+.top>[data-dica]:nth-last-child(-n+3)::after,.top .prox::after{left:auto;right:0;transform:translateY(-4px)}
+.top>[data-dica]:nth-last-child(-n+3):hover::after,.top .prox:hover::after{transform:none}
+.marcas[data-dica]::after{left:0;transform:translateY(-4px)}
+.marcas[data-dica]:hover::after{transform:none}
+.ep>a[data-dica]::after{top:auto;bottom:8px}
+.ep>a{position:relative;overflow:visible}
+:root[data-tema="claro"] .ico[src*="tiktok"]{content:url(/icones/tiktok.png?v=3)}
+.strip{display:grid;grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr);gap:1.2vw}
+.sl,.sr{display:flex;min-width:0}
+.sr{border-left:1px solid var(--line);padding-left:1.6vw}
+.sr .st:first-child{border-left:0;padding-left:0}
+@media (max-aspect-ratio:1/1){.strip{grid-template-columns:1fr;gap:12px}.sl,.sr{flex-wrap:wrap;row-gap:12px}.sr{border-left:0;padding-left:0}}
+.onde{gap:2.2vh}
+.onde-t{font:600 11px Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.7)}
+.onde-l{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;width:min(88%,460px)}
+.onde-l a{aspect-ratio:1;justify-content:center;gap:10px;padding:0;min-width:0;border-radius:18px;font-size:13px;font-weight:600;letter-spacing:.01em}
+.onde-l a span,.onde-l a{color:rgba(255,255,255,.92)}
+.onde-l img{width:auto;height:34px;max-width:46px;object-fit:contain}
+.onde-l a:hover{background:color-mix(in srgb,var(--c) 14%,transparent);border-color:color-mix(in srgb,var(--c) 55%,transparent);box-shadow:0 0 24px color-mix(in srgb,var(--c) 30%,transparent)}
+.onde-l a:hover img{transform:translateY(-3px) scale(1.08)}
+.onde{gap:1.4vh}
+.onde-l{gap:8px;width:min(64%,320px)}
+.onde-l a{border-radius:14px;gap:6px;font-size:11px}
+.onde-l img{height:24px;max-width:32px}
+/* onde assistir: sem cards, só logo e nome */
+.onde-l{gap:4px;width:auto;grid-template-columns:repeat(4,auto)}
+.onde-l a,.onde-l a:hover{background:none;border:0;box-shadow:none;aspect-ratio:auto;padding:8px 14px}
+.onde-l a:hover{color:var(--c)}
+.onde-l a:hover img{filter:drop-shadow(0 0 10px color-mix(in srgb,var(--c) 60%,transparent))}
+/* tela de espera entre episódios */
+body.modo-espera .main,body.modo-espera .strip,body.modo-espera .prox{display:none!important}
+.espera{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:4vw;align-items:center;min-height:0;animation:sobe .7s cubic-bezier(.2,.8,.2,1) both}
+.espera[hidden]{display:none}
+.esp-capa{aspect-ratio:16/9;width:100%;max-height:70vh;border-radius:18px;background:var(--panel2) center/cover no-repeat;box-shadow:var(--sombra)}
+.esp-info{display:flex;flex-direction:column;gap:1.6vh}
+.esp-tit{margin:0;font:700 clamp(22px,4.4vh,44px)/1.1 "Inter Tight",Inter,sans-serif;letter-spacing:-.01em}
+.esp-cont{display:flex;gap:1.4vw;margin:1vh 0}
+.esp-cont div{display:flex;flex-direction:column;align-items:center;min-width:2.2em}
+.esp-cont b{font:800 clamp(34px,8vh,84px)/1 "Inter Tight",Inter,sans-serif;letter-spacing:-.02em}
+.esp-cont span{margin-top:.6vh;color:var(--mut);font-size:.8em;letter-spacing:.1em;text-transform:uppercase}
+.esp-data{font-size:1.05em}
+.esp-data::first-letter{text-transform:uppercase}
+.esp-acoes{display:flex;gap:10px;margin-top:1vh}
+.esp-acoes .sbtn{padding:.75em 1.2em}
+.esp-acoes .sbtn[hidden]{display:none}
+@media (max-aspect-ratio:1/1){.espera{grid-template-columns:1fr;gap:20px}.esp-cont{gap:14px}.esp-acoes{flex-wrap:wrap}}
+.esp-capa{position:relative;overflow:hidden;display:grid;place-items:center}
+.esp-capa::before{content:"";position:absolute;inset:0;background:var(--fundo) center/cover no-repeat;transition:filter .4s}
+.esp-capa.previa::before{filter:blur(6px) brightness(.85);transform:scale(1.06)}
+.esp-logo{position:relative;width:62%;max-height:70%;object-fit:contain;filter:drop-shadow(0 4px 24px rgba(0,0,0,.6))}
+.espera{grid-template-columns:minmax(0,min(46vw,760px)) auto;justify-content:center;align-content:center}
+.esp-cont b{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;display:inline-block;min-width:1.25em;text-align:center}
+#proxC,#clock{font-variant-numeric:tabular-nums}
+/* até a primeira resposta não mostra nada, pra não piscar o episódio antes da contagem */
+body.carregando .main,body.carregando .strip,body.carregando .espera{visibility:hidden}
+.ep img.borrada{filter:blur(3px) brightness(.8)}
+.ep .sem-capa{width:168px;aspect-ratio:16/9;border-radius:8px;background:var(--panel2)}
+.seletor{position:relative}
+button.ep-titulo{display:inline-flex;align-items:center;gap:.3em;max-width:100%;background:none;border:0;padding:0;color:var(--tx);cursor:pointer;text-align:left}
+.ep-titulo .seta{width:.7em;height:.7em;flex:none;color:var(--mut);transition:transform .2s}
+button.ep-titulo:hover .seta{color:var(--tx)}
+.menu-eps{position:absolute;top:calc(100% + 6px);left:0;z-index:40;min-width:300px;max-height:50vh;overflow:auto;padding:6px;border-radius:14px;background:var(--panel);border:1px solid var(--line);box-shadow:0 16px 40px rgba(0,0,0,.35);
+  opacity:0;transform:translateY(-6px);pointer-events:none;transition:opacity .18s,transform .18s}
+.menu-eps.on{opacity:1;transform:none;pointer-events:auto}
+.menu-eps a{display:flex;align-items:center;gap:12px;padding:8px;border-radius:10px;color:var(--tx);text-decoration:none;font-weight:600;font-size:14px}
+.menu-eps a:hover{background:var(--panel2)}
+.menu-eps a.atual{background:var(--panel2)}
+.menu-eps img{width:64px;aspect-ratio:16/9;object-fit:cover;border-radius:6px;flex:none}
+.menu-eps small{display:block;color:var(--mut);font-weight:500;font-size:12px;margin-top:2px}
+.menu-eps .prox-op{border-top:1px solid var(--line);border-radius:0 0 10px 10px;margin-top:4px;padding-left:84px}
+</style>
+</head>
+<body class="carregando">
+<div class="top">
+  <a class="marcas" href="/" data-dica="Início" aria-label="Início"><span class="rn-logo" role="img" aria-label="Realitas News"></span></a>
+  <div class="sp"></div>
+  <a class="prox" id="prox" target="_blank" rel="noopener" data-dica="Próximo episódio" aria-label="Próximo episódio" hidden><span class="mut">Próximo episódio em</span> <b class="num" id="proxC"></b><span id="proxT" hidden></span></a>
+  <button class="tbtn" id="temaBtn" data-dica="Tema claro ou escuro" aria-label="Alternar tema"><svg class="i-lua" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><svg class="i-sol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></button>
+  <button class="tbtn" id="epsBtn" data-dica="Episódios" aria-label="Episódios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z"/><path d="m6.2 5.3 3.1 3.9"/><path d="m12.4 3.4 3.1 4"/><path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg><span>Episódios</span></button>
+  <button class="tbtn" id="shareBtn" data-dica="Compartilhar" aria-label="Compartilhar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg><span>Compartilhar</span></button>
+  <div class="clockw"><span class="dot"></span><span class="num" id="clock">--:--:--</span></div>
+</div>
+
+<div class="main">
+  <div class="col">
+    <div class="box hero">
+      <div class="capa" id="capa" role="button" tabindex="0" aria-label="Onde assistir">
+        <div class="onde" id="onde">
+          <span class="onde-t">Onde assistir</span>
+          <div class="onde-l">
+            <a id="lYT" target="_blank" rel="noopener" style="--c:#ff2b2b"><img src="/icones/youtube.png?v=2" alt="">YouTube</a>
+            <a href="https://www.twitch.tv/cellbit" target="_blank" rel="noopener" style="--c:#9146ff"><img src="/icones/twitch.png?v=2" alt="">Twitch</a>
+            <a href="https://kick.com/cellbit" target="_blank" rel="noopener" style="--c:#53fc18"><img src="/icones/kick-k.png?v=1" alt="">Kick</a>
+            <a href="https://www.tiktok.com/@ordemparanormal/live" target="_blank" rel="noopener" style="--c:#25f4ee"><img src="/icones/tiktok-branco.png?v=1" alt="">TikTok</a>
+          </div>
+        </div>
+      </div>
+      <div class="seletor">
+        <button class="ep-titulo" id="epSel" aria-haspopup="listbox"><span id="epNome"></span> <span class="mut" id="epNum"></span><svg class="seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="menu-eps" id="menuEps" role="listbox"></div>
+      </div>
+      <div class="big num" id="tot">0</div>
+      <div class="plats num">
+        <div><img class="ico" src="/icones/twitch.png?v=2" alt="">Twitch <b id="tN">-</b></div>
+        <div><img class="ico" src="/icones/kick-k.png?v=1" alt="">Kick <b id="kN">-</b></div>
+        <div><img class="ico" src="/icones/youtube.png?v=2" alt="">YouTube <b id="yN">-</b></div>
+        <div><img class="ico" src="/icones/tiktok-branco.png?v=1" alt="">TikTok <b id="ttN">-</b></div>
+      </div>
+      <div class="bar">
+        <div class="seg tw" id="sT" style="flex-basis:33%"><span id="pT"></span></div>
+        <div class="seg kk" id="sK" style="flex-basis:10%"><span id="pK"></span></div>
+        <div class="seg yt" id="sY" style="flex-basis:57%"><span id="pY"></span></div>
+        <div class="seg tt" id="sTT" style="flex-basis:0%"><span id="pTT"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="box chartbox"><div class="lbl">Viewers ao vivo</div><div class="cw"><canvas id="g"></canvas></div></div>
+      <div class="recs lado">
+        <div class="rec-top">
+          <div><div class="cap">Recorde do episódio</div><b class="num" id="rec">-</b><span class="mut" id="recq"></span></div>
+        </div>
+        <div class="picos num" id="picos"></div>
+      </div>
+  </div>
+</div>
+
+<section class="espera" id="espera" hidden>
+  <div class="esp-capa" id="espCapa"></div>
+  <div class="esp-info">
+    <span class="cap" id="espRot">Próximo episódio</span>
+    <h1 class="esp-tit" id="espTit"></h1>
+    <div class="esp-cont num" id="espCont"></div>
+    <div class="mut esp-data" id="espData"></div>
+    <div class="esp-acoes"><a class="sbtn pri" id="espLembrete" target="_blank" rel="noopener">Lembrete no YouTube</a><a class="sbtn" id="espUltimo">Ver o último episódio</a><a class="sbtn" href="https://cellbit.live/" target="_blank" rel="noopener">Agenda de lives</a></div>
+  </div>
+</section>
+<div class="strip">
+  <div class="sl"><div class="st"><span class="lbl">Média de viewers</span><b class="num" id="med">-</b></div>
+  <div class="st"><span class="lbl" id="durL">No ar há</span><b class="num" id="dur">-</b></div></div>
+  <div class="sr">  <div class="st"><span class="lbl">Likes no YouTube</span><b class="num" id="lk">-</b><i id="lkI"></i></div>
+  <div class="st"><span class="lbl">Horas assistidas</span><b class="num" id="cp">-</b></div>
+  <div class="st"><span class="lbl">Seguidores novos</span><b class="num" id="sg">-</b><i class="tags" id="sgI"></i></div></div></div>
+<div class="modal" id="modal"><div class="modal-box">
+  <img id="prev" alt="Imagem do recorde para compartilhar">
+  <div class="modal-side">
+    <span class="rn-logo" role="img" aria-label="Realitas News"></span><h3>Compartilhar</h3>
+    <p id="shareTxt"></p>
+    <a class="sbtn pri" id="sX" target="_blank" rel="noopener">Postar no X / Twitter</a>
+    <button class="sbtn" id="sIg">Instagram e outros apps</button>
+    <div class="fmt"><button class="sbtn on" id="fH">Horizontal</button><button class="sbtn" id="fV">Vertical 4:5</button></div>
+    <button class="sbtn" id="sDl">Baixar imagem (PNG)</button>
+    <p id="sDica" style="font-size:.8em"></p>
+    <button class="fechar" id="sFecha">Fechar</button>
+  </div>
+</div></div>
+<div class="modal" id="eps"><div class="eps-box">
+  <div class="eps-top"><h3>Episódios</h3><button class="fechar" id="epsFecha">Fechar</button></div>
+  <div class="eps-lista" id="epsLista"></div>
+</div></div>
+<div class="aviso">Realitas News, projeto de fã não oficial e sem vínculo com o Cellbit ou a Ordem Paranormal. Logos, capas e artes pertencem aos seus autores. <a href="/privacidade">Privacidade e fontes</a></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const f = n => n == null ? "-" : Math.round(n).toLocaleString("pt-BR");
+const pc = n => n.toFixed(1).replace(".", ",") + "%";
+const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+const dura = s => { if (!s) return "-"; const m = Math.floor((Date.now() - new Date(s)) / 60000); return Math.floor(m / 60) + "h" + String(m % 60).padStart(2, "0"); };
+
+const atual = {};
+function conta(id, v) {
+  const el = $(id);
+  if (v == null) { el.textContent = "-"; return; }
+  const de = atual[id] ?? v;
+  atual[id] = v;
+  if (de !== v) { el.classList.remove("up", "down"); void el.offsetWidth; el.classList.add(v > de ? "up" : "down"); setTimeout(() => el.classList.remove("up", "down"), 1500); }
+  const t0 = performance.now();
+  (function step(t) {
+    const p = Math.min(1, (t - t0) / 900), e = 1 - Math.pow(1 - p, 3);
+    el.textContent = f(de + (v - de) * e);
+    if (p < 1) requestAnimationFrame(step);
+  })(t0);
+}
+
+Chart.defaults.color = "#9a9aa2"; Chart.defaults.font.family = "Inter";
+// linhas limpas; eixo X vai do início da live até agora, então a linha "cresce" com o episódio
+const grad = c => ctx => {
+  const { chart } = ctx, a = chart.chartArea;
+  if (!a) return c + "33";
+  const g = chart.ctx.createLinearGradient(0, a.top, 0, a.bottom);
+  g.addColorStop(0, c + css("--area")); g.addColorStop(1, c + "00");
+  return g;
+};
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+// tema: lembra a escolha; sem escolha, segue o sistema
+const tema = t => {
+  document.documentElement.dataset.tema = t;
+  try { localStorage.setItem("tema", t); } catch {}
+  if (typeof ch !== "undefined") {
+    const cor = css("--tx");
+    Object.assign(ch.data.datasets[0], { borderColor: cor, pointHoverBackgroundColor: cor, backgroundColor: grad(cor) });
+    Chart.defaults.color = css("--mut");
+    ch.options.plugins.tooltip.backgroundColor = css("--panel"); ch.options.plugins.tooltip.borderColor = css("--line");
+    ch.options.plugins.tooltip.titleColor = ch.options.plugins.tooltip.bodyColor = ch.options.plugins.tooltip.footerColor = cor;
+    ch.update("none");
+  }
+};
+let temaSalvo = null;
+try { temaSalvo = localStorage.getItem("tema"); } catch {}
+document.documentElement.dataset.tema = temaSalvo || (matchMedia("(prefers-color-scheme: light)").matches ? "claro" : "escuro");
+const linha = (l, c, w, fill) => ({ label: l, borderColor: c, backgroundColor: fill ? grad(c) : c, fill: !!fill, data: [], tension: .4, cubicInterpolationMode: "monotone",
+  pointRadius: 0, pointHoverRadius: 4, pointHoverBackgroundColor: c, pointHoverBorderColor: "#121212", pointHoverBorderWidth: 2, borderWidth: w, spanGaps: true });
+const kfmt = v => v >= 1000 ? Math.round(v / 1000) + "k" : v;
+const hm = v => new Date(v).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+const eixos = () => ({
+  x: { type: "linear", grid: { display: false }, border: { display: false }, ticks: { maxTicksLimit: 7, maxRotation: 0, font: { size: 10 }, callback: hm } },
+  y: { beginAtZero: true, grid: { color: () => css("--grade") }, border: { display: false }, ticks: { maxTicksLimit: 5, font: { size: 10 }, callback: kfmt } },
+});
+const dica = { backgroundColor: "#1c1c1c", borderColor: "#2e2e2e", borderWidth: 1, padding: 10, boxPadding: 4, usePointStyle: true,
+  callbacks: { title: it => it.length ? hm(it[0].parsed.x) : "", label: c => ` ${c.dataset.label}: ${f(c.parsed.y)}` } };
+const legenda = { position: "top", align: "end", labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 14, font: { size: 11 } } };
+// linha tracejada de recorde do episódio
+const recordeLinha = {
+  id: "recorde",
+  afterDatasetsDraw(chart) {
+    const v = chart.options.recorde; if (!v) return;
+    const { ctx, chartArea: a, scales: { y } } = chart, py = y.getPixelForValue(v);
+    if (py < a.top || py > a.bottom) return;
+    ctx.save(); ctx.strokeStyle = css("--mut"); ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(a.left, py); ctx.lineTo(a.right, py); ctx.stroke();
+    ctx.setLineDash([]); ctx.fillStyle = css("--mut"); ctx.font = "600 10px Inter"; ctx.textAlign = "right";
+    ctx.fillText("recorde " + f(v), a.right, py - 5); ctx.restore();
+  },
+};
+// na primeira carga a linha é desenhada da esquerda pra direita
+const revela = n => {
+  const passo = 1600 / Math.max(1, n);
+  return {
+    x: { type: "number", easing: "linear", duration: passo, from: NaN, delay: c => (c.type !== "data" || c.xStarted) ? 0 : (c.xStarted = true, c.index * passo) },
+    y: { type: "number", easing: "linear", duration: passo, from: c => c.index === 0 ? c.chart.scales.y.getPixelForValue(0) : c.chart.getDatasetMeta(c.datasetIndex).data[c.index - 1]?.getProps(["y"], true).y,
+      delay: c => (c.type !== "data" || c.yStarted) ? 0 : (c.yStarted = true, c.index * passo) },
+  };
+};
+const novoGrafico = (el, sets, extra) => new Chart(el, {
+  type: "line", data: { datasets: sets },
+  options: { responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: "index", intersect: false }, layout: { padding: { top: 14 } },
+    plugins: { legend: legenda, tooltip: dica }, scales: eixos() },
+  plugins: extra,
+});
+const ch = novoGrafico($("g"), [linha("Total", css("--tx"), 2.5, true), linha("YouTube", "#ff2b2b", 1.6), linha("Twitch", "#9146ff", 1.6), linha("Kick", "#53fc18", 1.6), linha("TikTok", "#25f4ee", 1.6)], [recordeLinha]);
+
+// leituras cruas; o gráfico mostra a mediana de 7 pra sumir com os "buracos" de leitura falha
+const tempos = [], brutos = [[], [], [], [], []];
+const mediana = (arr, i) => { const j = arr.slice(Math.max(0, i - 3), i + 4).filter(v => v != null).sort((p, q) => p - q); return j.length ? j[j.length >> 1] : null; };
+function pontoNovo(hora, total, yt, tw, kk, tt) {
+  tempos.push(new Date(hora).getTime());
+  [total, yt, tw, kk, tt].forEach((v, i) => brutos[i].push(v));
+}
+let primeira = true;
+function redesenha(recorde, inicio) {
+  if (!tempos.length) return;
+  const series = brutos.map(arr => arr.map((_, j) => ({ x: tempos[j], y: mediana(arr, j) })));
+  series.forEach((s, i) => ch.data.datasets[i].data = s);
+  ch.options.scales.x.min = tempos[0]; ch.options.scales.x.max = tempos[tempos.length - 1];
+  // marcas de 10 em 10 min (ou 30 em lives longas), alinhadas no relógio
+  const passo = (tempos.at(-1) - tempos[0]) > 3 * 3600e3 ? 30 * 60e3 : (tempos.at(-1) - tempos[0]) > 90 * 60e3 ? 20 * 60e3 : 10 * 60e3;
+  ch.options.scales.x.afterBuildTicks = ax => { ax.ticks = []; for (let t = Math.ceil(ax.min / passo) * passo; t <= ax.max; t += passo) ax.ticks.push({ value: t }); };
+  ch.options.animation = primeira ? revela(tempos.length) : { duration: 400 };
+  ch.options.recorde = recorde;
+  ch.update();
+  primeira = false;
+}
+
+let carregou = false, ultHora = null, ultimo = null, avisou = false;
+// episódio escolhido na lista (?ep=); sem isso mostra o ao vivo ou o último que foi ao ar
+const epPedido = location.pathname.match(/^\/ep\/([\w-]+)/)?.[1] || new URLSearchParams(location.search).get("ep");
+const duracao = (a, b) => { if (!a || !b) return "-"; const m = Math.round((new Date(b) - new Date(a)) / 60000); return Math.floor(m / 60) + "h" + String(m % 60).padStart(2, "0"); };
+async function up() {
+  try {
+    // primeira chamada avisa que é uma visita nova e de onde a pessoa veio (só o domínio)
+    const q = new URLSearchParams(epPedido ? { ep: epPedido } : {});
+    if (!avisou) { avisou = true; q.set("nova", "1"); try { const o = document.referrer && new URL(document.referrer).hostname; if (o && o !== location.hostname) q.set("de", o); } catch {} }
+    const d = await (await fetch("/api" + (q.size ? "?" + q : ""))).json();
+    const a = d.atual, x = a.extras || {}, r = d.records[d.ver], vivo = d.aoVivo;
+    ultimo = d;
+    if (!r) { $("epNome").textContent = "Nenhum episódio gravado ainda"; document.body.classList.remove("carregando"); return; }
+
+    const m = r.titulo.match(/^(.*?)\s*-\s*(EPIS[ÓO]DIO\s*\d+)/i);
+    // ao vivo: números de agora; encerrado: números do momento do pico
+    const v = vivo ? a : { total: r.recorde, twitch: r.twitch, kick: r.kick, youtube: r.youtube, tiktok: r.tiktok };
+    const nome = s => s.toLowerCase().replace(/(^|\s)\p{L}/gu, c => c.toUpperCase());
+    $("epNome").textContent = r.temporada || nome(m ? m[1] : r.titulo.replace(/\s*\|.*$/, ""));
+    $("epNum").textContent = m ? nome(m[2]) : "";
+    proximo = vivo ? null : (d.proximos || []).find(p => new Date(p.data) > Date.now()) || null;
+    const cfg = d.config || {};
+    espera = !vivo && !epPedido && cfg.telaInicial !== "ultimo" && (proximo || cfg.semProximo) ? { texto: cfg.semProximo, ultimo: d.ver } : null;
+    document.body.classList.toggle("modo-espera", !!espera);
+    $("espera").hidden = !espera;
+    contagem();
+    document.body.classList.remove("carregando");
+    document.body.classList.toggle("encerrado", !vivo);
+
+    if (!d.ver.startsWith("twitch:") && $("capa").dataset.id !== d.ver) {
+      $("capa").dataset.id = d.ver; $("lYT").href = "https://www.youtube.com/watch?v=" + d.ver;
+      const img = new Image();
+      img.onload = () => { $("capa").style.backgroundImage = `url(${img.src})`; $("capa").classList.add("on"); };
+      img.src = `/capa/${d.ver}.jpg`;
+    }
+    conta("tot", v.total); conta("tN", v.twitch); conta("kN", v.kick); conta("yN", v.youtube); conta("ttN", v.tiktok);
+    const T = v.total || 1, pt = (v.twitch || 0) / T * 100, pk = (v.kick || 0) / T * 100, py = (v.youtube || 0) / T * 100, ptt = (v.tiktok || 0) / T * 100;
+    $("sT").style.flexBasis = pt + "%"; $("sK").style.flexBasis = pk + "%"; $("sY").style.flexBasis = py + "%"; $("sTT").style.flexBasis = ptt + "%"; $("sTT").style.display = ptt ? "" : "none";
+    // só mostra a % se couber no pedaço da barra
+    const cabe = p => p * $("sT").parentNode.clientWidth / 100 > 70;
+    $("pT").textContent = cabe(pt) ? pc(pt) : ""; $("pY").textContent = cabe(py) ? pc(py) : ""; $("pK").textContent = cabe(pk) ? pc(pk) : ""; $("pTT").textContent = cabe(ptt) ? pc(ptt) : "";
+
+    conta("rec", r.recorde);
+    $("recq").textContent = "às " + hm(r.quando);
+    const pp = r.picos || r;
+    $("picos").innerHTML = `<span class="mut">Picos</span>` + [["YouTube", pp.youtube, "yt"], ["Twitch", pp.twitch, "twitch"], ["Kick", pp.kick, "kick"], ["TikTok", pp.tiktok, "tiktok"]]
+      .map(([n, val, c]) => `<span class="cor" style="--c:var(--${c})">${n} <b>${f(val)}</b></span>`).join("");
+    conta("med", r.media);
+
+    const inicio = vivo ? x.inicio : r.inicioLive;
+    $("durL").textContent = vivo ? "No ar há" : "Duração";
+    $("dur").textContent = vivo ? dura(inicio) : duracao(r.inicioLive, r.fimLive || r.ultimaLeitura);
+        const likes = vivo ? x.ytLikes : r.likes;
+    conta("lk", likes);
+    $("lkI").textContent = vivo && likes && a.youtube ? f(likes / a.youtube * 100) + " a cada 100 no YouTube" : "";
+    // horas assistidas = média de pessoas ao mesmo tempo × duração da live
+    const ini = r.inicioLive || r.inicio, fim = vivo ? Date.now() : r.fimLive || r.ultimaLeitura;
+    const horas = ini && fim && r.media ? r.media * (new Date(fim) - new Date(ini)) / 3600e3 : null;
+    conta("cp", horas);
+    // seguidores ganhos durante o episódio, por rede
+    const ganho = (ini, fim) => ini && fim ? fim - ini : null;
+    const segs = [
+      ["Twitch", "twitch", ganho(r.twitchSegInicio, vivo ? x.twitchSeguidores : r.twitchSegFim)],
+      ["Kick", "kick", ganho(r.kickSegInicio, r.kickSegFim)],
+      ["TikTok", "tiktok", ganho(r.tiktokSegInicio, vivo ? x.tiktokSeguidores : r.tiktokSegFim)],
+    ].filter(s => s[2] != null);
+    conta("sg", segs.length ? segs.reduce((t, s) => t + s[2], 0) : null);
+    $("sgI").innerHTML = segs.map(([n, c, v]) => `<span class="cor" style="--c:var(--${c})">${n} +${f(v)}</span>`).join("");
+
+    // hist: [hora, twitch, kick, youtube, total]; encerrado não ganha pontos novos
+    if (!carregou) { carregou = true; d.hist.forEach(h => pontoNovo(h[0], h[4], h[3], h[1], h[2], h[6])); redesenha(r.recorde); }
+    else if (vivo && a.hora !== ultHora) { pontoNovo(a.hora, a.total, a.youtube, a.twitch, a.kick, a.tiktok); redesenha(r.recorde); }
+    ultHora = a.hora;
+    if ($("eps").classList.contains("on")) listaEps();
+  } catch (e) { document.body.classList.remove("carregando"); }
+}
+up(); setInterval(up, 5000);
+
+// clique na capa: links das lives
+$("capa").onclick = e => { if (!e.target.closest("a")) $("capa").classList.toggle("aberta"); };
+$("capa").onkeydown = e => { if (e.key === "Enter") $("capa").classList.toggle("aberta"); };
+document.addEventListener("click", e => { if (!e.target.closest("#capa")) $("capa").classList.remove("aberta"); });
+
+// contagem para o próximo episódio cadastrado no /admin
+let proximo = null, espera = null;
+// logo de cada temporada para a prévia (nome da temporada sem acento)
+const PREVIAS = { "a vigilia": "/temporadas/a-vigilia.jpg" };
+const dois = n => String(n).padStart(2, "0");
+function contagem() {
+  if (espera) {
+    $("espUltimo").href = "/ep/" + (ultimo.records[espera.ultimo]?.slug || espera.ultimo);
+    $("espLembrete").hidden = !proximo;
+    if (proximo) {
+      const s = Math.max(0, Math.floor((new Date(proximo.data) - Date.now()) / 1000));
+      const partes = [["dias", Math.floor(s / 86400)], ["horas", Math.floor(s / 3600) % 24], ["min", Math.floor(s / 60) % 60], ["seg", s % 60]];
+      $("espCont").innerHTML = partes.map(([n, v]) => `<div><b>${dois(v)}</b><span>${n}</span></div>`).join("");
+      $("espRot").textContent = proximo.temporada ? "Próximo episódio de " + proximo.temporada : "Próximo episódio";
+      $("espTit").textContent = proximo.titulo || "Próximo episódio";
+      const q = new Date(proximo.data);
+      $("espData").textContent = q.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" }) + " às " + hm(q);
+      // cadastro só da agenda (sem link ainda): usa a capa do último episódio
+      const temLink = !proximo.id.startsWith("ag-"), capaId = temLink ? proximo.id : espera.ultimo;
+      $("espLembrete").hidden = !temLink;
+      if (temLink) $("espLembrete").href = "https://www.youtube.com/watch?v=" + proximo.id;
+      // sem link ainda: prévia com a arte da temporada, borrada
+      const previa = !temLink && PREVIAS[(proximo.temporada || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()];
+      const img = previa || `/capa/${capaId}.jpg`;
+      const c = $("espCapa"); if (c.dataset.img !== img) { c.dataset.img = img; c.dataset.id = ""; c.style.setProperty("--fundo", `url(${img})`); }
+      c.classList.toggle("previa", !temLink);
+    } else {
+      $("espRot").textContent = "Ordem Paranormal"; $("espTit").textContent = espera.texto; $("espCont").innerHTML = ""; $("espData").textContent = "";
+      const c = $("espCapa"); if (c.dataset.id !== espera.ultimo) { c.dataset.id = espera.ultimo; c.style.setProperty("--fundo", `url(/capa/${espera.ultimo}.jpg)`); }
+      c.classList.remove("previa"); c.dataset.img = "";
+    }
+  }
+  $("prox").hidden = !proximo;
+  if (!proximo) return;
+  const s = Math.max(0, Math.floor((new Date(proximo.data) - Date.now()) / 1000)), d = Math.floor(s / 86400);
+  const hms = [Math.floor(s / 3600) % 24, Math.floor(s / 60) % 60, s % 60].map(n => String(n).padStart(2, "0")).join(":");
+  $("proxT").textContent = proximo.titulo || "Próximo episódio";
+  $("proxC").textContent = (d ? d + (d > 1 ? " dias e " : " dia e ") : "") + hms;
+  $("prox").href = proximo.id.startsWith("ag-") ? "https://cellbit.live/" : "https://www.youtube.com/watch?v=" + proximo.id;
+}
+const relogio = () => { $("clock").textContent = new Date().toLocaleTimeString("pt-BR"); contagem(); };
+relogio(); setInterval(relogio, 1000);
+
+// ---------- compartilhar: PNG 1080x1350 (serve pro feed do Instagram e pro X) ----------
+const carrega = src => new Promise((ok, erro) => { const i = new Image(); i.onload = () => ok(i); i.onerror = erro; i.src = src; });
+const arred = (c, x, y, w, h, r) => { c.beginPath(); c.roundRect(x, y, w, h, r); };
+let formato = "h";
+async function gerarImagem() {
+  const V = formato === "v";
+  const d = ultimo, a = d.atual, r = d.records[d.ver];
+  if (!r) throw new Error("sem episódio ao vivo");
+  await document.fonts.ready;
+  // horizontal 1600x900: capa à esquerda, números à direita
+  const W = V ? 1080 : 1600, H = V ? 1350 : 700, P = 64, cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const c = cv.getContext("2d");
+  c.fillStyle = "#121212"; c.fillRect(0, 0, W, H);
+
+  // capa ocupando a altura toda, cortando os lados
+  const capa = await carrega(`/capa/${d.ver}.jpg`).catch(() => null);
+  // vertical (4:5): capa em cima na largura toda; horizontal: capa à esquerda
+  const cw = V ? W - P * 2 : 780, chh = V ? cw / 2 : H - P * 2;
+  if (capa) {
+    c.save(); arred(c, P, P, cw, chh, 28); c.clip();
+    const s = Math.max(chh / capa.height, cw / capa.width), w = capa.width * s, h = capa.height * s;
+    c.drawImage(capa, P + (cw - w) / 2, P + (chh - h) / 2, w, h);
+    c.restore();
+  }
+
+  // coluna de números
+  const X = V ? P : P + cw + 72, CW = W - X - P;
+  let y = V ? P + chh + 110 : P + 40;
+  c.textBaseline = "alphabetic";
+  c.fillStyle = "#8a8a8a"; c.font = "600 24px Inter"; c.letterSpacing = "4px";
+  c.fillText("RECORDE DO EPISÓDIO", X, y); c.letterSpacing = "0px";
+
+  y += 130;
+  c.fillStyle = "#ededed"; c.font = "800 136px Inter"; c.letterSpacing = "-5px";
+  c.fillText(f(r.recorde), X - 4, y); c.letterSpacing = "0px";
+  // barra das plataformas no pico
+  y += 48;
+  const pk = [["YouTube", r.youtube, "#ff2b2b"], ["Twitch", r.twitch, "#9146ff"], ["Kick", r.kick, "#53fc18"], ["TikTok", r.tiktok, "#25f4ee"]];
+  const tot = pk.reduce((s, p) => s + (p[1] || 0), 0) || 1;
+  let bx = X;
+  c.save(); arred(c, X, y, CW, 22, 11); c.clip();
+  for (const [, v, cor] of pk) { const w = (v || 0) / tot * CW; c.fillStyle = cor; c.fillRect(bx, y, w, 22); bx += w; }
+  c.restore();
+
+  // número de cada plataforma
+  y += 90;
+  const col = CW / 4;
+  pk.forEach(([n, v, cor], i) => {
+    const px = X + col * i;
+    c.fillStyle = cor; c.beginPath(); c.arc(px + 8, y - 26, 8, 0, 7); c.fill();
+    c.fillStyle = "#8a8a8a"; c.font = "500 24px Inter"; c.fillText(n, px + 24, y - 18);
+    c.fillStyle = "#ededed"; c.font = "700 34px Inter"; c.fillText(f(v), px, y + 30);
+  });
+
+  // média, duração, likes
+  y += 92;
+  c.fillStyle = "#2a2a2a"; c.fillRect(X, y, CW, 2);
+  y += 58;
+  const fimL = r.fimLive || r.ultimaLeitura;
+  const dur = r.inicioLive && fimL ? (m => Math.floor(m / 60) + "h" + String(m % 60).padStart(2, "0"))(Math.round((new Date(fimL) - new Date(r.inicioLive)) / 60000)) : "-";
+  [["Média", f(r.media)], ["Duração", dur]].forEach(([n, v], i) => {
+    const px = X + col * i;
+    c.fillStyle = "#8a8a8a"; c.font = "500 22px Inter"; c.fillText(n, px, y);
+    c.fillStyle = "#ededed"; c.font = "700 36px Inter"; c.fillText(v, px, y + 46);
+  });
+
+  // assinatura Realitas News no canto de baixo
+  const rn = await carrega("/rn-branco.png").catch(() => null);
+  if (rn) { const t = 230; c.drawImage(rn, W - P - t + 30, H - P - t + 60, t, t); }
+  return new Promise(ok => cv.toBlob(ok, "image/png"));
+}
+
+let blobAtual = null;
+const nomeArq = () => "recorde-" + (ultimo?.ver || "live") + (formato === "v" ? "-vertical" : "") + ".png";
+async function abrirShare() {
+  const d = ultimo; if (!d) return;
+  const r = d.records[d.ver];
+  $("shareBtn").lastChild.textContent = "Gerando…";
+  try { blobAtual = await gerarImagem(); }
+  catch (e) { $("shareBtn").lastChild.textContent = "Compartilhar"; alert("Não deu pra gerar a imagem: " + e.message); return; }
+  $("shareBtn").lastChild.textContent = "Compartilhar";
+  $("prev").src = URL.createObjectURL(blobAtual);
+  const titulo = (r?.titulo || "").replace(/\s*\|.*$/, "");
+  const texto = `${titulo}: recorde de ${f(r.recorde)} pessoas assistindo ao mesmo tempo (YouTube ${f(r.youtube)}, Twitch ${f(r.twitch)}, Kick ${f(r.kick)}, TikTok ${f(r.tiktok)})`;
+  $("shareTxt").textContent = texto;
+  $("sX").href = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(texto + " #OrdemParanormal");
+  $("sDica").textContent = "";
+  $("modal").classList.add("on");
+}
+function baixar() { const l = document.createElement("a"); l.href = URL.createObjectURL(blobAtual); l.download = nomeArq(); l.click(); }
+$("shareBtn").onclick = abrirShare;
+for (const [id, fm] of [["fH", "h"], ["fV", "v"]]) $(id).onclick = async () => {
+  formato = fm; $("fH").classList.toggle("on", fm === "h"); $("fV").classList.toggle("on", fm === "v");
+  blobAtual = await gerarImagem(); $("prev").src = URL.createObjectURL(blobAtual);
+};
+
+// ---------- lista de episódios ----------
+function listaEps() {
+  const d = ultimo; if (!d) return;
+  const eps = Object.entries(d.records).sort((p, q) => (q[1].inicioLive || q[1].inicio).localeCompare(p[1].inicioLive || p[1].inicio));
+  $("epsLista").innerHTML = eps.map(([id, e]) => {
+    const yt = !id.startsWith("twitch:");
+    const quando = new Date(e.inicioLive || e.inicio);
+    const vivo = d.aoVivo && id === d.atual.episodio;
+    return `<div class="ep${id === d.ver ? " atual" : ""}">
+      ${yt ? `<a href="https://www.youtube.com/watch?v=${id}" target="_blank" rel="noopener" data-dica="Assistir no YouTube" aria-label="Assistir no YouTube"><img src="/capa/${id}.jpg" alt="" loading="lazy"></a>` : `<div></div>`}
+      <div>
+        <h4>${esc(e.titulo.replace(/\s*\|.*$/, ""))}</h4>
+        <div class="data">${vivo ? `<span class="vivo">AO VIVO</span> ` : ""}${quando.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })} às ${hm(quando)}</div>
+        <div class="nums">
+          <span>Pico<b>${f(e.recorde)}</b></span>
+          <span>Média<b>${f(e.media)}</b></span>
+          <span>Duração<b>${duracao(e.inicioLive, e.fimLive || e.ultimaLeitura)}</b></span>
+        </div>
+      </div>
+      <div class="acoes">
+        <a href="${id === Object.keys(d.records).find(k => d.aoVivo && k === d.atual.episodio) ? "/" : "/ep/" + (e.slug || id)}">Ver painel</a>
+        ${yt ? `<a href="https://www.youtube.com/watch?v=${id}" target="_blank" rel="noopener">Assistir no YouTube</a>` : ""}
+        <a href="https://www.twitch.tv/cellbit/videos?filter=archives" target="_blank" rel="noopener">VODs na Twitch</a>
+      </div>
+    </div>`;
+  }).join("") || `<p class="mut">Nenhum episódio gravado ainda.</p>`;
+  // próximos: cadastrados no /admin e ainda sem live
+  // próximos: com link mostra a capa e o lembrete; só da agenda usa a arte da temporada borrada
+  const prox = (d.proximos || []).map(e => {
+    const q = new Date(e.data), temLink = !e.id.startsWith("ag-");
+    const previa = PREVIAS[(e.temporada || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()];
+    const capa = temLink ? `<img src="/capa/${e.id}.jpg" alt="" loading="lazy">` : previa ? `<img class="borrada" src="${previa}" alt="">` : `<div class="sem-capa"></div>`;
+    const acao = temLink ? `<a href="https://www.youtube.com/watch?v=${e.id}" target="_blank" rel="noopener">Lembrete no YouTube</a>` : `<a href="https://cellbit.live/" target="_blank" rel="noopener">Agenda de lives</a>`;
+    return `<div class="ep">${capa}
+      <div><h4>${esc(e.titulo || "Próximo episódio")}</h4>
+        <div class="data">${q.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })} às ${hm(q)}</div></div>
+      <div class="acoes">${acao}</div>
+    </div>`; }).join("");
+  if (prox) $("epsLista").innerHTML = `<div class="lbl" style="margin-top:6px">Já foram ao ar</div>` + $("epsLista").innerHTML + `<div class="lbl" style="margin-top:18px">Próximos</div>${prox}`;
+}
+// seletor de episódio no título: troca as métricas pelas do episódio escolhido
+function montaMenu() {
+  const d = ultimo; if (!d) return;
+  const eps = Object.entries(d.records).sort((p, q) => (q[1].inicioLive || q[1].inicio).localeCompare(p[1].inicioLive || p[1].inicio));
+  const nomeEp = t => t.replace(/\s*\|.*$/, "").toLowerCase().replace(/(^|\s)\p{L}/gu, c => c.toUpperCase());
+  $("menuEps").innerHTML = eps.map(([id, e]) => `<a href="/ep/${e.slug || id}" role="option"${id === d.ver ? ` class="atual"` : ""}>
+      <img src="/capa/${id}.jpg" alt=""><span>${esc(nomeEp(e.titulo))}<small>${new Date(e.inicioLive || e.inicio).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}, pico ${f(e.recorde)}</small></span></a>`).join("")
+    + ((d.proximos || []).length ? `<a href="/" role="option" class="prox-op"><span>Próximo episódio<small>contagem regressiva</small></span></a>` : "");
+}
+$("epSel").onclick = e => { e.stopPropagation(); montaMenu(); $("menuEps").classList.toggle("on"); };
+document.addEventListener("click", e => { if (!e.target.closest(".seletor")) $("menuEps").classList.remove("on"); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") $("menuEps").classList.remove("on"); });
+$("epsBtn").onclick = () => { listaEps(); $("eps").classList.add("on"); };
+$("epsFecha").onclick = () => $("eps").classList.remove("on");
+$("eps").onclick = e => { if (e.target.id === "eps") $("eps").classList.remove("on"); };
+$("temaBtn").onclick = () => tema(document.documentElement.dataset.tema === "claro" ? "escuro" : "claro");
+tema(document.documentElement.dataset.tema);
+$("sDl").onclick = baixar;
+// no X o link não leva imagem: baixa junto pra anexar no post
+$("sX").addEventListener("click", () => { baixar(); $("sDica").textContent = "A imagem foi baixada. Anexe ela no post do X."; });
+$("sIg").onclick = async () => {
+  const arq = new File([blobAtual], nomeArq(), { type: "image/png" });
+  if (navigator.canShare?.({ files: [arq] })) { try { await navigator.share({ files: [arq], text: $("shareTxt").textContent }); } catch {} }
+  else { baixar(); $("sDica").textContent = "Imagem baixada. No computador o Instagram não aceita envio direto: mande a imagem pro celular e poste por lá. No celular, este botão abre o Instagram direto."; }
+};
+$("sFecha").onclick = () => $("modal").classList.remove("on");
+$("modal").onclick = e => { if (e.target.id === "modal") $("modal").classList.remove("on"); };
+</script>
+</body>
+</html>

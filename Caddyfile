@@ -1,0 +1,6 @@
+ordemtracker.site, www.ordemtracker.site {
+	encode gzip
+	header -Server
+	header Strict-Transport-Security "max-age=31536000"
+	reverse_proxy app:3030
+}

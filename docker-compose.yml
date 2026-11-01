@@ -1,0 +1,20 @@
+services:
+  app:
+    build: .
+    restart: always
+    env_file: .env
+    volumes:
+      - ./dados:/dados
+  web:
+    image: caddy:2.10.2
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy:/data
+    depends_on:
+      - app
+volumes:
+  caddy:

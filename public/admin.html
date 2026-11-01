@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>Painel de episódios</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0e0e0e;--panel:#161616;--line:#262626;--tx:#ededed;--mut:#8a8a8a;--red:#ef4444}
+@media (prefers-color-scheme:light){:root{--bg:#f4f4f4;--panel:#fff;--line:#e2e2e2;--tx:#161616;--mut:#6b6b6b}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 Inter,sans-serif}
+main{max-width:860px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:20px;font-weight:600;margin:0 0 4px}
+h2{font-size:13px;font-weight:600;color:var(--mut);letter-spacing:.08em;text-transform:uppercase;margin:32px 0 12px}
+p{color:var(--mut);margin:0 0 16px}
+label{display:block;font-size:13px;color:var(--mut);margin-bottom:4px}
+input,select{width:100%;background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit}
+.g{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px}
+.g3{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end}
+button{background:var(--tx);color:var(--bg);border:0;border-radius:10px;padding:10px 16px;font:500 14px Inter,sans-serif;cursor:pointer}
+button.sec{background:none;color:var(--tx);border:1px solid var(--line)}
+.ep{display:grid;grid-template-columns:120px 1fr auto;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.ep img{width:120px;aspect-ratio:16/9;object-fit:cover;border-radius:6px;background:var(--panel)}
+.ep b{font-weight:600}.ep small{color:var(--mut);display:block}
+.ep .a{display:flex;gap:6px}
+#msg{min-height:1.4em;color:var(--mut)}#msg.erro{color:var(--red)}
+.chk{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--tx)}.chk input{width:auto}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.stat span{display:flex;align-items:center;gap:6px;color:var(--mut);font-size:12px}
+.stat b{display:block;font-size:28px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+.stat.destaque b{font-size:34px}
+.pulso{width:8px;height:8px;border-radius:50%;background:#22c55e;animation:pulso 1.8s infinite}
+@keyframes pulso{0%{box-shadow:0 0 0 0 rgba(34,197,94,.6)}70%{box-shadow:0 0 0 8px rgba(34,197,94,0)}}
+#acVivo{color:var(--red);font-weight:600;letter-spacing:.04em}
+.grafico{margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+.grafico svg{width:100%;height:120px;display:block}
+.eixo{display:flex;justify-content:space-between;color:var(--mut);font-size:11px;margin-top:6px}
+h3{font-size:13px;font-weight:600;margin:20px 0 8px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.barra{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:13px;margin-bottom:8px}
+.barra i{grid-column:1/-1;height:6px;border-radius:9px;background:var(--line);overflow:hidden}.barra i u{display:block;height:100%;background:var(--tx)}
+.tab{font-size:13px}.tab div{display:grid;grid-template-columns:1fr 90px 90px;padding:8px 0;border-bottom:1px solid var(--line)}.tab div:first-child{color:var(--mut);font-size:12px}
+.tab span:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
+.nota{font-size:12px;margin-top:16px}
+@media (max-width:600px){.stats{grid-template-columns:1fr 1fr}.cols{grid-template-columns:1fr}}
+@media (max-width:600px){.g,.g3{grid-template-columns:1fr}.ep{grid-template-columns:80px 1fr}.ep img{width:80px}.ep .a{grid-column:1/-1}}
+</style></head>
+<body><main>
+<h1>Painel</h1>
+<p>Cole o link da live agendada no canal Ordem Paranormal. Título, data e capa vêm sozinhos do YouTube; preencha só se quiser trocar. O site começa a contar quando a live entra no ar.</p>
+
+<div id="login"><label for="senha">Senha do painel</label>
+  <div class="g3" style="grid-template-columns:1fr auto"><input id="senha" type="password" autocomplete="current-password"><button id="entrar">Entrar</button></div></div>
+
+<section id="acessos" hidden>
+  <h2>Acessos agora <span id="acVivo"></span></h2>
+  <div class="stats">
+    <div class="stat destaque"><span><i class="pulso"></i>Online agora</span><b id="acOn">-</b></div>
+    <div class="stat"><span>Pico hoje</span><b id="acPico">-</b></div>
+    <div class="stat"><span>Pessoas únicas hoje</span><b id="acUni">-</b></div>
+    <div class="stat"><span>Visitas hoje</span><b id="acViews">-</b></div>
+  </div>
+  <div class="grafico"><svg id="acSerie" viewBox="0 0 600 120" preserveAspectRatio="none"></svg><div class="eixo"><span id="acIni"></span><span>online nas últimas 6 horas</span><span>agora</span></div></div>
+  <div class="cols">
+    <div><h3>Aparelho</h3><div id="acDisp"></div></div>
+    <div><h3>De onde vieram</h3><div id="acOrig"></div></div>
+  </div>
+  <h3>Por episódio</h3><div id="acEps" class="tab"></div>
+  <h3>Últimos dias</h3><div id="acHist" class="tab"></div>
+  <p class="nota">Contagem anônima, sem cookies: cada pessoa vira um código que muda todo dia. "Online" considera quem abriu o site no último minuto.</p>
+</section>
+
+<form id="form" hidden>
+  <h2 id="formT">Novo episódio</h2>
+  <div class="g"><div><label for="link">Link do YouTube (pode ficar vazio até a live ser agendada)</label><input id="link" autocomplete="off" placeholder="https://www.youtube.com/watch?v=..."></div>
+    <div><label for="data">Data e hora (vazio = a do YouTube)</label><input id="data" type="datetime-local"></div></div>
+  <div class="g"><div><label for="titulo">Título no site (vazio = título do YouTube)</label><input id="titulo" maxlength="200"></div>
+    <div><label for="temporada">Temporada</label><input id="temporada" maxlength="100" placeholder="A Vigília"></div></div>
+  <img id="previa" alt="" hidden style="width:240px;aspect-ratio:16/9;object-fit:cover;border-radius:8px;margin-bottom:12px">
+  <div class="g3" style="grid-template-columns:1fr auto auto">
+    <label class="chk"><input id="oculto" type="checkbox"> Esconder do site</label>
+    <button type="button" class="sec" id="limpa">Limpar</button><button>Salvar</button></div>
+  <p id="msg"></p>
+  <h2>Tela inicial entre episódios</h2>
+  <div class="g"><div><label for="tela">Quando não tiver live</label>
+      <select id="tela"><option value="contagem">Contagem regressiva para o próximo episódio</option><option value="ultimo">Números do último episódio</option></select></div>
+    <div><label for="semProx">Texto quando não houver próximo cadastrado</label><input id="semProx" maxlength="120" placeholder="Nova temporada em breve"></div></div>
+  <div class="g3" style="grid-template-columns:1fr auto"><span></span><button type="button" id="salvaCfg">Salvar tela inicial</button></div>
+  <h2>Cadastrados e gravados</h2>
+  <div id="lista"></div>
+</form>
+
+<script>
+const $ = id => document.getElementById(id);
+let senha = sessionStorage.getItem("senha") || "", dados = [], editando = null;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const aviso = (t, erro) => { $("msg").textContent = t; $("msg").className = erro ? "erro" : ""; };
+async function api(metodo, corpo, busca) {
+  const r = await fetch(location.pathname.replace(/\/$/, "") + "/api" + (busca ? "?" + busca : ""), { method: metodo, headers: { Authorization: "Bearer " + senha, "Content-Type": "application/json" }, body: corpo && JSON.stringify(corpo) });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.erro || r.status);
+  return j;
+}
+const local = iso => { if (!iso) return ""; const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+async function carrega() {
+  const j = await api("GET");
+  dados = j.lista;
+  $("tela").value = j.config.telaInicial; $("semProx").value = j.config.semProximo || "";
+  $("login").hidden = true; $("form").hidden = false; $("acessos").hidden = false; acessos();
+  $("lista").innerHTML = dados.map((e, i) => `<div class="ep">
+    ${e.id.startsWith("ag-") ? `<img alt="">` : `<img src="/capa/${e.id}.jpg" alt="" loading="lazy">`}
+    <div><b>${esc(e.titulo || e.tituloYT || e.id)}</b>
+      <small>${e.temporada ? esc(e.temporada) + " · " : ""}${e.data ? new Date(e.data).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "sem data"}${e.id === j.aoVivo ? " · AO VIVO" : ""}${e.recorde != null ? " · pico " + e.recorde.toLocaleString("pt-BR") : " · ainda sem dados"}${e.oculto ? " · escondido" : ""}</small></div>
+    <div class="a"><button type="button" class="sec" data-ed="${i}">Editar</button>${e.recorde == null ? `<button type="button" class="sec" data-rm="${i}">Remover</button>` : ""}</div>
+  </div>`).join("") || `<p>Nada cadastrado ainda.</p>`;
+}
+$("entrar").onclick = async () => {
+  senha = $("senha").value;
+  try { await carrega(); sessionStorage.setItem("senha", senha); } catch (e) { alert(e.message); }
+};
+$("senha").onkeydown = e => { if (e.key === "Enter") $("entrar").click(); };
+// prévia da capa ao colar o link
+const idDe = s => (s.match(/(?:v=|youtu\.be\/|live\/|^)([\w-]{11})(?:[?&#/]|$)/) || [])[1];
+$("link").oninput = () => { const id = idDe($("link").value.trim()); $("previa").hidden = !id; if (id) $("previa").src = "/capa/" + id + ".jpg"; };
+$("salvaCfg").onclick = async () => {
+  try { await api("POST", { config: { telaInicial: $("tela").value, semProximo: $("semProx").value } }); aviso("Tela inicial salva."); } catch (e) { aviso(e.message, true); }
+};
+$("limpa").onclick = () => { $("previa").hidden = true; editando = null; $("form").reset(); $("formT").textContent = "Novo episódio"; aviso(""); };
+$("form").onsubmit = async ev => {
+  ev.preventDefault();
+  try {
+    await api("POST", { link: $("link").value, antigo: editando, id: editando, titulo: $("titulo").value, temporada: $("temporada").value, data: $("data").value ? new Date($("data").value).toISOString() : "", oculto: $("oculto").checked });
+    $("limpa").click(); aviso("Salvo."); await carrega();
+  } catch (e) { aviso(e.message, true); }
+};
+$("lista").onclick = async ev => {
+  const ed = ev.target.dataset.ed, rm = ev.target.dataset.rm;
+  if (ed != null) {
+    const e = dados[ed];
+    editando = e.id; $("link").value = e.id.startsWith("ag-") ? "" : "https://www.youtube.com/watch?v=" + e.id; $("titulo").value = e.titulo; $("temporada").value = e.temporada;
+    $("data").value = local(e.data); $("oculto").checked = e.oculto; $("link").oninput(); $("formT").textContent = "Editando episódio"; scrollTo(0, 0);
+  }
+  if (rm != null && confirm("Remover este cadastro?")) {
+    try { await api("POST", { id: dados[rm].id, remover: true }); await carrega(); } catch (e) { aviso(e.message, true); }
+  }
+};
+// relatório de acessos, atualiza a cada 10 segundos
+const n = v => (v || 0).toLocaleString("pt-BR");
+async function acessos() {
+  let j; try { j = await api("GET", null, "acessos=1"); } catch { return; }
+  $("acOn").textContent = n(j.online); $("acPico").textContent = n(j.pico); $("acUni").textContent = n(j.unicos); $("acViews").textContent = n(j.views);
+  $("acVivo").textContent = j.aoVivo ? "· EPISÓDIO AO VIVO" : "";
+  const s = j.serie, max = Math.max(1, ...s.map(p => p[1]));
+  const pts = s.map((p, i) => [s.length < 2 ? 600 : i / (s.length - 1) * 600, 115 - p[1] / max * 105].join(",")).join(" ");
+  $("acSerie").innerHTML = s.length ? `<polyline points="0,120 ${pts} 600,120" fill="currentColor" opacity=".08"/><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"/>` : "";
+  $("acIni").textContent = s.length ? new Date(s[0][0]).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
+  const barra = (nome, v, tot) => `<div class="barra"><span>${esc(nome)}</span><span>${n(v)}</span><i><u style="width:${tot ? v / tot * 100 : 0}%"></u></i></div>`;
+  const disp = j.celular + j.computador;
+  $("acDisp").innerHTML = barra("Celular", j.celular, disp) + barra("Computador", j.computador, disp);
+  const tOrig = j.origens.reduce((t, o) => t + o[1], 0);
+  $("acOrig").innerHTML = j.origens.map(([o, v]) => barra(o, v, tOrig)).join("") || "<p>Ainda sem visitas hoje.</p>";
+  const eps = Object.values(j.eps);
+  $("acEps").innerHTML = eps.length ? `<div><span>Episódio</span><span>Únicos</span><span>Pico online</span></div>` + eps.map(e => `<div><span>${esc(e.titulo.replace(/\s*\|.*$/, ""))}</span><span>${n(e.unicos)}</span><span>${n(e.pico)}</span></div>`).join("") : "<p>Os números aparecem a partir do próximo episódio ao vivo.</p>";
+  $("acHist").innerHTML = j.historico.length ? `<div><span>Dia</span><span>Únicos</span><span>Visitas</span></div>` + j.historico.slice().reverse().map(h => `<div><span>${new Date(h.dia + "T12:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" })}</span><span>${n(h.unicos)}</span><span>${n(h.views)}</span></div>`).join("") : "<p>O histórico começa amanhã.</p>";
+}
+setInterval(() => { if (!$("acessos").hidden) acessos(); }, 10_000);
+if (senha) carrega().catch(() => sessionStorage.removeItem("senha"));
+</script>
+</main></body></html>
