@@ -86,6 +86,7 @@ body.encerrado .clockw .dot{display:none}
 .linha-t button{background:none;border:0;color:var(--mut);font:600 .8em Inter,sans-serif;cursor:pointer;padding:0;transition:color .2s}
 .linha-t button:hover{color:var(--tx)}
 .linha-t button{display:inline-flex;align-items:center;gap:.4em}
+.linha-t button[hidden]{display:none}
 .linha-t .vivo{width:7px;height:7px;border-radius:50%;background:#ef4444;animation:pisca 1.6s infinite}
 @keyframes pisca{50%{opacity:.35}}
 
@@ -273,6 +274,36 @@ body.modo-espera .main,body.modo-espera .strip,body.modo-espera .prox{display:no
 .esp-logo{position:relative;width:62%;max-height:70%;object-fit:contain;filter:drop-shadow(0 4px 24px rgba(0,0,0,.6))}
 .espera{grid-template-columns:minmax(0,min(46vw,760px)) auto;justify-content:center;align-content:center}
 .esp-cont b{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;display:inline-block;min-width:1.25em;text-align:center}
+@media (max-aspect-ratio:1/1){
+  .espera{grid-template-columns:1fr;justify-content:stretch;align-content:start;gap:22px;padding-top:1vh}
+  .esp-capa{max-height:none;border-radius:14px}
+  .esp-info{gap:10px}
+  .esp-tit{font-size:clamp(24px,7vw,34px)}
+  .esp-cont{justify-content:space-between;gap:0;margin:4px 0}
+  .esp-cont div{min-width:0;flex:1}
+  .esp-cont b{font-size:clamp(34px,13vw,64px)}
+  .esp-cont span{font-size:.7em}
+  .esp-acoes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .esp-acoes .sbtn{padding:.8em .6em;font-size:.88em}
+  .esp-acoes .sbtn.pri{grid-column:1/-1}
+  .main{grid-template-columns:1fr;gap:18px}
+  .col+.col{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:16px}
+  .top{gap:1.1em}
+  .clockw{display:none}
+  .plats{display:grid;grid-template-columns:1fr 1fr;gap:.5em 1em;font-size:14px}
+  .momentos{margin-top:14px}
+  .momentos button{padding:0 10px}
+  .momentos b{font-size:1.1em}
+  .chartbox{height:240px}
+  .linha-t{gap:.6em}
+  .lado{grid-template-columns:1fr;gap:8px}
+  .lado .picos{justify-content:flex-start;font-size:.95em}
+  #rec{font-size:32px}
+  .strip{grid-template-columns:1fr}
+  .sl,.sr{display:grid;grid-template-columns:1fr 1fr;row-gap:12px}
+  .sr{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:12px}
+  .st{padding:0 12px 0 0;border-left:0}
+}
 #proxC,#clock{font-variant-numeric:tabular-nums}
 /* até a primeira resposta não mostra nada, pra não piscar o episódio antes da contagem */
 body.carregando .main,body.carregando .strip,body.carregando .espera{visibility:hidden}
