@@ -1,65 +1,118 @@
 <!doctype html>
 <html lang="pt-BR"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
-<title>Painel de episódios</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<title>Painel</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0e0e0e;--panel:#161616;--line:#262626;--tx:#ededed;--mut:#8a8a8a;--red:#ef4444}
-@media (prefers-color-scheme:light){:root{--bg:#f4f4f4;--panel:#fff;--line:#e2e2e2;--tx:#161616;--mut:#6b6b6b}}
+:root{--bg:#0e0e0e;--panel:#161616;--panel2:#1d1d1d;--line:#262626;--tx:#ededed;--mut:#8a8a8a;--red:#ef4444;--verde:#22c55e}
+@media (prefers-color-scheme:light){:root{--bg:#f4f4f4;--panel:#fff;--panel2:#f0f0f0;--line:#e2e2e2;--tx:#161616;--mut:#6b6b6b}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 Inter,sans-serif}
-main{max-width:860px;margin:0 auto;padding:32px 16px 64px}
-h1{font-size:20px;font-weight:600;margin:0 0 4px}
-h2{font-size:13px;font-weight:600;color:var(--mut);letter-spacing:.08em;text-transform:uppercase;margin:32px 0 12px}
+h1{font-size:18px;font-weight:700;margin:0}
+h2{font-size:20px;font-weight:600;margin:0 0 4px}
+h3{font-size:13px;font-weight:600;margin:24px 0 10px;color:var(--mut);letter-spacing:.06em;text-transform:uppercase}
 p{color:var(--mut);margin:0 0 16px}
 label{display:block;font-size:13px;color:var(--mut);margin-bottom:4px}
-input,select{width:100%;background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit}
-.g{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px}
-.g3{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end}
+input,select,textarea{width:100%;background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit}
+textarea{resize:vertical}
 button{background:var(--tx);color:var(--bg);border:0;border-radius:10px;padding:10px 16px;font:500 14px Inter,sans-serif;cursor:pointer}
 button.sec{background:none;color:var(--tx);border:1px solid var(--line)}
+button.peq{padding:6px 10px;font-size:13px}
+.mut{color:var(--mut);font-weight:400}
+
+/* estrutura: menu lateral + conteúdo */
+#login{max-width:420px;margin:18vh auto;padding:0 16px}
+#app{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+#app[hidden]{display:none}
+nav{border-right:1px solid var(--line);padding:24px 14px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh}
+nav h1{padding:0 10px 18px}
+nav button{display:flex;align-items:center;justify-content:space-between;gap:8px;background:none;color:var(--mut);text-align:left;padding:9px 10px;border-radius:8px;font-weight:500}
+nav button:hover{color:var(--tx);background:var(--panel)}
+nav button.on{color:var(--tx);background:var(--panel2)}
+nav .qtd{font-size:11px;font-weight:700;background:var(--red);color:#fff;border-radius:99px;padding:1px 7px}
+nav .qtd:empty{display:none}
+nav .vivo{margin-top:auto;padding:10px;font-size:13px;color:var(--mut);display:flex;align-items:center;gap:8px}
+main{padding:28px 32px 64px;max-width:1080px;width:100%}
+.aba[hidden]{display:none}
+.topo{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px}
+.topo p{margin:0}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+.g{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px}
+.g3{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:end}
+.chk{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--tx);margin:0}.chk input{width:auto}
+#msg{min-height:1.4em;color:var(--mut);margin:10px 0 0}#msg.erro{color:var(--red)}
 .ep{display:grid;grid-template-columns:120px 1fr auto;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
-.ep img{width:120px;aspect-ratio:16/9;object-fit:cover;border-radius:6px;background:var(--panel)}
+.ep:last-child{border-bottom:0}
+.ep img{width:120px;aspect-ratio:16/9;object-fit:cover;border-radius:6px;background:var(--panel2)}
+.ep img.borrada{filter:blur(2.5px) brightness(.9)}
 .ep b{font-weight:600}.ep small{color:var(--mut);display:block}
-.ep .a{display:flex;gap:6px}
-#msg{min-height:1.4em;color:var(--mut)}#msg.erro{color:var(--red)}
-.chk{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--tx)}.chk input{width:auto}
+.ep .a{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
 .stat span{display:flex;align-items:center;gap:6px;color:var(--mut);font-size:12px}
 .stat b{display:block;font-size:28px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
 .stat.destaque b{font-size:34px}
-.pulso{width:8px;height:8px;border-radius:50%;background:#22c55e;animation:pulso 1.8s infinite}
+.pulso{width:8px;height:8px;border-radius:50%;background:var(--verde);animation:pulso 1.8s infinite;flex:none}
+.pulso.off{background:var(--mut);animation:none}
 @keyframes pulso{0%{box-shadow:0 0 0 0 rgba(34,197,94,.6)}70%{box-shadow:0 0 0 8px rgba(34,197,94,0)}}
-#acVivo{color:var(--red);font-weight:600;letter-spacing:.04em}
 .grafico{margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
 .grafico svg{width:100%;height:120px;display:block}
 .eixo{display:flex;justify-content:space-between;color:var(--mut);font-size:11px;margin-top:6px}
-h3{font-size:13px;font-weight:600;margin:20px 0 8px}
-.cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:24px}
 .barra{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:13px;margin-bottom:8px}
 .barra i{grid-column:1/-1;height:6px;border-radius:9px;background:var(--line);overflow:hidden}.barra i u{display:block;height:100%;background:var(--tx)}
 .tab{font-size:13px}.tab div{display:grid;grid-template-columns:1fr 90px 90px;padding:8px 0;border-bottom:1px solid var(--line)}.tab div:first-child{color:var(--mut);font-size:12px}
 .tab span:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
-.mut{color:var(--mut);font-weight:400}
-.nota{font-size:12px;margin-top:16px}
-.fb{padding:12px 0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr auto;gap:4px 12px}
+.nota{font-size:12px;margin-top:20px}
+
+.fb{padding:14px 0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr auto;gap:4px 12px}
 .fb p{color:var(--tx);margin:0;white-space:pre-wrap;grid-column:1}
 .fb small{color:var(--mut);grid-column:1}
 .fb button{grid-row:1/3;grid-column:2;align-self:center}
-.tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:9px;margin-right:6px;background:var(--line)}.tag.bug{background:var(--red);color:#fff}
-@media (max-width:600px){.stats{grid-template-columns:1fr 1fr}.cols{grid-template-columns:1fr}}
-@media (max-width:600px){.g,.g3{grid-template-columns:1fr}.ep{grid-template-columns:80px 1fr}.ep img{width:80px}.ep .a{grid-column:1/-1}}
-</style></head>
-<body><main>
-<h1>Painel</h1>
-<p>Cole o link da live agendada no canal Ordem Paranormal. Título, data e capa vêm sozinhos do YouTube; preencha só se quiser trocar. O site começa a contar quando a live entra no ar.</p>
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:9px;margin-right:6px;background:var(--line)}.tag.bug{background:var(--red);color:#fff}.tag.correcao{background:#3b82f6;color:#fff}
 
-<div id="login"><label for="senha">Senha do painel</label>
+/* momentos */
+.mo{display:grid;grid-template-columns:160px 1fr auto;gap:14px;padding:14px 0;border-bottom:1px solid var(--line);align-items:start}
+.mo img{width:160px;aspect-ratio:16/9;object-fit:cover;border-radius:8px;background:var(--panel2)}
+.mo input{padding:7px 10px;font-weight:600;margin-bottom:6px}
+.mo textarea{padding:7px 10px;font-size:13px;min-height:54px}
+.mo .h{font-size:12px;color:var(--mut);margin-bottom:6px;display:flex;gap:8px;align-items:center}
+.mo .a{display:flex;flex-direction:column;gap:6px}
+.mo.aprovado{opacity:1}.mo:not(.aprovado) img{opacity:.6}
+.selo{font-size:11px;font-weight:600;padding:2px 8px;border-radius:9px;background:var(--line)}.selo.ok{background:var(--verde);color:#062}
+
+@media (max-width:760px){
+  #app{grid-template-columns:1fr}
+  nav{position:sticky;top:0;z-index:5;height:auto;flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:10px;background:var(--bg)}
+  nav h1,nav .vivo{display:none}
+  nav button{white-space:nowrap}
+  main{padding:20px 16px 48px}
+  .stats{grid-template-columns:1fr 1fr}.cols,.g,.g3{grid-template-columns:1fr}
+  .ep{grid-template-columns:80px 1fr}.ep img{width:80px}.ep .a{grid-column:1/-1;justify-content:flex-start}
+  .mo{grid-template-columns:1fr}.mo img{width:100%}.mo .a{flex-direction:row}
+}
+</style></head>
+<body>
+<div id="login"><h2>Painel</h2><p>Entre com a senha do painel.</p><label for="senha">Senha</label>
   <div class="g3" style="grid-template-columns:1fr auto"><input id="senha" type="password" autocomplete="current-password"><button id="entrar">Entrar</button></div></div>
 
-<section id="acessos" hidden>
-  <h2>Acessos agora <span id="acVivo"></span></h2>
+<div id="app" hidden>
+<nav>
+  <h1>Painel</h1>
+  <button data-aba="agora" class="on">Agora</button>
+  <button data-aba="publico">Público</button>
+  <button data-aba="episodios">Episódios</button>
+  <button data-aba="momentos">Momentos <span class="qtd" id="moQtd"></span></button>
+  <button data-aba="feedbacks">Feedbacks <span class="qtd" id="fbQtd"></span></button>
+  <button data-aba="config">Configurações</button>
+  <div class="vivo"><i class="pulso off" id="navPulso"></i><span id="navVivo">Sem live agora</span></div>
+</nav>
+<main>
+
+<section class="aba" id="aba-agora">
+  <div class="topo"><div><h2>Agora</h2><p>Quem está no site neste momento. Atualiza a cada 10 segundos.</p></div></div>
   <div class="stats">
     <div class="stat destaque"><span><i class="pulso"></i>Online agora</span><b id="acOn">-</b></div>
     <div class="stat"><span>Pico hoje</span><b id="acPico">-</b></div>
@@ -71,7 +124,11 @@ h3{font-size:13px;font-weight:600;margin:20px 0 8px}
     <div><h3>Aparelho</h3><div id="acDisp"></div></div>
     <div><h3>De onde vieram</h3><div id="acOrig"></div></div>
   </div>
-  <div class="stats" style="margin-top:10px">
+</section>
+
+<section class="aba" id="aba-publico" hidden>
+  <div class="topo"><div><h2>Público</h2><p>Como as pessoas usam o site hoje e nos últimos dias.</p></div></div>
+  <div class="stats">
     <div class="stat"><span>Tempo médio no site</span><b id="acTempo">-</b></div>
     <div class="stat"><span>Ficaram 10 min ou mais</span><b id="acMais10">-</b></div>
     <div class="stat"><span>Saíram em menos de 30 s</span><b id="acRap">-</b></div>
@@ -84,40 +141,69 @@ h3{font-size:13px;font-weight:600;margin:20px 0 8px}
     <div><h3>Sistema</h3><div id="acSis"></div></div>
   </div>
   <h3>Páginas abertas</h3><div id="acPag"></div>
-  <h3>Por episódio</h3><div id="acEps" class="tab"></div>
-  <h3>Últimos dias</h3><div id="acHist" class="tab"></div>
+  <div class="cols">
+    <div><h3>Por episódio</h3><div id="acEps" class="tab"></div></div>
+    <div><h3>Últimos dias</h3><div id="acHist" class="tab"></div></div>
+  </div>
   <p class="nota">Contagem anônima, sem cookies: cada pessoa vira um código que muda todo dia. "Online" considera quem abriu o site no último minuto.</p>
 </section>
 
-<section id="feedbacks" hidden>
-  <h2>Feedbacks e bugs <span class="mut" id="fbQtd"></span></h2>
+<section class="aba" id="aba-episodios" hidden>
+  <div class="topo"><div><h2>Episódios</h2><p>Cole o link da live agendada no canal Ordem Paranormal. Título, data e capa vêm sozinhos do YouTube.</p></div></div>
+  <form id="form" class="card">
+    <h3 id="formT" style="margin-top:0">Novo episódio</h3>
+    <div class="g"><div><label for="link">Link do YouTube (pode ficar vazio até a live ser agendada)</label><input id="link" autocomplete="off" placeholder="https://www.youtube.com/watch?v=..."></div>
+      <div><label for="data">Data e hora (vazio = a do YouTube)</label><input id="data" type="datetime-local"></div></div>
+    <div class="g"><div><label for="titulo">Título no site (vazio = título do YouTube)</label><input id="titulo" maxlength="200"></div>
+      <div><label for="temporada">Temporada</label><input id="temporada" maxlength="100" placeholder="A Vigília"></div></div>
+    <img id="previa" alt="" hidden style="width:240px;aspect-ratio:16/9;object-fit:cover;border-radius:8px;margin-bottom:12px">
+    <div class="g3">
+      <label class="chk"><input id="oculto" type="checkbox"> Esconder do site</label>
+      <button type="button" class="sec" id="limpa">Limpar</button><button>Salvar</button></div>
+    <p id="msg"></p>
+  </form>
+  <h3>Cadastrados e gravados</h3>
+  <div id="lista"></div>
+</section>
+
+<section class="aba" id="aba-momentos" hidden>
+  <div class="topo"><div><h2>Momentos</h2><p>O que aconteceu em cada parte da live, com os nomes já corrigidos pelo glossário. Revise e aprove: só os aprovados aparecem no gráfico do site. Depois clique em Salvar.</p></div>
+    <select id="moEp" style="width:auto;min-width:240px"></select></div>
+  <div class="g3" style="grid-template-columns:1fr auto auto;margin-bottom:8px">
+    <span class="mut" id="moResumo"></span>
+    <button type="button" class="sec" id="moTodos">Aprovar todos</button><button type="button" id="moSalva">Salvar</button></div>
+  <div id="moLista"></div>
+</section>
+
+<section class="aba" id="aba-feedbacks" hidden>
+  <div class="topo"><div><h2>Feedbacks e bugs</h2><p>Enviados pelo botão de bug do site e pelas sugestões de correção dos momentos.</p></div></div>
   <div id="fbLista"></div>
 </section>
 
-<form id="form" hidden>
-  <h2 id="formT">Novo episódio</h2>
-  <div class="g"><div><label for="link">Link do YouTube (pode ficar vazio até a live ser agendada)</label><input id="link" autocomplete="off" placeholder="https://www.youtube.com/watch?v=..."></div>
-    <div><label for="data">Data e hora (vazio = a do YouTube)</label><input id="data" type="datetime-local"></div></div>
-  <div class="g"><div><label for="titulo">Título no site (vazio = título do YouTube)</label><input id="titulo" maxlength="200"></div>
-    <div><label for="temporada">Temporada</label><input id="temporada" maxlength="100" placeholder="A Vigília"></div></div>
-  <img id="previa" alt="" hidden style="width:240px;aspect-ratio:16/9;object-fit:cover;border-radius:8px;margin-bottom:12px">
-  <div class="g3" style="grid-template-columns:1fr auto auto">
-    <label class="chk"><input id="oculto" type="checkbox"> Esconder do site</label>
-    <button type="button" class="sec" id="limpa">Limpar</button><button>Salvar</button></div>
-  <p id="msg"></p>
-  <h2>Tela inicial entre episódios</h2>
-  <div class="g"><div><label for="tela">Quando não tiver live</label>
-      <select id="tela"><option value="contagem">Contagem regressiva para o próximo episódio</option><option value="ultimo">Números do último episódio</option></select></div>
-    <div><label for="semProx">Texto quando não houver próximo cadastrado</label><input id="semProx" maxlength="120" placeholder="Nova temporada em breve"></div></div>
-  <div class="g3" style="grid-template-columns:1fr auto"><span></span><button type="button" id="salvaCfg">Salvar tela inicial</button></div>
-  <h2>Cadastrados e gravados</h2>
-  <div id="lista"></div>
-</form>
+<section class="aba" id="aba-config" hidden>
+  <div class="topo"><div><h2>Configurações</h2></div></div>
+  <div class="card">
+    <h3 style="margin-top:0">Tela inicial entre episódios</h3>
+    <div class="g"><div><label for="tela">Quando não tiver live</label>
+        <select id="tela"><option value="contagem">Contagem regressiva para o próximo episódio</option><option value="ultimo">Números do último episódio</option></select></div>
+      <div><label for="semProx">Texto quando não houver próximo cadastrado</label><input id="semProx" maxlength="120" placeholder="Nova temporada em breve"></div></div>
+    <div class="g3" style="grid-template-columns:1fr auto"><span class="mut" id="cfgMsg"></span><button type="button" id="salvaCfg">Salvar</button></div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <h3 style="margin-top:0">Glossário dos momentos</h3>
+    <p>Nomes de personagens, lugares e termos com a grafia oficial (como na Ordem Paranormal Wiki). A análise usa esta lista para não escrever os nomes como soam no áudio.</p>
+    <textarea id="glossario" rows="9" maxlength="4000" placeholder="Jogadores e personagens: Grifo joga Gwayne; ...&#10;Lugar: o vilarejo Treb Ciach."></textarea>
+    <div class="g3" style="grid-template-columns:1fr auto;margin-top:10px"><span class="mut" id="gloMsg"></span><button type="button" id="salvaGlo">Salvar glossário</button></div>
+  </div>
+</section>
+
+</main>
+</div>
 
 <script>
 const $ = id => document.getElementById(id);
 let senha = sessionStorage.getItem("senha") || "", dados = [], editando = null;
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const aviso = (t, erro) => { $("msg").textContent = t; $("msg").className = erro ? "erro" : ""; };
 async function api(metodo, corpo, busca) {
   const r = await fetch(location.pathname.replace(/\/$/, "") + "/api" + (busca ? "?" + busca : ""), { method: metodo, headers: { Authorization: "Bearer " + senha, "Content-Type": "application/json" }, body: corpo && JSON.stringify(corpo) });
@@ -126,29 +212,48 @@ async function api(metodo, corpo, busca) {
   return j;
 }
 const local = iso => { if (!iso) return ""; const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+const titulo = e => (e.titulo || e.tituloYT || e.id).replace(/\s*\|.*$/, "");
+// prévia da temporada para episódio ainda sem link: "A Vigília" -> /temporadas/a-vigilia.jpg
+const kebab = t => String(t).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s*-\s*epis.*$/, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+// abas: lembra a última aberta
+function abre(nome) {
+  document.querySelectorAll("nav button[data-aba]").forEach(b => b.classList.toggle("on", b.dataset.aba === nome));
+  document.querySelectorAll(".aba").forEach(s => s.hidden = s.id !== "aba-" + nome);
+  try { sessionStorage.setItem("aba", nome); } catch {}
+  if (nome === "momentos") momentos();
+}
+document.querySelectorAll("nav button[data-aba]").forEach(b => b.onclick = () => abre(b.dataset.aba));
+
 async function carrega() {
   const j = await api("GET");
   dados = j.lista;
-  $("tela").value = j.config.telaInicial; $("semProx").value = j.config.semProximo || "";
-  $("login").hidden = true; $("form").hidden = false; $("acessos").hidden = false; acessos(); feedbacks();
+  $("tela").value = j.config.telaInicial; $("semProx").value = j.config.semProximo || ""; $("glossario").value = j.config.glossario || "";
+  $("login").hidden = true; $("app").hidden = false;
+  const vivo = dados.find(e => e.id === j.aoVivo);
+  $("navPulso").classList.toggle("off", !vivo); $("navVivo").textContent = vivo ? "Ao vivo: " + titulo(vivo) : "Sem live agora";
   $("lista").innerHTML = dados.map((e, i) => `<div class="ep">
-    ${e.id.startsWith("ag-") ? `<img alt="">` : `<img src="/capa/${e.id}.jpg" alt="" loading="lazy">`}
-    <div><b>${esc(e.titulo || e.tituloYT || e.id)}</b>
+    ${e.id.startsWith("ag-") ? `<img class="borrada" src="/temporadas/${kebab(e.temporada || titulo(e))}.jpg" alt="" onerror="this.removeAttribute('src')">` : `<img src="/capa/${e.id}.jpg" alt="" loading="lazy">`}
+    <div><b>${esc(titulo(e))}</b>
       <small>${e.temporada ? esc(e.temporada) + " · " : ""}${e.data ? new Date(e.data).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "sem data"}${e.id === j.aoVivo ? " · AO VIVO" : ""}${e.recorde != null ? " · pico " + e.recorde.toLocaleString("pt-BR") : " · ainda sem dados"}${e.oculto ? " · escondido" : ""}</small></div>
-    <div class="a"><button type="button" class="sec" data-ed="${i}">Editar</button>${e.recorde != null ? `<button type="button" class="sec" data-pv="${esc(e.id)}">Prévia do link</button>` : ""}${e.recorde == null ? `<button type="button" class="sec" data-rm="${i}">Remover</button>` : ""}</div>
+    <div class="a"><button type="button" class="sec peq" data-ed="${i}">Editar</button>${e.recorde != null ? `<button type="button" class="sec peq" data-pv="${esc(e.id)}">Prévia do link</button>` : ""}${e.recorde == null ? `<button type="button" class="sec peq" data-rm="${i}">Remover</button>` : ""}</div>
   </div>`).join("") || `<p>Nada cadastrado ainda.</p>`;
+  // episódios gravados no seletor de momentos
+  const sel = $("moEp"), atual = sel.value;
+  sel.innerHTML = dados.filter(e => e.recorde != null).map(e => `<option value="${esc(e.id)}">${esc(titulo(e))}</option>`).join("");
+  if (atual) sel.value = atual;
+  acessos(); feedbacks(); contaMomentos();
+  abre(sessionStorage.getItem("aba") || "agora");
 }
 $("entrar").onclick = async () => {
   senha = $("senha").value;
   try { await carrega(); sessionStorage.setItem("senha", senha); } catch (e) { alert(e.message); }
 };
 $("senha").onkeydown = e => { if (e.key === "Enter") $("entrar").click(); };
-// prévia da capa ao colar o link
+
+// ---------- episódios ----------
 const idDe = s => (s.match(/(?:v=|youtu\.be\/|live\/|^)([\w-]{11})(?:[?&#/]|$)/) || [])[1];
 $("link").oninput = () => { const id = idDe($("link").value.trim()); $("previa").hidden = !id; if (id) $("previa").src = "/capa/" + id + ".jpg"; };
-$("salvaCfg").onclick = async () => {
-  try { await api("POST", { config: { telaInicial: $("tela").value, semProximo: $("semProx").value } }); aviso("Tela inicial salva."); } catch (e) { aviso(e.message, true); }
-};
 $("limpa").onclick = () => { $("previa").hidden = true; editando = null; $("form").reset(); $("formT").textContent = "Novo episódio"; aviso(""); };
 $("form").onsubmit = async ev => {
   ev.preventDefault();
@@ -175,12 +280,20 @@ $("lista").onclick = async ev => {
     try { await api("POST", { id: dados[rm].id, remover: true }); await carrega(); } catch (e) { aviso(e.message, true); }
   }
 };
-// relatório de acessos, atualiza a cada 10 segundos
+
+// ---------- configurações ----------
+$("salvaCfg").onclick = async () => {
+  try { await api("POST", { config: { telaInicial: $("tela").value, semProximo: $("semProx").value } }); $("cfgMsg").textContent = "Salvo."; } catch (e) { $("cfgMsg").textContent = e.message; }
+};
+$("salvaGlo").onclick = async () => {
+  try { await api("POST", { config: { telaInicial: $("tela").value, semProximo: $("semProx").value, glossario: $("glossario").value } }); $("gloMsg").textContent = "Salvo."; } catch (e) { $("gloMsg").textContent = e.message; }
+};
+
+// ---------- acessos (abas Agora e Público), atualiza a cada 10 segundos ----------
 const n = v => (v || 0).toLocaleString("pt-BR");
 async function acessos() {
   let j; try { j = await api("GET", null, "acessos=1"); } catch { return; }
   $("acOn").textContent = n(j.online); $("acPico").textContent = n(j.pico); $("acUni").textContent = n(j.unicos); $("acViews").textContent = n(j.views);
-  $("acVivo").textContent = j.aoVivo ? "· EPISÓDIO AO VIVO" : "";
   const s = j.serie, max = Math.max(1, ...s.map(p => p[1]));
   const pts = s.map((p, i) => [s.length < 2 ? 600 : i / (s.length - 1) * 600, 115 - p[1] / max * 105].join(",")).join(" ");
   $("acSerie").innerHTML = s.length ? `<polyline points="0,120 ${pts} 600,120" fill="currentColor" opacity=".08"/><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"/>` : "";
@@ -200,19 +313,74 @@ async function acessos() {
   $("acEps").innerHTML = eps.length ? `<div><span>Episódio</span><span>Únicos</span><span>Pico online</span></div>` + eps.map(e => `<div><span>${esc(e.titulo.replace(/\s*\|.*$/, ""))}</span><span>${n(e.unicos)}</span><span>${n(e.pico)}</span></div>`).join("") : "<p>Os números aparecem a partir do próximo episódio ao vivo.</p>";
   $("acHist").innerHTML = j.historico.length ? `<div><span>Dia</span><span>Únicos</span><span>Visitas</span></div>` + j.historico.slice().reverse().map(h => `<div><span>${new Date(h.dia + "T12:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" })}</span><span>${n(h.unicos)}</span><span>${n(h.views)}</span></div>`).join("") : "<p>O histórico começa amanhã.</p>";
 }
-// feedbacks e bugs enviados pelo site
+
+// ---------- feedbacks ----------
 async function feedbacks() {
   let l; try { l = await api("GET", null, "feedbacks=1"); } catch { return; }
-  $("feedbacks").hidden = false; $("fbQtd").textContent = l.length ? "· " + l.length : "";
-  $("fbLista").innerHTML = l.length ? l.map(f => `<div class="fb"><p><span class="tag ${f.tipo}">${f.tipo === "bug" ? "Bug" : "Sugestão"}</span>${esc(f.texto)}</p>
-    <small>${new Date(f.quando).toLocaleString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} · ${esc(f.aparelho)} · ${esc(f.pagina || "/")}${f.contato ? " · " + esc(f.contato) : ""}</small>
-    <button class="sec" data-fb="${esc(f.id)}">Apagar</button></div>`).join("") : "<p>Nenhum por enquanto.</p>";
+  $("fbQtd").textContent = l.length || "";
+  const data = f => new Date(f.quando).toLocaleString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  $("fbLista").innerHTML = l.length ? l.map(f => f.tipo === "correcao" ? `<div class="fb">
+    <p><span class="tag correcao">Correção</span>${f.atual ? `<b>${esc(hora(f.atual.quando))} · ${esc(f.atual.titulo)}</b>` : "Momento apagado"}</p>
+    ${f.atual ? `<small>Texto atual: ${esc(f.atual.contexto)}</small>` : ""}
+    <textarea data-tx="${esc(f.id)}" maxlength="240" rows="2" style="grid-column:1;margin-top:6px">${esc(f.texto)}</textarea>
+    <small>${data(f)} · ${esc(f.aparelho)}${f.contato ? " · " + esc(f.contato) : ""}</small>
+    <div style="grid-row:1/5;grid-column:2;align-self:center;display:flex;flex-direction:column;gap:6px">${f.atual ? `<button class="peq" data-aplica="${esc(f.id)}">Aplicar</button>` : ""}<button class="sec peq" data-fb="${esc(f.id)}">Recusar</button></div>
+  </div>` : `<div class="fb"><p><span class="tag ${f.tipo}">${f.tipo === "bug" ? "Bug" : "Sugestão"}</span>${esc(f.texto)}</p>
+    <small>${data(f)} · ${esc(f.aparelho)} · ${esc(f.pagina || "/")}${f.contato ? " · " + esc(f.contato) : ""}</small>
+    <button class="sec peq" data-fb="${esc(f.id)}">Apagar</button></div>`).join("") : "<p>Nenhum por enquanto.</p>";
 }
 $("fbLista").onclick = async e => {
+  const ap = e.target.dataset.aplica;
+  // aplica o texto sugerido (pode ser ajustado antes no campo)
+  if (ap) { await api("POST", { aplicaCorrecao: ap, texto: document.querySelector(`[data-tx="${ap}"]`).value }).catch(er => alert(er.message)); feedbacks(); return; }
   const id = e.target.dataset.fb; if (!id || !confirm("Apagar este feedback?")) return;
   await api("POST", { apagaFeedback: id }).catch(() => {}); feedbacks();
 };
-setInterval(() => { if (!$("acessos").hidden) { acessos(); feedbacks(); } }, 10_000);
+
+// ---------- momentos: revisão antes de ir pro site ----------
+let mo = [];
+const hora = iso => new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+async function contaMomentos() {
+  try { const j = await api("GET", null, "pendentes=1"); $("moQtd").textContent = j.pendentes || ""; } catch {}
+}
+async function momentos() {
+  const id = $("moEp").value; if (!id) { $("moLista").innerHTML = "<p>Nenhum episódio gravado ainda.</p>"; return; }
+  let j; try { j = await api("GET", null, "momentos=" + encodeURIComponent(id)); } catch (e) { $("moLista").innerHTML = `<p>${esc(e.message)}</p>`; return; }
+  mo = j.lista;
+  desenhaMomentos();
+}
+function desenhaMomentos() {
+  const id = $("moEp").value, ok = mo.filter(m => m.aprovado).length;
+  $("moResumo").textContent = mo.length ? `${mo.length} momentos · ${ok} aprovados` : "";
+  $("moLista").innerHTML = mo.length ? mo.map((m, i) => `<div class="mo${m.aprovado ? " aprovado" : ""}">
+    <img alt="" data-cap="${m.captura ? esc(id + "/" + m.captura) : ""}">
+    <div><div class="h"><b>${hora(m.quando)}</b><span class="selo ${m.aprovado ? "ok" : ""}">${m.aprovado ? "Aprovado" : "Rascunho"}</span><span>${m.tipo === "mesa" ? "Mesa" : "História"}</span></div>
+      <input data-i="${i}" data-c="titulo" value="${esc(m.titulo)}" maxlength="80">
+      <textarea data-i="${i}" data-c="contexto" maxlength="240">${esc(m.contexto)}</textarea></div>
+    <div class="a"><button type="button" class="${m.aprovado ? "sec " : ""}peq" data-ap="${i}">${m.aprovado ? "Tirar do site" : "Aprovar"}</button><button type="button" class="sec peq" data-rm="${i}">Apagar</button></div>
+  </div>`).join("") : "<p>Ainda não tem momentos para este episódio. Eles aparecem aqui depois da análise da live.</p>";
+  // capturas de rascunho só com a senha: busca com o cabeçalho e mostra como blob
+  document.querySelectorAll("#moLista img[data-cap]").forEach(async img => {
+    const c = img.dataset.cap; if (!c) return;
+    if (!capturas[c]) capturas[c] = fetch(location.pathname.replace(/\/$/, "") + "/api?captura=" + encodeURIComponent(c), { headers: { Authorization: "Bearer " + senha } })
+      .then(r => r.ok ? r.blob() : null).then(b => b && URL.createObjectURL(b));
+    const u = await capturas[c]; if (u) img.src = u;
+  });
+}
+const capturas = {};
+$("moEp").onchange = momentos;
+$("moLista").oninput = e => { const i = e.target.dataset.i; if (i != null) mo[i][e.target.dataset.c] = e.target.value; };
+$("moLista").onclick = e => {
+  const ap = e.target.dataset.ap, rm = e.target.dataset.rm;
+  if (ap != null) { mo[ap].aprovado = !mo[ap].aprovado; desenhaMomentos(); }
+  if (rm != null && confirm("Apagar este momento?")) { mo.splice(rm, 1); desenhaMomentos(); }
+};
+$("moTodos").onclick = () => { mo.forEach(m => m.aprovado = true); desenhaMomentos(); };
+$("moSalva").onclick = async () => {
+  try { await api("POST", { momentos: $("moEp").value, lista: mo }); $("moResumo").textContent += " · salvo"; contaMomentos(); } catch (e) { alert(e.message); }
+};
+
+setInterval(() => { if (!$("app").hidden) { acessos(); feedbacks(); } }, 10_000);
 if (senha) carrega().catch(() => sessionStorage.removeItem("senha"));
 </script>
-</main></body></html>
+</body></html>

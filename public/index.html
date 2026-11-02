@@ -74,6 +74,8 @@ body.encerrado .clockw .dot{display:none}
 
 .chartbox{flex:1;display:flex;flex-direction:column;min-height:0}
 .chartbox .cw{position:relative;flex:1;min-height:0}
+.dica-g{display:none}
+@media (max-width:800px),(max-aspect-ratio:1/1){.dica-g{display:flex;flex-wrap:wrap;align-items:center;gap:.3em .9em;min-height:2.6em;padding:.4em 0;font-size:.82em;color:var(--mut);visibility:hidden}.dica-g.on{visibility:visible}.dica-g>b{color:var(--tx)}.dica-g b{color:var(--tx)}.dica-g i{display:inline-block;width:.55em;height:.55em;border-radius:50%;margin-right:.35em}}
 .linha-t{position:relative;display:flex;align-items:center;gap:.8em;padding-top:.8vh}
 .linha-t .bolha{position:absolute;bottom:calc(100% - .2vh);transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line2);color:var(--tx);font:600 .78em Inter,sans-serif;padding:.25em .55em;border-radius:6px;pointer-events:none;opacity:0;transition:opacity .15s;white-space:nowrap}
 .linha-t .bolha.on{opacity:1}
@@ -89,6 +91,17 @@ body.encerrado .clockw .dot{display:none}
 .linha-t button:hover{color:var(--tx)}
 .linha-t button{display:inline-flex;align-items:center;gap:.4em}
 .linha-t button[hidden]{display:none}
+.cena{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start;margin:1vh 0 .4vh;animation:sobe .3s ease both}
+.cena[hidden]{display:none}
+.cena img{width:clamp(128px,13vw,210px);aspect-ratio:16/9;object-fit:cover;border-radius:8px;background:var(--panel2)}
+.cena img[hidden]{display:none}
+.cena small{color:var(--mut);font-size:.8em;margin-right:.5em}
+.cena b{font-size:1.05em}
+.cena p{margin:.25em 0 .4em;color:var(--mut);font-size:.92em;line-height:1.4}
+.cena a,.cena-corr{color:var(--tx);font-size:.8em;font-weight:600}
+.cena-corr{background:none;border:0;padding:0;margin-left:1em;color:var(--mut);cursor:pointer;font-family:inherit}
+.cena-corr:hover{color:var(--tx)}
+.fb-ref{margin:0;font-size:.85em;color:var(--mut)}.fb-ref b{color:var(--tx)}
 .linha-t .vivo{width:7px;height:7px;border-radius:50%;background:#ef4444;animation:pisca 1.6s infinite}
 @keyframes pisca{50%{opacity:.35}}
 
@@ -127,6 +140,7 @@ body.encerrado .clockw .dot{display:none}
 .fb-box{width:min(480px,94vw)}
 .fb-form{display:flex;flex-direction:column;gap:12px;padding:18px 22px 22px}
 .fb-tipo{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fb-tipo[hidden],.fb-ref[hidden]{display:none}
 .fb-form textarea,.fb-form input{width:100%;background:var(--panel2);color:var(--tx);border:1px solid var(--line);border-radius:12px;padding:.8em 1em;font:inherit;font-size:.95em;resize:vertical;outline:0;transition:border-color .2s}
 .fb-form textarea:focus,.fb-form input:focus{border-color:var(--mut)}
 .fb-msg{margin:0;font-size:.85em;min-height:1.2em}
@@ -168,7 +182,7 @@ body.encerrado .clockw .dot{display:none}
   .big{font-size:clamp(48px,16vw,96px)}
   .plats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6em 1em;font-size:14px}
   .picos{flex-wrap:wrap;gap:.4em 1.2em}
-  .chartbox{height:260px;flex:none}
+  .chartbox{height:auto;flex:none}.chartbox .cw{height:260px;flex:none}
   .strip{flex-wrap:wrap;row-gap:12px}
   .st{flex:1 0 33%;padding:0 12px 0 0;border-left:0}
   .top{gap:10px}
@@ -282,7 +296,7 @@ body.modo-espera .main,body.modo-espera .strip,body.modo-espera .prox{display:no
 .esp-acoes .sbtn[hidden]{display:none}
 .esp-capa{position:relative;overflow:hidden;display:grid;place-items:center}
 .esp-capa::before{content:"";position:absolute;inset:0;background:var(--fundo) center/cover no-repeat;transition:filter .4s}
-.esp-capa.previa::before{filter:blur(6px) brightness(.85);transform:scale(1.06)}
+.esp-capa.previa::before{filter:blur(2.5px) brightness(.9);transform:scale(1.03)}
 .esp-logo{position:relative;width:62%;max-height:70%;object-fit:contain;filter:drop-shadow(0 4px 24px rgba(0,0,0,.6))}
 .espera{grid-template-columns:minmax(0,min(40vw,660px)) auto;justify-content:center;align-content:center}
 @media (max-width:800px),(max-aspect-ratio:1/1){.espera{grid-template-columns:1fr;gap:20px}.esp-cont{gap:14px}.esp-acoes{flex-wrap:wrap}}
@@ -308,7 +322,7 @@ body.modo-espera .main,body.modo-espera .strip,body.modo-espera .prox{display:no
   .momentos{margin-top:14px}
   .momentos button{padding:0 10px}
   .momentos b{font-size:1.1em}
-  .chartbox{height:240px}
+  .chartbox .cw{height:240px}
   .linha-t{gap:.6em}
   .lado{grid-template-columns:1fr;gap:8px}
   .lado .picos{justify-content:flex-start;font-size:.95em}
@@ -321,6 +335,8 @@ body.modo-espera .main,body.modo-espera .strip,body.modo-espera .prox{display:no
 #proxC,#clock{font-variant-numeric:tabular-nums}
 /* até a primeira resposta não mostra nada, pra não piscar o episódio antes da contagem */
 body.carregando .main,body.carregando .strip,body.carregando .espera{visibility:hidden}
+/* as animações de entrada esperam a página ser revelada, senão terminam escondidas */
+body.carregando .col,body.carregando .strip,body.carregando .espera{animation:none}
 .ep img.borrada{filter:blur(3px) brightness(.8)}
 .ep .sem-capa{width:168px;aspect-ratio:16/9;border-radius:8px;background:var(--panel2)}
 .seletor{position:relative}
@@ -386,8 +402,10 @@ button.ep-titulo:hover .seta{color:var(--tx)}
   </div>
 
   <div class="col">
-    <div class="box chartbox"><div class="lbl">Viewers ao vivo</div><div class="cw"><canvas id="g"></canvas></div>
-      <div class="linha-t" id="linhaT" hidden><span class="num mut ponta" id="linhaI"></span><input type="range" id="linhaR" min="0" max="0" value="0" aria-label="Ver os números em outro momento da live"><span class="num mut ponta" id="linhaF"></span><span class="num mut" id="linhaH"></span><button id="linhaV" hidden>Ao vivo</button><span class="bolha num" id="linhaB"></span></div></div>
+    <div class="box chartbox"><div class="lbl">Viewers ao vivo</div><div class="dica-g" id="dicaG"></div><div class="cw"><canvas id="g"></canvas></div>
+      <div class="cena" id="cena" hidden><img id="cenaImg" alt=""><div><small class="num" id="cenaH"></small><b id="cenaT"></b><p id="cenaC"></p><a id="cenaYT" target="_blank" rel="noopener">Ver no YouTube</a><button class="cena-corr" id="cenaCorr" type="button">Sugerir correção</button></div></div>
+      <div class="linha-t" id="linhaT" hidden><span class="num mut ponta" id="linhaI"></span><input type="range" id="linhaR" min="0" max="0" value="0" aria-label="Ver os números em outro momento da live"><span class="num mut ponta" id="linhaF"></span><span class="num mut" id="linhaH"></span><button id="linhaV" hidden>Ao vivo</button><span class="bolha num" id="linhaB"></span></div>
+    </div>
       <div class="recs lado">
         <div class="rec-top">
           <div><div class="cap">Recorde do episódio</div><b class="num" id="rec">-</b><span class="mut" id="recq"></span></div>
@@ -427,8 +445,9 @@ button.ep-titulo:hover .seta{color:var(--tx)}
   </div>
 </div></div>
 <div class="modal" id="fb"><div class="eps-box fb-box">
-  <div class="eps-top"><h3>Feedback e bugs</h3><button class="fechar" id="fbFecha">Fechar</button></div>
+  <div class="eps-top"><h3 id="fbTit">Feedback e bugs</h3><button class="fechar" id="fbFecha">Fechar</button></div>
   <form class="fb-form" id="fbForm">
+    <p class="fb-ref" id="fbRef" hidden></p>
     <div class="fmt fb-tipo"><button type="button" class="sbtn on" data-tipo="bug">Reportar bug</button><button type="button" class="sbtn" data-tipo="ideia">Sugestão</button></div>
     <textarea id="fbTexto" maxlength="1500" rows="5" required placeholder="Conte o que aconteceu ou o que você gostaria de ver no site"></textarea>
     <input id="fbContato" maxlength="120" placeholder="Contato para resposta (opcional): @ no X ou e-mail">
@@ -449,19 +468,26 @@ const pc = n => n.toFixed(1).replace(".", ",") + "%";
 const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 const dura = s => { if (!s) return "-"; const m = Math.floor((Date.now() - new Date(s)) / 60000); return Math.floor(m / 60) + "h" + String(m % 60).padStart(2, "0"); };
 
-const atual = {};
-function conta(id, v) {
+// número que corre até o valor novo; uma animação por número (a nova continua de onde a anterior parou)
+const atual = {}, anima = {};
+let primeiraConta = true; // na primeira carga os números sobem a partir do zero
+function conta(id, v, rapido) {
   const el = $(id);
-  if (v == null) { el.textContent = "-"; return; }
-  const de = atual[id] ?? v;
+  if (v == null) { cancelAnimationFrame(anima[id]?.raf); el.textContent = "-"; atual[id] = null; return; }
+  const de = anima[id]?.mostrado ?? atual[id] ?? (primeiraConta ? 0 : v);
+  if (atual[id] === v) return;
+  // piscar verde/vermelho só nas atualizações ao vivo, não ao arrastar a linha do tempo
+  if (!rapido && atual[id] != null) { el.classList.remove("up", "down"); void el.offsetWidth; el.classList.add(v > atual[id] ? "up" : "down"); clearTimeout(anima[id]?.pisca); }
   atual[id] = v;
-  if (de !== v) { el.classList.remove("up", "down"); void el.offsetWidth; el.classList.add(v > de ? "up" : "down"); setTimeout(() => el.classList.remove("up", "down"), 1500); }
-  const t0 = performance.now();
-  (function step(t) {
-    const p = Math.min(1, (t - t0) / 900), e = 1 - Math.pow(1 - p, 3);
-    el.textContent = f(de + (v - de) * e);
-    if (p < 1) requestAnimationFrame(step);
-  })(t0);
+  cancelAnimationFrame(anima[id]?.raf);
+  const t0 = performance.now(), dur = rapido ? 220 : 900, a = anima[id] = { mostrado: de, pisca: rapido ? null : setTimeout(() => el.classList.remove("up", "down"), 1500) };
+  const step = t => {
+    const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+    a.mostrado = de + (v - de) * e;
+    el.textContent = f(a.mostrado);
+    if (p < 1) a.raf = requestAnimationFrame(step);
+  };
+  step(t0);
 }
 
 Chart.defaults.color = "#9a9aa2"; Chart.defaults.font.family = "Inter";
@@ -482,7 +508,7 @@ const tema = t => {
     const cor = css("--tx");
     Object.assign(ch.data.datasets[0], { borderColor: cor, pointHoverBackgroundColor: cor, backgroundColor: grad(cor) });
     Chart.defaults.color = css("--mut");
-    ch.options.plugins.tooltip.backgroundColor = css("--panel"); ch.options.plugins.tooltip.borderColor = css("--line");
+    ch.options.plugins.tooltip.backgroundColor = css("--panel") + "e0"; ch.options.plugins.tooltip.borderColor = css("--line");
     ch.options.plugins.tooltip.titleColor = ch.options.plugins.tooltip.bodyColor = ch.options.plugins.tooltip.footerColor = cor;
     ch.update("none");
   }
@@ -497,12 +523,23 @@ const hm = v => new Date(v).toLocaleTimeString("pt-BR", { hour: "2-digit", minut
 const eixos = () => ({
   x: { type: "linear", grid: { display: false }, border: { display: false }, ticks: { maxTicksLimit: 7, maxRotation: 0, font: { size: 10 }, callback: hm } },
   y: { beginAtZero: true, grid: { color: () => css("--grade") }, border: { display: false }, ticks: { maxTicksLimit: 5, font: { size: 10 }, callback: kfmt } },
+  y2: { display: false, beginAtZero: true },
 });
-const dica = { backgroundColor: "#1c1c1c", borderColor: "#2e2e2e", borderWidth: 1, padding: 10, boxPadding: 4, usePointStyle: true,
+// no celular a caixinha de valores fica fora do gráfico, numa linha acima dele; no computador fica levemente transparente
+const dicaFora = matchMedia("(max-width:800px),(max-aspect-ratio:1/1)").matches;
+function dicaExterna({ tooltip: t }) {
+  const el = $("dicaG");
+  if (!t.opacity || !t.dataPoints?.length) { el.classList.remove("on"); return; }
+  el.innerHTML = `<b class="num">${hm(t.dataPoints[0].parsed.x)}</b>` + t.dataPoints.filter(p => p.parsed.y != null)
+    .map(p => `<span><i style="background:${p.dataset.borderColor}"></i>${p.dataset.label} <b class="num">${f(p.parsed.y)}</b></span>`).join("");
+  el.classList.add("on");
+}
+const dica = { enabled: !dicaFora, external: dicaFora ? dicaExterna : undefined, backgroundColor: "#1c1c1ce0", borderColor: "#2e2e2e", borderWidth: 1, padding: 10, boxPadding: 4, usePointStyle: true,
   callbacks: { title: it => it.length ? hm(it[0].parsed.x) : "", label: c => ` ${c.dataset.label}: ${f(c.parsed.y)}` } };
 // no celular a legenda fica à esquerda e mais compacta, pra caber numa linha
 const celular = matchMedia("(max-width:800px),(max-aspect-ratio:1/1)").matches;
-const legenda = { position: "top", align: celular ? "start" : "end", labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: celular ? 8 : 14, font: { size: celular ? 10 : 11 } } };
+const legenda = { position: "top", align: celular ? "start" : "end", labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: celular ? 8 : 14, font: { size: celular ? 10 : 11 },
+  filter: (it, d) => !d.datasets[it.datasetIndex].semChat } };
 // linha vertical no momento escolhido na linha do tempo
 const marcaLinha = {
   id: "marca",
@@ -511,6 +548,17 @@ const marcaLinha = {
     const { ctx, chartArea: a, scales: { x } } = chart, px = x.getPixelForValue(t);
     ctx.save(); ctx.strokeStyle = css("--tx"); ctx.globalAlpha = .5; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(px, a.top); ctx.lineTo(px, a.bottom); ctx.stroke(); ctx.restore();
+  },
+};
+let cenas = [];
+// bolinhas no topo do gráfico onde tem um momento da história
+const cenasMarcas = {
+  id: "cenas",
+  afterDatasetsDraw(chart) {
+    const { ctx, chartArea: a, scales: { x } } = chart;
+    ctx.save(); ctx.fillStyle = css("--mut");
+    for (const c of cenas) { const px = x.getPixelForValue(c.t); if (px < a.left || px > a.right) continue; ctx.beginPath(); ctx.arc(px, a.top + 3, 2.5, 0, 7); ctx.fill(); }
+    ctx.restore();
   },
 };
 // linha tracejada de recorde do episódio
@@ -541,20 +589,51 @@ const novoGrafico = (el, sets, extra) => new Chart(el, {
     plugins: { legend: legenda, tooltip: dica }, scales: eixos() },
   plugins: extra,
 });
-const ch = novoGrafico($("g"), [linha("Total", css("--tx"), 2.5, true), linha("YouTube", "#ff2b2b", 1.6), linha("Twitch", "#9146ff", 1.6), linha("Kick", "#53fc18", 1.6), linha("TikTok", "#25f4ee", 1.6)], [recordeLinha, marcaLinha]);
+const ch = novoGrafico($("g"), [linha("Total", css("--tx"), 2.5, true), linha("YouTube", "#ff2b2b", 1.6), linha("Twitch", "#9146ff", 1.6), linha("Kick", "#53fc18", 1.6), linha("TikTok", "#25f4ee", 1.6), { ...linha("Chat por minuto", "#8a8a8a", 1, true), borderColor: "#8a8a8a88", backgroundColor: "#8a8a8a30", pointStyle: "rect", yAxisID: "y2", order: 9 }], [recordeLinha, marcaLinha, cenasMarcas]);
+// momentos aprovados no painel: o que acontecia na história em cada parte da live
+let cenaAtual = null;
+const cenaEm = t => cenas.filter(c => c.t <= t + 30e3).at(-1) || null;
+function mostraCena(t) {
+  const c = t == null ? null : cenaEm(t);
+  // mesmo momento de antes: nada pra trocar (evita recarregar a imagem a cada quadro)
+  if (c === cenaAtual) return;
+  cenaAtual = c;
+  const antes = $("cena").hidden;
+  $("cena").hidden = !c;
+  // o cartão entra entre o gráfico e a linha do tempo: o gráfico encolhe pra caber
+  if (antes !== !c) requestAnimationFrame(() => ch.resize());
+  if (!c) return;
+  $("cenaCorr").dataset.t = c.t;
+  $("cenaH").textContent = hm(c.t); $("cenaT").textContent = c.titulo; $("cenaC").textContent = c.contexto;
+  $("cenaImg").hidden = !c.captura; if (c.captura) $("cenaImg").src = c.captura;
+  // link pro mesmo ponto no vídeo do YouTube, pelo horário real do momento
+  const r = ultimo?.records[ultimo.ver], ini = r?.inicioLive && new Date(r.inicioLive).getTime();
+  $("cenaYT").hidden = !(ini && /^[\w-]{11}$/.test(ultimo.ver));
+  if (ini) $("cenaYT").href = `https://www.youtube.com/watch?v=${ultimo.ver}&t=${Math.max(0, Math.round((c.t - ini) / 1000))}s`;
+}
 
 // leituras cruas; o gráfico mostra a mediana de 7 pra sumir com os "buracos" de leitura falha
-const tempos = [], brutos = [[], [], [], [], []];
+const tempos = [], brutos = [[], [], [], [], []], chatMin = [];
 const mediana = (arr, i) => { const j = arr.slice(Math.max(0, i - 3), i + 4).filter(v => v != null).sort((p, q) => p - q); return j.length ? j[j.length >> 1] : null; };
-function pontoNovo(hora, total, yt, tw, kk, tt) {
+function pontoNovo(hora, total, yt, tw, kk, tt, msgs) {
   tempos.push(new Date(hora).getTime());
   [total, yt, tw, kk, tt].forEach((v, i) => brutos[i].push(v));
+  chatMin.push(msgs ?? null);
 }
 let primeira = true;
 function redesenha(recorde, inicio) {
   if (!tempos.length) return;
-  const series = brutos.map(arr => arr.map((_, j) => ({ x: tempos[j], y: mediana(arr, j) })));
-  series.forEach((s, i) => ch.data.datasets[i].data = s);
+  // o gráfico desenha no máximo ~500 pontos (uma live de 6h tem mais de 2 mil leituras); a linha do tempo usa todas
+  const passoP = Math.max(1, Math.ceil(tempos.length / 500)), idx = [];
+  for (let j = 0; j < tempos.length; j += passoP) idx.push(j);
+  if (idx.at(-1) !== tempos.length - 1) idx.push(tempos.length - 1);
+  brutos.forEach((arr, i) => ch.data.datasets[i].data = idx.map(j => ({ x: tempos[j], y: mediana(arr, j) })));
+  // atividade do chat: área clarinha no rodapé do gráfico, com escala própria (ocupa até 1/3 da altura)
+  const chat = idx.map(j => ({ x: tempos[j], y: mediana(chatMin, j) }));
+  ch.data.datasets[5].data = chat;
+  ch.data.datasets[5].semChat = !ultimo?.records[ultimo.ver]?.chatCompleto || !chat.some(p => p.y);
+  if (ch.data.datasets[5].semChat) ch.data.datasets[5].hidden = true;
+  ch.options.scales.y2.max = Math.max(1, ...chat.map(p => p.y || 0)) * 3;
   ch.options.scales.x.min = tempos[0]; ch.options.scales.x.max = tempos[tempos.length - 1];
   // marcas de 10 em 10 min (ou 30 em lives longas), alinhadas no relógio
   const passo = (tempos.at(-1) - tempos[0]) > 3 * 3600e3 ? 30 * 60e3 : (tempos.at(-1) - tempos[0]) > 90 * 60e3 ? 20 * 60e3 : 10 * 60e3;
@@ -572,8 +651,8 @@ function redesenha(recorde, inicio) {
 
 // linha do tempo: arrastar a bolinha mostra os números daquele momento
 let simulando = null, vAgora = null;
-function mostra(v) {
-  conta("tot", v.total); conta("tN", v.twitch); conta("kN", v.kick); conta("yN", v.youtube); conta("ttN", v.tiktok);
+function mostra(v, rapido) {
+  conta("tot", v.total, rapido); conta("tN", v.twitch, rapido); conta("kN", v.kick, rapido); conta("yN", v.youtube, rapido); conta("ttN", v.tiktok, rapido);
   const T = v.total || 1, pt = (v.twitch || 0) / T * 100, pk = (v.kick || 0) / T * 100, py = (v.youtube || 0) / T * 100, ptt = (v.tiktok || 0) / T * 100;
   $("sT").style.flexBasis = pt + "%"; $("sK").style.flexBasis = pk + "%"; $("sY").style.flexBasis = py + "%"; $("sTT").style.flexBasis = ptt + "%"; $("sTT").style.display = ptt ? "" : "none";
   // só mostra a % se couber no pedaço da barra
@@ -582,18 +661,28 @@ function mostra(v) {
 }
 function voltaAgora() {
   simulando = null; $("linhaR").value = $("linhaR").max; $("linhaH").textContent = ""; $("linhaV").hidden = true;
-  ch.options.marca = null; ch.update("none");
+  ch.options.marca = null; ch.draw();
   if (vAgora) mostra(vAgora);
+  mostraCena(null);
 }
+// arrastar dispara muitos eventos: aplica só o último de cada quadro
+let quadro = null;
 $("linhaR").oninput = e => {
   const i = +e.target.value;
   if (i == e.target.max && ultimo?.aoVivo) return voltaAgora();
   simulando = i;
-  const [total, youtube, twitch, kick, tiktok] = brutos.map(arr => mediana(arr, i));
-  mostra({ total, youtube, twitch, kick, tiktok });
-  $("linhaH").textContent = hm(tempos[i]); $("linhaV").hidden = !ultimo?.aoVivo;
-  $("linhaV").innerHTML = ultimo?.aoVivo ? "<span class=\"vivo\"></span>Ao vivo" : "";
-  ch.options.marca = tempos[i]; ch.update("none");
+  if (quadro) return;
+  quadro = requestAnimationFrame(() => {
+    quadro = null;
+    const i = simulando; if (i == null) return;
+    const [total, youtube, twitch, kick, tiktok] = brutos.map(arr => mediana(arr, i));
+    mostra({ total, youtube, twitch, kick, tiktok }, true);
+    $("linhaH").textContent = hm(tempos[i]); $("linhaV").hidden = !ultimo?.aoVivo;
+    $("linhaV").innerHTML = ultimo?.aoVivo ? "<span class=\"vivo\"></span>Ao vivo" : "";
+    // só redesenha a linha vertical, sem recalcular o gráfico
+    ch.options.marca = tempos[i]; ch.draw();
+    mostraCena(tempos[i]);
+  });
 };
 $("linhaV").onclick = voltaAgora;
 // atalhos para momentos da live: começo, pico e fim (ou agora)
@@ -643,7 +732,8 @@ async function up() {
     const d = await (await fetch("/api" + (q.size ? "?" + q : ""))).json();
     const a = d.atual, x = a.extras || {}, r = d.records[d.ver], vivo = d.aoVivo;
     ultimo = d;
-    if (!r) { $("epNome").textContent = "Nenhum episódio gravado ainda"; document.body.classList.remove("carregando"); return; }
+    cenas = (d.momentos || []).map(c => ({ ...c, t: new Date(c.quando).getTime() })).sort((p, q) => p.t - q.t);
+    if (!r) { $("epNome").textContent = "Nenhum episódio gravado ainda"; revelaPagina(); return; }
 
     const m = r.titulo.match(/^(.*?)\s*-\s*(EPIS[ÓO]DIO\s*\d+)/i);
     // ao vivo: números de agora; encerrado: números do momento do pico
@@ -657,7 +747,6 @@ async function up() {
     document.body.classList.toggle("modo-espera", !!espera);
     $("espera").hidden = !espera;
     contagem();
-    document.body.classList.remove("carregando");
     document.body.classList.toggle("encerrado", !vivo);
 
     if (!d.ver.startsWith("twitch:") && $("capa").dataset.id !== d.ver) {
@@ -705,11 +794,18 @@ async function up() {
     $("sgI").innerHTML = segs.map(([n, c, v]) => `<span class="cor" style="--c:var(--${c})">${n} +${f(v)}</span>`).join("");
 
     // hist: [hora, twitch, kick, youtube, total]; encerrado não ganha pontos novos
-    if (!carregou) { carregou = true; d.hist.forEach(h => pontoNovo(h[0], h[4], h[3], h[1], h[2], h[6])); redesenha(r.recorde); }
-    else if (vivo && a.hora !== ultHora) { pontoNovo(a.hora, a.total, a.youtube, a.twitch, a.kick, a.tiktok); redesenha(r.recorde); }
+    if (!carregou) { carregou = true; d.hist.forEach(h => pontoNovo(h[0], h[4], h[3], h[1], h[2], h[6], h[5])); redesenha(r.recorde); }
+    else if (vivo && a.hora !== ultHora) { pontoNovo(a.hora, a.total, a.youtube, a.twitch, a.kick, a.tiktok, a.extras?.msgsMin); redesenha(r.recorde); }
     ultHora = a.hora;
     if ($("eps").classList.contains("on")) listaEps();
-  } catch (e) { document.body.classList.remove("carregando"); }
+    // só mostra a página com tudo preenchido; as animações de entrada começam aqui, não antes
+    revelaPagina();
+  } catch (e) { revelaPagina(); }
+}
+function revelaPagina() {
+  if (!document.body.classList.contains("carregando")) return;
+  document.body.classList.remove("carregando");
+  primeiraConta = false;
 }
 // pedido do painel: gera a imagem do compartilhar e guarda como prévia do link
 async function fazPrevia() {
@@ -882,7 +978,7 @@ function listaEps() {
     const quando = new Date(e.inicioLive || e.inicio);
     const vivo = d.aoVivo && id === d.atual.episodio;
     return `<div class="ep${id === d.ver ? " atual" : ""}">
-      ${yt ? `<a href="https://www.youtube.com/watch?v=${id}" target="_blank" rel="noopener" data-dica="Assistir no YouTube" aria-label="Assistir no YouTube"><img src="/capa/${id}.jpg" alt="" loading="lazy"></a>` : `<div></div>`}
+      ${yt ? `<a href="${id === Object.keys(d.records).find(k => d.aoVivo && k === d.atual.episodio) ? "/" : "/ep/" + (e.slug || id)}" data-dica="Ver painel" aria-label="Ver painel do episódio"><img src="/capa/${id}.jpg" alt="" loading="lazy"></a>` : `<div></div>`}
       <div>
         <h4>${esc(e.titulo.replace(/\s*\|.*$/, ""))}</h4>
         <div class="data">${vivo ? `<span class="vivo">AO VIVO</span> ` : ""}${quando.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })} às ${hm(quando)}</div>
@@ -926,8 +1022,18 @@ $("epSel").onclick = e => { e.stopPropagation(); montaMenu(); $("menuEps").class
 document.addEventListener("click", e => { if (!e.target.closest(".seletor")) $("menuEps").classList.remove("on"); });
 document.addEventListener("keydown", e => { if (e.key === "Escape") $("menuEps").classList.remove("on"); });
 // feedback e bugs
-let fbTipo = "bug";
-$("fbBtn").onclick = () => { $("fbMsg").textContent = ""; $("fb").classList.add("on"); setTimeout(() => $("fbTexto").focus(), 50); };
+let fbTipo = "bug", fbMomento = null;
+// mesma janela serve pra feedback geral e pra sugerir correção de um momento
+function abreFb(momento) {
+  fbMomento = momento;
+  $("fbTit").textContent = momento ? "Sugerir correção" : "Feedback e bugs";
+  document.querySelector(".fb-tipo").hidden = !!momento;
+  $("fbRef").hidden = !momento;
+  if (momento) { $("fbRef").innerHTML = `<b>${hm(momento.t)} · ${momento.titulo.replace(/[<>&]/g, "")}</b><br>Escreva como deveria ser a descrição deste momento.`; $("fbTexto").value = momento.contexto; }
+  $("fbMsg").textContent = ""; $("fb").classList.add("on"); setTimeout(() => $("fbTexto").focus(), 50);
+}
+$("fbBtn").onclick = () => abreFb(null);
+$("cenaCorr").onclick = () => { const c = cenaEm(+$("cenaCorr").dataset.t); if (c) abreFb(c); };
 $("fbFecha").onclick = () => $("fb").classList.remove("on");
 $("fb").onclick = e => { if (e.target.id === "fb") $("fb").classList.remove("on"); };
 document.querySelectorAll(".fb-tipo button").forEach(b => b.onclick = () => {
@@ -938,7 +1044,8 @@ $("fbForm").onsubmit = async e => {
   $("fbEnviar").disabled = true; $("fbMsg").textContent = "Enviando…";
   try {
     const r = await fetch("/feedback", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tipo: fbTipo, texto: $("fbTexto").value, contato: $("fbContato").value, pagina: location.pathname }) });
+      body: JSON.stringify({ tipo: fbMomento ? "correcao" : fbTipo, texto: $("fbTexto").value, contato: $("fbContato").value, pagina: location.pathname,
+        ep: fbMomento ? ultimo.ver : undefined, momento: fbMomento?.quando }) });
     const j = await r.json();
     if (!r.ok) throw new Error(j.erro || "Não deu para enviar agora.");
     $("fbTexto").value = ""; $("fbContato").value = ""; $("fbMsg").textContent = "Recebido, obrigado!";

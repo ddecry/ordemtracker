@@ -95,8 +95,23 @@ async function youtube() {
     if (records[ytLive] && ls?.actualEndTime) { records[ytLive].fimLive = ls.actualEndTime; records[ytLive].inicioLive = ls.actualStartTime || records[ytLive].inicioLive; fs.writeFileSync(DB, JSON.stringify(records, null, 2)); }
     ytLive = null; return { n: 0 };
   }
+  ytChat = ls?.activeLiveChatId || null;
   return { n: +(ls?.concurrentViewers || 0), id: v.id, title: v.snippet.title, likes: +(v.statistics?.likeCount || 0) || null, inicio: ls?.actualStartTime };
 }
+// chat do YouTube pela API oficial; a cada 20 s pra caber na cota diária junto com a contagem
+let ytChat = null, ytChatPagina = null;
+async function chatYoutube() {
+  if (!ytChat || !epAtual || !env.YOUTUBE_API_KEY) return;
+  const u = `https://www.googleapis.com/youtube/v3/liveChat/messages?liveChatId=${ytChat}&part=snippet&maxResults=2000${ytChatPagina ? "&pageToken=" + ytChatPagina : ""}&key=${env.YOUTUBE_API_KEY}`;
+  const r = await fetch(u);
+  if (!r.ok) { if (r.status === 403 || r.status === 404) ytChat = null; return; }
+  const j = await r.json();
+  const primeira = !ytChatPagina;
+  ytChatPagina = j.nextPageToken;
+  if (primeira) return; // a primeira página traz mensagens antigas; começa a contar daqui
+  for (const m of j.items || []) if (m.snippet?.type === "textMessageEvent") msg("youtube", m.snippet.authorChannelId, m.snippet.displayMessage);
+}
+setInterval(() => safe(chatYoutube), 20_000);
 
 // TikTok não tem API oficial de espectadores ao vivo: lê o mesmo endereço público que a página da live usa
 async function tiktok() {
@@ -125,11 +140,24 @@ function salvaChat(id) {
   const f = path.join(CHATTERS, id.replace(/[^\w-]/g, "_") + ".json");
   fs.writeFileSync(f, JSON.stringify({ msgs: chat.msgs, twitch: [...chat.pessoas.twitch], kick: [...chat.pessoas.kick] }));
 }
-function msg(plataforma, user) {
+function msg(plataforma, user, texto) {
   if (!epAtual) return;
-  chat.msgs[plataforma]++;
-  if (user) chat.pessoas[plataforma].add(user.toLowerCase());
+  chat.msgs[plataforma] = (chat.msgs[plataforma] || 0) + 1;
+  if (user) (chat.pessoas[plataforma] ||= new Set()).add(user.toLowerCase());
   janela.push(Date.now());
+  if (texto) guardaMsg(plataforma, user, texto);
+}
+// mensagens do episódio pra análise depois: quem escreveu vira um código que muda a cada episódio
+const CHATLOG = path.join(DADOS, "chat");
+fs.mkdirSync(CHATLOG, { recursive: true });
+let chatLog = null; // { id, sal, stream }
+function guardaMsg(plataforma, user, texto) {
+  if (chatLog?.id !== epAtual) {
+    chatLog?.stream.end();
+    chatLog = { id: epAtual, sal: crypto.createHash("sha256").update(epAtual + (env.ADMIN_SENHA || "")).digest("hex"), stream: fs.createWriteStream(path.join(CHATLOG, epAtual.replace(/[^\w-]/g, "_") + ".jsonl"), { flags: "a" }) };
+  }
+  const u = crypto.createHash("sha256").update(chatLog.sal + plataforma + (user || "").toLowerCase()).digest("hex").slice(0, 10);
+  chatLog.stream.write(JSON.stringify({ q: new Date().toISOString(), p: plataforma, u, t: String(texto).slice(0, 500) }) + "\n");
 }
 
 function conectaTwitch() {
@@ -138,7 +166,7 @@ function conectaTwitch() {
   ws.onmessage = e => {
     for (const l of String(e.data).split("\r\n")) {
       if (l.startsWith("PING")) ws.send("PONG :tmi.twitch.tv");
-      else if (l.includes(" PRIVMSG ")) msg("twitch", l.match(/^:([^!]+)!/)?.[1]);
+      else if (l.includes(" PRIVMSG ")) msg("twitch", l.match(/^:([^!]+)!/)?.[1], l.match(/ PRIVMSG #\S+ :(.*)$/)?.[1]);
     }
   };
   ws.onclose = () => setTimeout(conectaTwitch, 5000);
@@ -229,6 +257,7 @@ async function tick() {
     salvaChat(id);
     fs.writeFileSync(path.join(RESUMOS, id.replace(/[^\w-]/g, "_") + ".txt"), resumo(ep));
   }
+  gravacao();
   console.log(`[${new Date().toLocaleTimeString("pt-BR")}] ${id || "sem live"} T:${tw} K:${kk} Y:${atual.youtube} TT:${tt} TOTAL:${total} chat/min:${janela.length}`);
 }
 for (const [v, nome] of [["YOUTUBE_API_KEY", "YouTube"], ["TWITCH_CLIENT_ID", "Twitch"], ["KICK_CLIENT_ID", "Kick"]])
@@ -273,7 +302,9 @@ function publicos() {
   for (const [id, r] of Object.entries(records)) {
     const e = episodios.lista.find(x => x.id === id);
     if (e?.oculto) continue;
-    out[id] = { ...so({ ...r, titulo: e?.titulo || r.titulo, temporada: e?.temporada || null, media: mediaSemFim(id, r) }, CAMPOS), slug: slug(r.titulo, id) };
+    out[id] = { ...so({ ...r, titulo: e?.titulo || r.titulo, temporada: e?.temporada || null, media: mediaSemFim(id, r) }, CAMPOS), slug: slug(r.titulo, id),
+      // a faixa de chat no gráfico só aparece quando o chat do episódio foi gravado inteiro (do Ep 2 em diante)
+      chatCompleto: fs.existsSync(path.join(CHATLOG, id.replace(/[^\w-]/g, "_") + ".jsonl")) };
   }
   return out;
 }
@@ -369,9 +400,12 @@ async function feedback(req, res) {
   const b = await corpo(req).catch(() => null);
   const texto = String(b?.texto || "").trim().slice(0, 1500);
   if (texto.length < 5) return json(res, 400, { erro: "Escreva um pouco mais." });
+  // sugestão de correção de um momento: guarda qual episódio e qual momento
+  const correcao = b.tipo === "correcao" && records[b.ep] && leMomentos(b.ep).some(m => m.quando === b.momento) ? { ep: b.ep, momento: b.momento } : null;
+  if (b.tipo === "correcao" && !correcao) return json(res, 400, { erro: "Momento não encontrado." });
   envios.set(ip, [...lista, Date.now()]);
   const ua = req.headers["user-agent"] || "";
-  feedbacks = [{ id: crypto.randomBytes(5).toString("hex"), tipo: b.tipo === "bug" ? "bug" : "ideia", texto, contato: String(b.contato || "").trim().slice(0, 120),
+  feedbacks = [{ id: crypto.randomBytes(5).toString("hex"), tipo: correcao ? "correcao" : b.tipo === "bug" ? "bug" : "ideia", texto, contato: String(b.contato || "").trim().slice(0, 120), ...correcao,
     pagina: String(b.pagina || "").slice(0, 80), aparelho: /Mobi|Android|iPhone/i.test(ua) ? "Celular" : "Computador", quando: new Date().toISOString() }, ...feedbacks].slice(0, 500);
   salvaFb();
   json(res, 200, { ok: true });
@@ -389,14 +423,15 @@ const corpo = req => new Promise((ok, erro) => {
   let s = ""; req.on("data", c => { s += c; if (s.length > 1e5) req.destroy(); });
   req.on("end", () => { try { ok(JSON.parse(s || "{}")); } catch (e) { erro(e); } });
 });
-const json = (res, cod, obj) => { res.writeHead(cod, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); };
+const json = (res, cod, obj) => { res.writeHead(cod, { "Content-Type": "application/json; charset=utf-8" }); res.end(JSON.stringify(obj)); };
 
 const erros = new Map(); // ip -> [tentativas, desde]
 async function admin(req, res) {
   const url = new URL(req.url, "http://x");
   const ip = req.headers["x-forwarded-for"]?.split(",")[0].trim() || req.socket.remoteAddress;
   const e = erros.get(ip);
-  if (e && e[0] >= 5 && Date.now() - e[1] < 15 * 60_000) return json(res, 429, { erro: "Muitas tentativas. Espere 15 minutos." });
+  // o bloqueio por tentativas vale só no site publicado
+  if (env.NODE_ENV === "production" && e && e[0] >= 5 && Date.now() - e[1] < 15 * 60_000) return json(res, 429, { erro: "Muitas tentativas. Espere 15 minutos." });
   if (!env.ADMIN_SENHA) return json(res, 503, { erro: "Defina ADMIN_SENHA no .env para usar o painel." });
   if (!autorizado(req)) { const t = e && Date.now() - e[1] < 15 * 60_000 ? e : [0, Date.now()]; t[0]++; erros.set(ip, t); return json(res, 401, { erro: "Senha errada." }); }
   erros.delete(ip);
@@ -407,7 +442,18 @@ async function admin(req, res) {
       return { id, titulo: e.titulo || "", tituloYT: r?.titulo || "", temporada: e.temporada || "", data: e.data || r?.inicioLive || "", oculto: !!e.oculto, recorde: r?.recorde ?? null };
     }).sort((a, b) => (b.data || "").localeCompare(a.data || ""));
     if (url.searchParams.get("acessos")) return json(res, 200, relatorio());
-    if (url.searchParams.get("feedbacks")) return json(res, 200, feedbacks);
+    // correções vêm com o texto atual do momento, pra comparar
+    if (url.searchParams.get("feedbacks")) return json(res, 200, feedbacks.map(f => f.tipo === "correcao" ? { ...f, atual: leMomentos(f.ep).find(m => m.quando === f.momento) || null } : f));
+    const mid = url.searchParams.get("momentos");
+    if (mid && records[mid]) return json(res, 200, { lista: leMomentos(mid) });
+    if (url.searchParams.get("pendentes")) return json(res, 200, { pendentes: Object.keys(records).reduce((t, id) => t + leMomentos(id).filter(m => !m.aprovado).length, 0) });
+    // captura de rascunho (só no painel)
+    const cap = url.searchParams.get("captura")?.match(/^([\w-]+)\/([\w-]+\.jpg)$/);
+    if (cap && records[cap[1]]) {
+      const arq = path.join(MOMENTOS, cap[1], "capturas", cap[2]);
+      if (!fs.existsSync(arq)) return json(res, 404, {});
+      res.writeHead(200, { "Content-Type": "image/jpeg" }); return res.end(fs.readFileSync(arq));
+    }
     // senha de uso único pra página do episódio mandar a imagem da prévia
     const pv = url.searchParams.get("previa");
     if (pv && records[pv]) {
@@ -423,8 +469,24 @@ async function admin(req, res) {
       feedbacks = feedbacks.filter(f => f.id !== b.apagaFeedback); salvaFb();
       return json(res, 200, { ok: true });
     }
+    // aceita a sugestão: troca o texto do momento (o painel pode mandar o texto já ajustado)
+    const fc = b?.aplicaCorrecao && feedbacks.find(f => f.id === b.aplicaCorrecao && f.tipo === "correcao");
+    if (fc) {
+      const lista = leMomentos(fc.ep), m = lista.find(x => x.quando === fc.momento);
+      if (m) { m.contexto = String(b.texto || fc.texto).slice(0, 240); salvaMomentos(fc.ep, lista); }
+      feedbacks = feedbacks.filter(f => f.id !== fc.id); salvaFb();
+      return json(res, 200, { ok: true });
+    }
+    // revisão dos momentos: só guarda os campos conhecidos
+    if (b?.momentos && records[b.momentos] && Array.isArray(b.lista)) {
+      const lista = b.lista.slice(0, 500).map(m => ({ quando: new Date(m.quando).toISOString(), segundoVideo: +m.segundoVideo || 0,
+        titulo: String(m.titulo || "").slice(0, 80), contexto: String(m.contexto || "").slice(0, 240), tipo: m.tipo === "mesa" ? "mesa" : "historia",
+        captura: /^[\w-]+\.jpg$/.test(m.captura || "") ? m.captura : null, aprovado: !!m.aprovado }));
+      salvaMomentos(b.momentos, lista);
+      return json(res, 200, { ok: true });
+    }
     if (b?.config) {
-      episodios.config = { telaInicial: b.config.telaInicial === "ultimo" ? "ultimo" : "contagem", semProximo: String(b.config.semProximo || "").slice(0, 120) };
+      episodios.config = { telaInicial: b.config.telaInicial === "ultimo" ? "ultimo" : "contagem", semProximo: String(b.config.semProximo || "").slice(0, 120), glossario: String(b.config.glossario ?? episodios.config?.glossario ?? "").slice(0, 4000) };
       salvaEps();
       return json(res, 200, { ok: true });
     }
@@ -452,6 +514,139 @@ async function admin(req, res) {
   }
   json(res, 405, {});
 }
+
+// ---------- momentos do episódio (análise da live, revisados no painel) ----------
+// dados/momentos/<id>/momentos.json + capturas/<segundo>.jpg
+const MOMENTOS = path.join(DADOS, "momentos");
+const leMomentos = id => {
+  let lista; try { lista = JSON.parse(fs.readFileSync(path.join(MOMENTOS, id, "momentos.json"), "utf8")); } catch { return []; }
+  // captura tirada depois (análise de vídeo gravado): capturas/<segundo do vídeo>.jpg
+  for (const m of lista) if (!m.captura && m.segundoVideo != null && fs.existsSync(path.join(MOMENTOS, id, "capturas", m.segundoVideo + ".jpg"))) m.captura = m.segundoVideo + ".jpg";
+  // rascunho até aprovar no painel; nomes corrigidos pelo glossário
+  for (const m of lista) { m.aprovado ??= false; m.titulo = corrigeNomes(m.titulo); m.contexto = corrigeNomes(m.contexto); }
+  return lista;
+};
+// corrige nomes escritos como soam no áudio: apelidos do glossário ("Gwen => Gwayne") e nomes parecidos (até 2 letras de diferença)
+const semAcento = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const distancia = (a, b) => {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+};
+let gloCache = { texto: null };
+function corrigeNomes(texto) {
+  const g = config().glossario || "";
+  if (!g || !texto) return texto;
+  if (gloCache.texto !== g) {
+    const apelidos = [...g.matchAll(/^\s*(.+?)\s*(?:=>|→)\s*(.+?)\s*$/gm)].map(m => [m[1], m[2]]);
+    const nomes = [...new Set(g.replace(/^.*(?:=>|→).*$/gm, "").match(/\p{Lu}[\p{L}']{2,}/gu) || [])];
+    gloCache = { texto: g, apelidos, nomes, chave: new Set(nomes.map(semAcento)) };
+  }
+  let t = texto;
+  for (const [de, para] of gloCache.apelidos) t = t.replace(new RegExp(`(?<![\\p{L}])${de.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}])`, "gu"), para);
+  return t.replace(/\p{Lu}[\p{L}']{4,}/gu, p => {
+    const k = semAcento(p); if (gloCache.chave.has(k)) return p;
+    const perto = gloCache.nomes.map(n => [n, distancia(k, semAcento(n))]).filter(([n, d]) => d <= 2 && semAcento(n)[0] === k[0]).sort((a, b) => a[1] - b[1])[0];
+    return perto ? perto[0] : p;
+  });
+}
+const salvaMomentos = (id, lista) => { fs.mkdirSync(path.join(MOMENTOS, id), { recursive: true }); fs.writeFileSync(path.join(MOMENTOS, id, "momentos.json"), JSON.stringify(lista, null, 2)); };
+const momentosPublicos = id => leMomentos(id).filter(m => m.aprovado)
+  .map(m => ({ quando: m.quando, titulo: m.titulo, contexto: m.contexto, tipo: m.tipo, captura: m.captura ? `/momento/${id}/${m.captura}` : null }));
+
+// ---------- gravação durante a live (público, sem login) ----------
+// áudio em partes de 30 min e uma captura a cada 30 s; cada parte pronta vai pro Gemini, que devolve os momentos como rascunho
+const { spawn, execFile } = require("child_process");
+const GRAVACAO = path.join(DADOS, "gravacao");
+const PARTE_MIN = 30;
+let gravando = null; // { id, proc }
+const hora14 = d => d.toISOString().replace(/[-:]/g, "").slice(0, 15); // 20261107T210000
+const deHora14 = s => new Date(s.replace(/^(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)$/, "$1-$2-$3T$4:$5:$6Z"));
+function gravacao() {
+  const id = atual.episodio && atual.total > 0 && /^[\w-]{11}$/.test(atual.episodio) ? atual.episodio : null;
+  if (gravando && gravando.id !== id) { gravando.proc.kill("SIGINT"); gravando = null; }
+  if (!id || gravando || env.GRAVACAO !== "1") return;
+  const dir = path.join(GRAVACAO, id);
+  fs.mkdirSync(path.join(dir, "capturas"), { recursive: true });
+  // pega o endereço da transmissão pública da Twitch, que é a mesma live (o YouTube pede login para servidores de nuvem);
+  // o endereço expira em algumas horas: quando cai, a próxima volta do tick recomeça
+  execFile("yt-dlp", ["-g", "-f", "best[height<=480]/worst", "https://www.twitch.tv/" + TWITCH], { timeout: 60_000 }, (erro, saida) => {
+    const url = String(saida || "").trim().split("\n")[0];
+    if (erro || !url.startsWith("http")) { console.warn("gravação: sem endereço da live", erro?.message || ""); gravando = null; return; }
+    const proc = spawn("ffmpeg", ["-v", "error", "-i", url,
+      "-map", "0:a", "-ac", "1", "-ar", "16000", "-c:a", "libopus", "-b:a", "24k", "-f", "segment", "-segment_time", String(PARTE_MIN * 60), "-reset_timestamps", "1", "-strftime", "1", path.join(dir, "audio-%Y%m%dT%H%M%S.ogg"),
+      "-map", "0:v", "-vf", "fps=1/30,scale=854:-2", "-q:v", "4", "-f", "image2", "-strftime", "1", path.join(dir, "capturas", "%Y%m%dT%H%M%S.jpg")], { stdio: ["ignore", "ignore", "pipe"] });
+    proc.stderr.on("data", d => console.warn("ffmpeg:", String(d).trim().slice(0, 200)));
+    proc.on("exit", () => { if (gravando?.proc === proc) gravando = null; });
+    gravando = { id, proc };
+    console.log("gravação: começou", id);
+  });
+  gravando = { id, proc: { kill() {} } }; // reserva enquanto o yt-dlp responde
+}
+
+const GEMINI = "https://generativelanguage.googleapis.com";
+const PEDIDO_MOMENTOS = `Este é um trecho de áudio de uma live de RPG de mesa da série Ordem Paranormal, narrada pelo Cellbit com jogadores convidados.
+Liste os principais acontecimentos deste trecho: momentos da história (revelações, combates, mortes, decisões, cenas marcantes) e momentos da mesa (piadas que todos riram, pausas, intervalo, abertura e encerramento).
+Para cada um, informe o segundo deste trecho em que começa, um título curto (até 8 palavras) e uma frase de contexto (até 25 palavras), em português.
+Seja factual: use só nomes de personagens e lugares que foram ditos claramente. Não invente. Prefira 1 momento a cada 3 a 8 minutos.`;
+const ESQUEMA_MOMENTOS = { type: "ARRAY", items: { type: "OBJECT", properties: {
+  segundo: { type: "INTEGER" }, titulo: { type: "STRING" }, contexto: { type: "STRING" }, tipo: { type: "STRING", enum: ["historia", "mesa"] } },
+  required: ["segundo", "titulo", "contexto", "tipo"] } };
+async function geminiAudio(arq) {
+  const k = { "x-goog-api-key": env.GEMINI_API_KEY };
+  const tam = fs.statSync(arq).size;
+  const ini = await fetch(`${GEMINI}/upload/v1beta/files`, { method: "POST", headers: { ...k, "X-Goog-Upload-Protocol": "resumable", "X-Goog-Upload-Command": "start",
+    "X-Goog-Upload-Header-Content-Length": tam, "X-Goog-Upload-Header-Content-Type": "audio/ogg", "Content-Type": "application/json" }, body: JSON.stringify({ file: { display_name: path.basename(arq) } }) });
+  const up = await fetch(ini.headers.get("x-goog-upload-url"), { method: "POST", headers: { "X-Goog-Upload-Offset": "0", "X-Goog-Upload-Command": "upload, finalize" }, body: fs.readFileSync(arq) });
+  let f = (await up.json()).file;
+  while (f?.state === "PROCESSING") { await new Promise(r => setTimeout(r, 5000)); f = await (await fetch(`${GEMINI}/v1beta/${f.name}`, { headers: k })).json(); }
+  if (f?.state !== "ACTIVE") throw new Error("gemini: arquivo não ficou pronto");
+  const corpo = JSON.stringify({ contents: [{ parts: [{ fileData: { fileUri: f.uri, mimeType: f.mimeType } }, { text: PEDIDO_MOMENTOS + (config().glossario ? "\nUse exatamente a grafia oficial destes nomes (o áudio pode soar diferente):\n" + config().glossario : "") }] }], generationConfig: { responseMimeType: "application/json", responseSchema: ESQUEMA_MOMENTOS } });
+  // cada modelo tem a sua cota gratuita: se o principal estourar (429), tenta o mais leve com a mesma chave
+  let j;
+  for (const modelo of [env.GEMINI_MODELO || "gemini-3.8-flash", env.GEMINI_RESERVA || "gemini-3.5-flash-lite"]) {
+    j = await fetch(`${GEMINI}/v1beta/models/${modelo}:generateContent`, { method: "POST", headers: { ...k, "Content-Type": "application/json" }, body: corpo })
+      .then(r => r.json()).catch(e => ({ error: { code: 503, message: e.cause?.code || e.message } }));
+    if (j.error?.code !== 429) break;
+  }
+  fetch(`${GEMINI}/v1beta/${f.name}`, { method: "DELETE", headers: k }).catch(() => {});
+  if (j.error) throw Object.assign(new Error("gemini: " + j.error.message), { codigo: j.error.code });
+  return JSON.parse(j.candidates[0].content.parts[0].text);
+}
+// a cada 2 min: partes de áudio completas viram momentos (rascunho) com a captura mais próxima
+let analisando = false;
+async function analisaPartes() {
+  if (analisando || !env.GEMINI_API_KEY || !fs.existsSync(GRAVACAO)) return;
+  analisando = true;
+  try {
+    for (const id of fs.readdirSync(GRAVACAO)) {
+      const dir = path.join(GRAVACAO, id);
+      const partes = fs.readdirSync(dir).filter(f => /^audio-\d{8}T\d{6}\.ogg$/.test(f)).sort();
+      // enquanto grava, a última parte ainda está sendo escrita
+      const prontas = gravando?.id === id ? partes.slice(0, -1) : partes;
+      for (const p of prontas) {
+        const inicio = deHora14(p.slice(6, 21));
+        const lista = await geminiAudio(path.join(dir, p));
+        const caps = fs.readdirSync(path.join(dir, "capturas")).filter(f => f.endsWith(".jpg")).map(f => ({ f, t: deHora14(f.slice(0, 15)).getTime() }));
+        const novos = lista.map(m => {
+          const t = inicio.getTime() + Math.max(0, Math.min(PARTE_MIN * 60, m.segundo)) * 1000;
+          const cap = caps.filter(c => c.t >= t).sort((a, b) => a.t - b.t)[0] || caps.at(-1);
+          let captura = null;
+          if (cap) { captura = cap.f; fs.mkdirSync(path.join(MOMENTOS, id, "capturas"), { recursive: true }); fs.copyFileSync(path.join(dir, "capturas", cap.f), path.join(MOMENTOS, id, "capturas", cap.f)); }
+          return { quando: new Date(t).toISOString(), titulo: String(m.titulo).slice(0, 80), contexto: String(m.contexto).slice(0, 240), tipo: m.tipo === "mesa" ? "mesa" : "historia", captura, aprovado: false };
+        });
+        salvaMomentos(id, [...leMomentos(id), ...novos].sort((a, b) => a.quando.localeCompare(b.quando)));
+        fs.unlinkSync(path.join(dir, p));
+        console.log("momentos:", id, p, novos.length);
+      }
+      // live acabou e tudo analisado: apaga o que sobrou da gravação
+      if (gravando?.id !== id && !fs.readdirSync(dir).some(f => f.endsWith(".ogg"))) fs.rmSync(dir, { recursive: true, force: true });
+    }
+  } catch (e) { console.warn(e.message); }
+  analisando = false;
+}
+setInterval(analisaPartes, 120_000);
 
 // ---------- prévia do link (X, WhatsApp, Discord) ----------
 // a imagem é a mesma do "Compartilhar", gerada pela página do episódio a pedido do painel
@@ -517,7 +712,7 @@ http.createServer(async (req, res) => {
     const linhas = fs.readFileSync(HIST, "utf8").trim().split("\n").slice(1);
     const hist = linhas.map(l => l.split(",")).filter(c => c[1] === ver).map(c => [c[0], ...c.slice(2, 6).map(v => (v === "" ? null : +v)), c[7] ? +c[7] : null, c[8] ? +c[8] : null]);
     const at = { ...so(atual, ["twitch", "kick", "youtube", "tiktok", "total", "hora", "episodio"]), extras: so(atual.extras || {}, ["inicio", "ytLikes", "msgsMin", "chatMsgs", "chatPessoas", "twitchSeguidores", "tiktokSeguidores"]) };
-    return json(res, 200, { atual: at, records: pub, hist, ver, aoVivo, proximos: proximos(), config: config() });
+    return json(res, 200, { atual: at, records: pub, hist, ver, aoVivo, proximos: proximos(), config: config(), momentos: ver ? momentosPublicos(ver) : [] });
   }
   if (url.pathname === "/feedback" && req.method === "POST") return feedback(req, res);
   if (ADMIN && url.pathname === ADMIN + "/api") return admin(req, res);
@@ -546,6 +741,12 @@ http.createServer(async (req, res) => {
     return res.end(fs.readFileSync(path.join(PUBLICO, img[1])));
   }
   if (url.pathname === "/previa" && req.method === "POST") return recebePrevia(req, res, url);
+  // captura de momento aprovado
+  const mc = url.pathname.match(/^\/momento\/([\w-]+)\/([\w-]+\.jpg)$/);
+  if (mc && leMomentos(mc[1]).some(m => m.aprovado && m.captura === mc[2]) && fs.existsSync(path.join(MOMENTOS, mc[1], "capturas", mc[2]))) {
+    res.writeHead(200, { "Content-Type": "image/jpeg", "Cache-Control": "max-age=3600" });
+    return res.end(fs.readFileSync(path.join(MOMENTOS, mc[1], "capturas", mc[2])));
+  }
   const pv = url.pathname.match(/^\/previa\/([\w-]+)\.png$/);
   if (pv && fs.existsSync(path.join(PREVIAS, pv[1] + ".png"))) {
     res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "max-age=300" });
