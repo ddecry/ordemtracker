@@ -66,12 +66,32 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
 .tab{font-size:13px}.tab div{display:grid;grid-template-columns:1fr 90px 90px;padding:8px 0;border-bottom:1px solid var(--line)}.tab div:first-child{color:var(--mut);font-size:12px}
 .tab span:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
 .nota{font-size:12px;margin-top:20px}
+.leg{display:inline-block;width:8px;height:8px;border-radius:2px;margin:0 4px 0 10px}
 
 .fb{padding:14px 0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr auto;gap:4px 12px}
 .fb p{color:var(--tx);margin:0;white-space:pre-wrap;grid-column:1}
 .fb small{color:var(--mut);grid-column:1}
 .fb button{grid-row:1/3;grid-column:2;align-self:center}
 .tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:9px;margin-right:6px;background:var(--line)}.tag.bug{background:var(--red);color:#fff}.tag.correcao{background:#3b82f6;color:#fff}
+
+/* episódios e configurações */
+.passos{display:grid;gap:12px}
+.ajuda{display:block;color:var(--mut);font-size:12px;margin-top:4px}
+.lista-eps{padding:4px 18px}
+.lista-eps:empty{display:none}
+.selo2{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:9px;background:var(--line);color:var(--tx);margin-left:6px;vertical-align:1px}
+.selo2.vivo{background:var(--red);color:#fff}
+.opcoes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.opcao{display:flex;gap:10px;align-items:flex-start;margin:0;padding:12px 14px;border:1px solid var(--line);border-radius:12px;cursor:pointer;color:var(--tx)}
+.opcao:has(input:checked){border-color:var(--tx);background:var(--panel2)}
+.opcao input{width:auto;margin-top:3px}
+.opcao b{display:block;font-weight:600}.opcao small{color:var(--mut);font-size:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips span{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:99px;padding:4px 6px 4px 12px;font-size:13px}
+.chips button{background:none;color:var(--mut);padding:0 6px;font-size:15px;line-height:1}
+.wiki{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px;font-size:13px}
+.wiki pre{white-space:pre-wrap;margin:6px 0 0;font:12px/1.5 Inter,sans-serif;color:var(--mut)}
+@media (max-width:760px){.opcoes{grid-template-columns:1fr}}
 
 /* status */
 .st-lista{display:grid;gap:8px}
@@ -138,6 +158,9 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
 
 <section class="aba" id="aba-status" hidden>
   <div class="topo"><div><h2>Status</h2><p id="stResumo">Se cada parte do site está funcionando. Atualiza a cada 10 segundos.</p></div></div>
+  <h3 style="margin-top:0">Quem usa o site</h3>
+  <div class="stats" id="stPub"></div>
+  <h3>Partes do site</h3>
   <div id="stLista" class="st-lista"></div>
   <h3>Servidor</h3>
   <div class="stats" id="stServ"></div>
@@ -145,6 +168,16 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
 
 <section class="aba" id="aba-publico" hidden>
   <div class="topo"><div><h2>Público</h2><p>Como as pessoas usam o site hoje e nos últimos dias.</p></div></div>
+  <h3 style="margin-top:0">Desde o início</h3>
+  <div class="stats">
+    <div class="stat"><span>Visitas no total</span><b id="acTotVis">-</b></div>
+    <div class="stat"><span>Pessoas por dia (média)</span><b id="acMedUni">-</b></div>
+    <div class="stat"><span>Maior dia</span><b id="acMaior">-</b><span id="acMaiorDia"></span></div>
+    <div class="stat"><span>Dias com dados</span><b id="acDias">-</b></div>
+  </div>
+  <h3>Pessoas e visitas por dia</h3>
+  <div class="grafico"><svg id="acDiario" viewBox="0 0 600 120" preserveAspectRatio="none"></svg><div class="eixo"><span id="acDiaIni"></span><span><i class="leg" style="background:var(--tx)"></i>pessoas únicas <i class="leg" style="background:var(--mut);opacity:.5"></i>visitas</span><span>hoje</span></div></div>
+  <h3>Hoje</h3>
   <div class="stats">
     <div class="stat"><span>Tempo médio no site</span><b id="acTempo">-</b></div>
     <div class="stat"><span>Ficaram 10 min ou mais</span><b id="acMais10">-</b></div>
@@ -166,21 +199,27 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
 </section>
 
 <section class="aba" id="aba-episodios" hidden>
-  <div class="topo"><div><h2>Episódios</h2><p>Cole o link da live agendada no canal Ordem Paranormal. Título, data e capa vêm sozinhos do YouTube.</p></div></div>
-  <form id="form" class="card">
-    <h3 id="formT" style="margin-top:0">Novo episódio</h3>
-    <div class="g"><div><label for="link">Link do YouTube (pode ficar vazio até a live ser agendada)</label><input id="link" autocomplete="off" placeholder="https://www.youtube.com/watch?v=..."></div>
-      <div><label for="data">Data e hora (vazio = a do YouTube)</label><input id="data" type="datetime-local"></div></div>
-    <div class="g"><div><label for="titulo">Título no site (vazio = título do YouTube)</label><input id="titulo" maxlength="200"></div>
-      <div><label for="temporada">Temporada</label><input id="temporada" maxlength="100" placeholder="A Vigília"></div></div>
-    <img id="previa" alt="" hidden style="width:240px;aspect-ratio:16/9;object-fit:cover;border-radius:8px;margin-bottom:12px">
-    <div class="g3">
-      <label class="chk"><input id="oculto" type="checkbox"> Esconder do site</label>
-      <button type="button" class="sec" id="limpa">Limpar</button><button>Salvar</button></div>
+  <div class="topo"><div><h2>Episódios</h2><p>Os próximos episódios aparecem na contagem da página inicial; os que já foram ao ar ficam na lista de episódios do site.</p></div>
+    <button type="button" id="novoEp">+ Adicionar episódio</button></div>
+  <form id="form" class="card" hidden>
+    <div class="topo" style="margin-bottom:12px"><h3 id="formT" style="margin:0">Novo episódio</h3><button type="button" class="sec peq" id="limpa">Cancelar</button></div>
+    <div class="passos">
+      <div><label for="link">Link da live no YouTube <span class="mut">(opcional)</span></label><input id="link" autocomplete="off" placeholder="https://www.youtube.com/watch?v=...">
+        <small class="ajuda">Com o link, título, data e capa vêm sozinhos. Sem link, preencha a data e cole o link quando o canal agendar a live.</small></div>
+      <div class="g"><div><label for="data">Data e hora</label><input id="data" type="datetime-local"></div>
+        <div><label for="temporada">Temporada</label><input id="temporada" maxlength="100" placeholder="A Vigília"></div></div>
+      <div><label for="titulo">Título no site <span class="mut">(opcional)</span></label><input id="titulo" maxlength="200" placeholder="A Vigília - Episódio 2">
+        <small class="ajuda">Vazio usa o título do YouTube.</small></div>
+    </div>
+    <img id="previa" alt="" hidden style="width:240px;aspect-ratio:16/9;object-fit:cover;border-radius:8px;margin:12px 0 0">
+    <div class="g3" style="margin-top:14px;grid-template-columns:1fr auto">
+      <label class="chk"><input id="oculto" type="checkbox"> Esconder do site</label><button>Salvar episódio</button></div>
     <p id="msg"></p>
   </form>
-  <h3>Cadastrados e gravados</h3>
-  <div id="lista"></div>
+  <h3>Próximos</h3>
+  <div id="listaProx" class="card lista-eps"></div>
+  <h3>Já foram ao ar</h3>
+  <div id="lista" class="card lista-eps"></div>
 </section>
 
 <section class="aba" id="aba-momentos" hidden>
@@ -200,17 +239,24 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
 <section class="aba" id="aba-config" hidden>
   <div class="topo"><div><h2>Configurações</h2></div></div>
   <div class="card">
-    <h3 style="margin-top:0">Tela inicial entre episódios</h3>
-    <div class="g"><div><label for="tela">Quando não tiver live</label>
-        <select id="tela"><option value="contagem">Contagem regressiva para o próximo episódio</option><option value="ultimo">Números do último episódio</option></select></div>
-      <div><label for="semProx">Texto quando não houver próximo cadastrado</label><input id="semProx" maxlength="120" placeholder="Nova temporada em breve"></div></div>
-    <div class="g3" style="grid-template-columns:1fr auto"><span class="mut" id="cfgMsg"></span><button type="button" id="salvaCfg">Salvar</button></div>
+    <h3 style="margin-top:0">Página inicial quando não tem live</h3>
+    <p>O que aparece em ordemtracker.site entre um episódio e outro.</p>
+    <div class="opcoes">
+      <label class="opcao"><input type="radio" name="tela" value="contagem"><span><b>Contagem para o próximo episódio</b><small>Mostra quanto falta para o próximo episódio da aba Episódios.</small></span></label>
+      <label class="opcao"><input type="radio" name="tela" value="ultimo"><span><b>Números do último episódio</b><small>Abre direto no painel do último episódio que foi ao ar.</small></span></label>
+    </div>
+    <label for="semProx" style="margin-top:14px">Mensagem quando não houver próximo episódio</label>
+    <input id="semProx" maxlength="120" placeholder="Nova temporada em breve">
+    <small class="ajuda">Aparece no lugar da contagem quando nenhum episódio futuro estiver cadastrado, por exemplo entre temporadas.</small>
+    <div class="g3" style="grid-template-columns:1fr auto;margin-top:12px"><span class="mut" id="cfgMsg"></span><button type="button" id="salvaCfg">Salvar</button></div>
   </div>
   <div class="card" style="margin-top:14px">
-    <h3 style="margin-top:0">Glossário dos momentos</h3>
-    <p>Nomes de personagens, lugares e termos com a grafia oficial (como na Ordem Paranormal Wiki). A análise usa esta lista para não escrever os nomes como soam no áudio.</p>
-    <textarea id="glossario" rows="9" maxlength="4000" placeholder="Jogadores e personagens: Grifo joga Gwayne; ...&#10;Lugar: o vilarejo Treb Ciach."></textarea>
-    <div class="g3" style="grid-template-columns:1fr auto;margin-top:10px"><span class="mut" id="gloMsg"></span><button type="button" id="salvaGlo">Salvar glossário</button></div>
+    <div class="topo" style="margin-bottom:6px"><h3 style="margin:0">Nomes oficiais dos momentos</h3><button type="button" class="sec peq" id="atualizaWiki">Atualizar da wiki</button></div>
+    <p>Personagens, jogadores, monstros e lugares lidos sozinhos da <a href="https://ordemparanormal.fandom.com/wiki/Ordem_Paranormal_Wiki" target="_blank" rel="noopener">Ordem Paranormal Wiki</a> (de hora em hora durante o episódio e a cada 12 horas no resto do tempo), para os momentos usarem a grafia certa.</p>
+    <div id="wiki"></div>
+    <h3>Correções aprendidas</h3>
+    <p>Quando você edita um momento e troca um nome escrito errado por um nome da wiki, a troca fica guardada aqui e passa a valer sozinha nos próximos momentos. Toque no × para desfazer uma.</p>
+    <div id="apelidos" class="chips"></div>
   </div>
 </section>
 
@@ -246,16 +292,22 @@ document.querySelectorAll("nav button[data-aba]").forEach(b => b.onclick = () =>
 async function carrega() {
   const j = await api("GET");
   dados = j.lista;
-  $("tela").value = j.config.telaInicial; $("semProx").value = j.config.semProximo || ""; $("glossario").value = j.config.glossario || "";
+  const opc = document.querySelector(`input[name=tela][value="${j.config.telaInicial}"]`); if (opc) opc.checked = true;
+  $("semProx").value = j.config.semProximo || ""; apelidos = j.config.apelidos || {}; mostraApelidos();
+  mostraWiki(j.wiki);
   $("login").hidden = true; $("app").hidden = false;
   const vivo = dados.find(e => e.id === j.aoVivo);
   $("navPulso").classList.toggle("off", !vivo); $("navVivo").textContent = vivo ? "Ao vivo: " + titulo(vivo) : "Sem live agora";
-  $("lista").innerHTML = dados.map((e, i) => `<div class="ep">
+  // próximos (ainda sem números) e os que já foram ao ar
+  const item = (e, i) => `<div class="ep">
     ${e.id.startsWith("ag-") ? `<img class="borrada" src="/temporadas/${kebab(e.temporada || titulo(e))}.jpg" alt="" onerror="this.removeAttribute('src')">` : `<img src="/capa/${e.id}.jpg" alt="" loading="lazy">`}
-    <div><b>${esc(titulo(e))}</b>
-      <small>${e.temporada ? esc(e.temporada) + " · " : ""}${e.data ? new Date(e.data).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "sem data"}${e.id === j.aoVivo ? " · AO VIVO" : ""}${e.recorde != null ? " · pico " + e.recorde.toLocaleString("pt-BR") : " · ainda sem dados"}${e.oculto ? " · escondido" : ""}</small></div>
-    <div class="a"><button type="button" class="sec peq" data-ed="${i}">Editar</button>${e.recorde != null ? `<button type="button" class="sec peq" data-pv="${esc(e.id)}">Prévia do link</button>` : ""}${e.recorde == null ? `<button type="button" class="sec peq" data-rm="${i}">Remover</button>` : ""}</div>
-  </div>`).join("") || `<p>Nada cadastrado ainda.</p>`;
+    <div><b>${esc(titulo(e))}</b>${e.id === j.aoVivo ? '<span class="selo2 vivo">AO VIVO</span>' : ""}${e.oculto ? '<span class="selo2">escondido</span>' : ""}${e.recorde == null ? (e.id.startsWith("ag-") ? '<span class="selo2">sem link ainda</span>' : '<span class="selo2">live agendada</span>') : ""}
+      <small>${e.temporada ? esc(e.temporada) + " · " : ""}${e.data ? new Date(e.data).toLocaleString("pt-BR", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "sem data"}${e.recorde != null ? " · pico " + e.recorde.toLocaleString("pt-BR") : ""}</small></div>
+    <div class="a"><button type="button" class="sec peq" data-ed="${i}">Editar</button>${e.recorde != null ? `<button type="button" class="sec peq" data-pv="${esc(e.id)}">Prévia do link</button>` : `<button type="button" class="sec peq" data-rm="${i}">Remover</button>`}</div>
+  </div>`;
+  const prox = dados.map((e, i) => [e, i]).filter(([e]) => e.recorde == null).sort((p, q) => (p[0].data || "").localeCompare(q[0].data || ""));
+  $("listaProx").innerHTML = prox.map(([e, i]) => item(e, i)).join("") || `<p style="margin:12px 0">Nenhum próximo episódio. Use "Adicionar episódio" para cadastrar.</p>`;
+  $("lista").innerHTML = dados.map((e, i) => [e, i]).filter(([e]) => e.recorde != null).map(([e, i]) => item(e, i)).join("") || `<p style="margin:12px 0">Nenhum episódio gravado ainda.</p>`;
   // episódios gravados no seletor de momentos
   const sel = $("moEp"), atual = sel.value;
   sel.innerHTML = dados.filter(e => e.recorde != null).map(e => `<option value="${esc(e.id)}">${esc(titulo(e))}</option>`).join("");
@@ -272,14 +324,16 @@ $("senha").onkeydown = e => { if (e.key === "Enter") $("entrar").click(); };
 // ---------- episódios ----------
 const idDe = s => (s.match(/(?:v=|youtu\.be\/|live\/|^)([\w-]{11})(?:[?&#/]|$)/) || [])[1];
 $("link").oninput = () => { const id = idDe($("link").value.trim()); $("previa").hidden = !id; if (id) $("previa").src = "/capa/" + id + ".jpg"; };
-$("limpa").onclick = () => { $("previa").hidden = true; editando = null; $("form").reset(); $("formT").textContent = "Novo episódio"; aviso(""); };
+$("limpa").onclick = () => { $("previa").hidden = true; editando = null; $("form").reset(); $("formT").textContent = "Novo episódio"; $("form").hidden = true; };
+$("novoEp").onclick = () => { $("limpa").click(); aviso(""); $("form").hidden = false; $("link").focus(); };
 $("form").onsubmit = async ev => {
   ev.preventDefault();
   try {
     await api("POST", { link: $("link").value, antigo: editando, id: editando, titulo: $("titulo").value, temporada: $("temporada").value, data: $("data").value ? new Date($("data").value).toISOString() : "", oculto: $("oculto").checked });
-    $("limpa").click(); aviso("Salvo."); await carrega();
+    $("limpa").click(); await carrega(); aviso("Salvo.");
   } catch (e) { aviso(e.message, true); }
 };
+$("listaProx").onclick = ev => $("lista").onclick(ev);
 $("lista").onclick = async ev => {
   const ed = ev.target.dataset.ed, rm = ev.target.dataset.rm;
   // abre o episódio numa aba nova, que gera a imagem e manda pro servidor
@@ -292,7 +346,7 @@ $("lista").onclick = async ev => {
   if (ed != null) {
     const e = dados[ed];
     editando = e.id; $("link").value = e.id.startsWith("ag-") ? "" : "https://www.youtube.com/watch?v=" + e.id; $("titulo").value = e.titulo; $("temporada").value = e.temporada;
-    $("data").value = local(e.data); $("oculto").checked = e.oculto; $("link").oninput(); $("formT").textContent = "Editando episódio"; scrollTo(0, 0);
+    $("data").value = local(e.data); $("oculto").checked = e.oculto; $("link").oninput(); $("formT").textContent = "Editando " + titulo(e); $("form").hidden = false; aviso(""); scrollTo(0, 0);
   }
   if (rm != null && confirm("Remover este cadastro?")) {
     try { await api("POST", { id: dados[rm].id, remover: true }); await carrega(); } catch (e) { aviso(e.message, true); }
@@ -313,6 +367,14 @@ async function status() {
     <span>${i.ok === false && i.ultimoOk ? "funcionou " + ha(j.agora - i.ultimoOk) : i.quando ? "checado " + ha(j.agora - i.quando) : ""}</span>
     <small>${esc(i.info || (i.ok ? "funcionando" : i.ok === false ? "com erro" : "parado"))}${i.ultimaMsg ? " · última mensagem " + ha(j.agora - i.ultimaMsg) : ""}</small>
   </div>`).join("");
+  const p = j.publico, dia = d => d ? new Date(d + "T12:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) : "";
+  $("stPub").innerHTML = `<div class="stat destaque"><span><i class="pulso"></i>Online agora</span><b>${n(p.online)}</b></div>
+    <div class="stat"><span>Pico geral ao mesmo tempo</span><b>${n(p.picoGeral)}</b><span>${dia(p.picoGeralDia)}</span></div>
+    <div class="stat"><span>Pico hoje</span><b>${n(p.picoHoje)}</b></div>
+    <div class="stat"><span>Pessoas hoje</span><b>${n(p.unicosHoje)}</b></div>
+    <div class="stat"><span>Visitas hoje</span><b>${n(p.visitasHoje)}</b></div>
+    <div class="stat"><span>Visitas no total</span><b>${n(p.visitasTotal)}</b></div>
+    <div class="stat"><span>Pessoas por dia (média)</span><b>${n(p.mediaDia)}</b></div>`;
   const sv = j.servidor;
   $("stServ").innerHTML = `<div class="stat"><span>Ligado</span><b>${ha(sv.ligadoHa).replace("há ", "")}</b></div>
     <div class="stat"><span>Memória livre</span><b>${gb(sv.memoriaLivre)}</b></div>
@@ -321,11 +383,29 @@ async function status() {
 }
 
 // ---------- configurações ----------
-$("salvaCfg").onclick = async () => {
-  try { await api("POST", { config: { telaInicial: $("tela").value, semProximo: $("semProx").value } }); $("cfgMsg").textContent = "Salvo."; } catch (e) { $("cfgMsg").textContent = e.message; }
+let apelidos = {};
+const cfg = () => ({ telaInicial: document.querySelector("input[name=tela]:checked")?.value || "contagem", semProximo: $("semProx").value, apelidos });
+function mostraApelidos() {
+  const l = Object.entries(apelidos);
+  $("apelidos").innerHTML = l.length ? l.map(([de, para]) => `<span>${esc(de)} → <b>${esc(para)}</b><button type="button" data-de="${esc(de)}" aria-label="Desfazer">×</button></span>`).join("") : '<p class="mut">Nenhuma ainda.</p>';
+}
+$("apelidos").onclick = async e => {
+  const de = e.target.dataset.de; if (!de) return;
+  delete apelidos[de]; mostraApelidos();
+  await api("POST", { config: cfg() }).catch(er => alert(er.message));
 };
-$("salvaGlo").onclick = async () => {
-  try { await api("POST", { config: { telaInicial: $("tela").value, semProximo: $("semProx").value, glossario: $("glossario").value } }); $("gloMsg").textContent = "Salvo."; } catch (e) { $("gloMsg").textContent = e.message; }
+$("salvaCfg").onclick = async () => {
+  try { await api("POST", { config: cfg() }); $("cfgMsg").textContent = "Salvo."; } catch (e) { $("cfgMsg").textContent = e.message; }
+};
+// nomes lidos da wiki, por temporada
+function mostraWiki(w) {
+  const t = Object.values(w || {});
+  $("wiki").innerHTML = t.length ? t.map(g => `<div class="wiki"><b>${esc(g.pagina || "Temporada")}</b> <span class="mut">· ${g.erro ? "erro: " + esc(g.erro) : "atualizado " + ha(Date.now() - g.quando)}</span>${g.texto ? `<pre>${esc(g.texto)}</pre>` : ""}</div>`).join("") : '<p class="mut">Ainda não leu a wiki. Cadastre a temporada dos episódios e clique em "Atualizar da wiki".</p>';
+}
+$("atualizaWiki").onclick = async () => {
+  $("atualizaWiki").disabled = true; $("atualizaWiki").textContent = "Atualizando…";
+  try { mostraWiki((await api("POST", { atualizaWiki: true })).wiki); } catch (e) { alert(e.message); }
+  $("atualizaWiki").disabled = false; $("atualizaWiki").textContent = "Atualizar da wiki";
 };
 
 // ---------- acessos (abas Agora e Público), atualiza a cada 10 segundos ----------
@@ -350,7 +430,16 @@ async function acessos() {
   $("acNav").innerHTML = lista(j.navegadores, "Ainda sem dados hoje."); $("acSis").innerHTML = lista(j.sistemas, "Ainda sem dados hoje."); $("acPag").innerHTML = lista(j.paginas, "Ainda sem visitas hoje.");
   const eps = Object.values(j.eps);
   $("acEps").innerHTML = eps.length ? `<div><span>Episódio</span><span>Únicos</span><span>Pico online</span></div>` + eps.map(e => `<div><span>${esc(e.titulo.replace(/\s*\|.*$/, ""))}</span><span>${n(e.unicos)}</span><span>${n(e.pico)}</span></div>`).join("") : "<p>Os números aparecem a partir do próximo episódio ao vivo.</p>";
-  $("acHist").innerHTML = j.historico.length ? `<div><span>Dia</span><span>Únicos</span><span>Visitas</span></div>` + j.historico.slice().reverse().map(h => `<div><span>${new Date(h.dia + "T12:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" })}</span><span>${n(h.unicos)}</span><span>${n(h.views)}</span></div>`).join("") : "<p>O histórico começa amanhã.</p>";
+  // dias anteriores + hoje; cada pessoa é contada uma vez por dia (o código anônimo muda todo dia)
+  const dias = [...j.historico, { dia: "hoje", unicos: j.unicos, views: j.views }];
+  const totVis = dias.reduce((t, d) => t + (d.views || 0), 0), maior = dias.reduce((m, d) => (d.unicos || 0) > (m.unicos || 0) ? d : m, dias[0]);
+  const dataCurta = d => d === "hoje" ? "hoje" : new Date(d + "T12:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+  $("acTotVis").textContent = n(totVis); $("acMedUni").textContent = n(Math.round(dias.reduce((t, d) => t + (d.unicos || 0), 0) / dias.length));
+  $("acMaior").textContent = n(maior.unicos); $("acMaiorDia").textContent = "pessoas · " + dataCurta(maior.dia); $("acDias").textContent = n(dias.length);
+  const dMax = Math.max(1, ...dias.map(d => Math.max(d.unicos || 0, d.views || 0))), lg = 600 / dias.length;
+  $("acDiario").innerHTML = dias.map((d, i) => `<rect x="${i * lg + lg * .12}" y="${118 - (d.views || 0) / dMax * 110}" width="${lg * .76}" height="${(d.views || 0) / dMax * 110 + 2}" rx="2" fill="currentColor" opacity=".18"><title>${dataCurta(d.dia)}: ${n(d.views)} visitas</title></rect><rect x="${i * lg + lg * .3}" y="${118 - (d.unicos || 0) / dMax * 110}" width="${lg * .4}" height="${(d.unicos || 0) / dMax * 110 + 2}" rx="2" fill="currentColor" opacity=".85"><title>${dataCurta(d.dia)}: ${n(d.unicos)} pessoas</title></rect>`).join("");
+  $("acDiaIni").textContent = dataCurta(dias[0].dia);
+  $("acHist").innerHTML = j.historico.length ? `<div><span>Dia</span><span>Únicos</span><span>Visitas</span></div>` + j.historico.slice(-14).reverse().map(h => `<div><span>${new Date(h.dia + "T12:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" })}</span><span>${n(h.unicos)}</span><span>${n(h.views)}</span></div>`).join("") : "<p>O histórico começa amanhã.</p>";
 }
 
 // ---------- feedbacks ----------

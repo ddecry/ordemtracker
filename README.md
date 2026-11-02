@@ -49,8 +49,8 @@ node server.js         # disponível em http://localhost:3030
 | `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET` | Credenciais da API Helix da Twitch |
 | `KICK_CLIENT_ID`, `KICK_CLIENT_SECRET` | Credenciais da API pública da Kick |
 | `TIKTOK_CANAL` | Canal do TikTok (deixe vazio para desativar) |
-| `ADMIN_SENHA` | Senha de acesso ao painel |
-| `ADMIN_CAMINHO` | Endereço do painel, iniciado por `/` e com pelo menos 12 caracteres |
+| `ADMIN_SENHA_HASH` | Hash da senha do painel (a senha em si não fica salva) |
+| `ADMIN_CAMINHO` | Endereço do painel, ex.: `/menu/admin` |
 | `PORT`, `DATA_DIR` | Opcionais: porta do servidor e pasta dos dados |
 
 Se a chave de alguma plataforma não for informada, ela simplesmente fica de fora da contagem.

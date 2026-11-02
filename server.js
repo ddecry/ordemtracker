@@ -14,7 +14,10 @@ const YT_CANAL = env.YOUTUBE_CANAL_ID || "UCMRaVyexv18FrJu3NiYsbgQ"; // @OrdemPa
 const TIKTOK = env.TIKTOK_CANAL ?? "ordemparanormal"; // vazio = desliga
 const EPISODIO = new RegExp(env.FILTRO_EPISODIO || "EPIS[ÓO]DIO\\s*\\d+.*Ordem Paranormal", "i");
 // endereço secreto do painel, definido no .env (sem ele o painel fica desligado)
-const ADMIN = /^\/[\w-]{12,}$/.test(env.ADMIN_CAMINHO || "") ? env.ADMIN_CAMINHO : null;
+// endereço do painel, ex.: /menu/admin (letras, números, - e /)
+const ADMIN = /^(\/[\w-]+)+$/.test(env.ADMIN_CAMINHO || "") && env.ADMIN_CAMINHO.length >= 6 ? env.ADMIN_CAMINHO : null;
+// senha do painel: de preferência só o hash (ADMIN_SENHA_HASH=scrypt$sal$hash), assim nem o servidor guarda a senha
+const SENHA_CFG = env.ADMIN_SENHA_HASH || env.ADMIN_SENHA || "";
 const PORTA = +env.PORT || 3030;
 const INTERVALO = 10_000;
 const DADOS = env.DATA_DIR || path.join(__dirname, "dados");
@@ -166,7 +169,7 @@ let chatLog = null; // { id, sal, stream }
 function guardaMsg(plataforma, user, texto) {
   if (chatLog?.id !== epAtual) {
     chatLog?.stream.end();
-    chatLog = { id: epAtual, sal: crypto.createHash("sha256").update(epAtual + (env.ADMIN_SENHA || "")).digest("hex"), stream: fs.createWriteStream(path.join(CHATLOG, epAtual.replace(/[^\w-]/g, "_") + ".jsonl"), { flags: "a" }) };
+    chatLog = { id: epAtual, sal: crypto.createHash("sha256").update(epAtual + SENHA_CFG).digest("hex"), stream: fs.createWriteStream(path.join(CHATLOG, epAtual.replace(/[^\w-]/g, "_") + ".jsonl"), { flags: "a" }) };
   }
   const u = crypto.createHash("sha256").update(chatLog.sal + plataforma + (user || "").toLowerCase()).digest("hex").slice(0, 10);
   chatLog.stream.write(JSON.stringify({ q: new Date().toISOString(), p: plataforma, u, t: String(texto).slice(0, 500) }) + "\n");
@@ -192,6 +195,12 @@ try { records = JSON.parse(fs.readFileSync(DB, "utf8")); } catch {}
 let episodios = { lista: [] };
 try { episodios = JSON.parse(fs.readFileSync(EPS, "utf8")); } catch {}
 const salvaEps = () => fs.writeFileSync(EPS, JSON.stringify(episodios, null, 2));
+// o glossário escrito à mão virou automático (wiki): as linhas "errado => certo" passam para as correções aprendidas
+if (episodios.config?.glossario) {
+  const pares = [...episodios.config.glossario.matchAll(/^\s*(.+?)\s*(?:=>|→)\s*(.+?)\s*$/gm)].map(m => [m[1], m[2]]);
+  episodios.config = { ...episodios.config, apelidos: { ...Object.fromEntries(pares), ...(episodios.config.apelidos || {}) }, glossario: "" };
+  salvaEps();
+}
 if (!fs.existsSync(HIST)) fs.writeFileSync(HIST, "horario,episodio,twitch,kick,youtube,total,yt_likes,msgs_min,tiktok\n");
 let atual = { total: 0 };
 
@@ -385,7 +394,7 @@ const relatorio = () => ({
   online: onlineAgora(), pico: Math.max(ac.pico, onlineAgora()), unicos: unicosHoje.size, views: ac.views, celular: ac.celular, computador: ac.computador,
   origens: Object.entries(ac.origens).sort((a, b) => b[1] - a[1]).slice(0, 8), serie: ac.serie.slice(-360),
   eps: Object.fromEntries(Object.entries(ac.eps).map(([id, e]) => [id, { titulo: records[id]?.titulo || id, unicos: unicosEp[id]?.size || e.unicos || 0, pico: e.pico || 0 }])),
-  historico: ac.historico.slice(-14), aoVivo: !!(atual.episodio && atual.total > 0),
+  historico: ac.historico.slice(-60), aoVivo: !!(atual.episodio && atual.total > 0),
   navegadores: Object.entries(ac.navegadores).sort((a, b) => b[1] - a[1]), sistemas: Object.entries(ac.sistemas).sort((a, b) => b[1] - a[1]),
   paginas: Object.entries(ac.paginas).sort((a, b) => b[1] - a[1]).slice(0, 8), horas: ac.horas, ...permanencia(),
 });
@@ -425,9 +434,11 @@ async function feedback(req, res) {
 
 // ---------- admin ----------
 const autorizado = req => {
-  const senha = env.ADMIN_SENHA, dado = (req.headers.authorization || "").replace(/^Bearer /, "");
-  if (!senha || !dado) return false;
-  const a = crypto.createHash("sha256").update(senha).digest(), b = crypto.createHash("sha256").update(dado).digest();
+  const dado = (req.headers.authorization || "").replace(/^Bearer /, "");
+  if (!SENHA_CFG || !dado) return false;
+  const h = env.ADMIN_SENHA_HASH?.match(/^scrypt\$([0-9a-f]+)\$([0-9a-f]{64})$/);
+  if (h) return crypto.timingSafeEqual(crypto.scryptSync(dado, Buffer.from(h[1], "hex"), 32), Buffer.from(h[2], "hex"));
+  const a = crypto.createHash("sha256").update(env.ADMIN_SENHA || "").digest(), b = crypto.createHash("sha256").update(dado).digest();
   return crypto.timingSafeEqual(a, b);
 };
 const idDoLink = s => String(s || "").match(/(?:v=|youtu\.be\/|live\/|shorts\/|^)([\w-]{11})(?:[?&#/]|$)/)?.[1];
@@ -444,7 +455,7 @@ async function admin(req, res) {
   const e = erros.get(ip);
   // o bloqueio por tentativas vale só no site publicado
   if (env.NODE_ENV === "production" && e && e[0] >= 5 && Date.now() - e[1] < 15 * 60_000) return json(res, 429, { erro: "Muitas tentativas. Espere 15 minutos." });
-  if (!env.ADMIN_SENHA) return json(res, 503, { erro: "Defina ADMIN_SENHA no .env para usar o painel." });
+  if (!SENHA_CFG) return json(res, 503, { erro: "Defina ADMIN_SENHA_HASH no .env para usar o painel." });
   if (!autorizado(req)) { const t = e && Date.now() - e[1] < 15 * 60_000 ? e : [0, Date.now()]; t[0]++; erros.set(ip, t); return json(res, 401, { erro: "Senha errada." }); }
   erros.delete(ip);
   if (req.method === "GET") {
@@ -474,10 +485,11 @@ async function admin(req, res) {
       previaTokens.set(token, { id: pv, ate: Date.now() + 5 * 60e3 });
       return json(res, 200, { token, url: "/ep/" + slug(records[pv].titulo, pv) + "#previa=" + token });
     }
-    return json(res, 200, { lista, aoVivo: atual.episodio, config: config() });
+    return json(res, 200, { lista, aoVivo: atual.episodio, config: config(), wiki: gloWiki });
   }
   if (req.method === "POST") {
     const b = await corpo(req).catch(() => null);
+    if (b?.atualizaWiki) { await atualizaWiki(true); return json(res, 200, { wiki: gloWiki }); }
     if (b?.apagaFeedback) {
       feedbacks = feedbacks.filter(f => f.id !== b.apagaFeedback); salvaFb();
       return json(res, 200, { ok: true });
@@ -486,7 +498,7 @@ async function admin(req, res) {
     const fc = b?.aplicaCorrecao && feedbacks.find(f => f.id === b.aplicaCorrecao && f.tipo === "correcao");
     if (fc) {
       const lista = leMomentos(fc.ep), m = lista.find(x => x.quando === fc.momento);
-      if (m) { m.contexto = String(b.texto || fc.texto).slice(0, 240); salvaMomentos(fc.ep, lista); }
+      if (m) { const novo = String(b.texto || fc.texto).slice(0, 240); aprende(m.contexto, novo); m.contexto = novo; salvaMomentos(fc.ep, lista); }
       feedbacks = feedbacks.filter(f => f.id !== fc.id); salvaFb();
       return json(res, 200, { ok: true });
     }
@@ -495,11 +507,15 @@ async function admin(req, res) {
       const lista = b.lista.slice(0, 500).map(m => ({ quando: new Date(m.quando).toISOString(), segundoVideo: +m.segundoVideo || 0,
         titulo: String(m.titulo || "").slice(0, 80), contexto: String(m.contexto || "").slice(0, 240), tipo: m.tipo === "mesa" ? "mesa" : "historia",
         captura: /^[\w-]+\.jpg$/.test(m.captura || "") ? m.captura : null, aprovado: !!m.aprovado }));
+      // nomes trocados à mão viram correção automática para os próximos momentos
+      const antes = Object.fromEntries(leMomentos(b.momentos).map(m => [m.quando, m]));
+      for (const m of lista) if (antes[m.quando]) { aprende(antes[m.quando].titulo, m.titulo); aprende(antes[m.quando].contexto, m.contexto); }
       salvaMomentos(b.momentos, lista);
       return json(res, 200, { ok: true });
     }
     if (b?.config) {
-      episodios.config = { telaInicial: b.config.telaInicial === "ultimo" ? "ultimo" : "contagem", semProximo: String(b.config.semProximo || "").slice(0, 120), glossario: String(b.config.glossario ?? episodios.config?.glossario ?? "").slice(0, 4000) };
+      episodios.config = { telaInicial: b.config.telaInicial === "ultimo" ? "ultimo" : "contagem", semProximo: String(b.config.semProximo || "").slice(0, 120), glossario: String(b.config.glossario ?? episodios.config?.glossario ?? "").slice(0, 4000),
+        apelidos: b.config.apelidos && typeof b.config.apelidos === "object" ? Object.fromEntries(Object.entries(b.config.apelidos).slice(0, 200).map(([d, p]) => [String(d).slice(0, 40), String(p).slice(0, 40)])) : episodios.config?.apelidos || {} };
       salvaEps();
       return json(res, 200, { ok: true });
     }
@@ -548,8 +564,72 @@ const distancia = (a, b) => {
   return d[a.length][b.length];
 };
 let gloCache = { texto: null };
+// ---------- glossário automático: nomes oficiais da Ordem Paranormal Wiki ----------
+// lê a página de cada temporada pela API pública da wiki (elenco, personagens, monstros e locais) e atualiza a cada 12 h
+const GLOWIKI = path.join(DADOS, "glossario-wiki.json");
+const WIKI = "https://ordemparanormal.fandom.com/api.php", UA = { "User-Agent": "OrdemTracker/1.0 (https://ordemtracker.site)" };
+let gloWiki = {}; // temporada -> { pagina, texto, quando, erro }
+try { gloWiki = JSON.parse(fs.readFileSync(GLOWIKI, "utf8")); } catch {}
+const limpaWiki = t => t.replace(/<!--[\s\S]*?-->/g, "").replace(/\{\{[^}]*\}\}/g, "").replace(/\[\[(?:[^\]|]*\|)?([^\]]+)\]\]/g, "$1").replace(/'''?/g, "").trim();
+async function leWiki(temporada) {
+  const busca = await (await fetch(`${WIKI}?action=opensearch&search=${encodeURIComponent(temporada)}&limit=1&format=json`, { headers: UA })).json();
+  const pagina = busca?.[1]?.[0];
+  if (!pagina) throw new Error("não achei a página de " + temporada + " na wiki");
+  const w = (await (await fetch(`${WIKI}?action=parse&page=${encodeURIComponent(pagina)}&prop=wikitext&format=json`, { headers: UA })).json())?.parse?.wikitext?.["*"] || "";
+  const linhas = [`Campanha: ${pagina} (Ordem Paranormal).`];
+  // elenco da caixa de informações: "[[Grifo]] (Gwayne)"
+  const elenco = (w.match(/\|\s*elenco\s*=([\s\S]*?)\n\|/) || [])[1] || "";
+  const pares = [...elenco.matchAll(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]\s*\(([^)]+)\)/g)].map(m => [m[1].trim(), m[2].trim()]);
+  const mestre = pares.find(p => /mestre/i.test(p[1]));
+  if (mestre) linhas.push("Mestre: " + mestre[0] + ".");
+  const jog = pares.filter(p => !/mestre/i.test(p[1]));
+  if (jog.length) linhas.push("Jogadores e personagens: " + jog.map(([j, p]) => `${j} joga ${p}`).join("; ") + ".");
+  // listas das seções de personagens, monstros e locais
+  const ini = w.search(/==\s*Personagens/), fim = w.search(/==\s*Créditos/);
+  let grupo = null; const grupos = {};
+  for (const l of w.slice(ini < 0 ? 0 : ini, fim < 0 ? undefined : fim).split("\n")) {
+    const h = l.match(/^=+\s*(.+?)\s*=+\s*$/); if (h) { grupo = limpaWiki(h[1]); continue; }
+    const it = l.match(/^\*+\s*(.+)$/); if (it && grupo) (grupos[grupo] ||= []).push(limpaWiki(it[1]));
+  }
+  for (const [g, nomes] of Object.entries(grupos)) if (nomes.filter(Boolean).length) linhas.push(`${g}: ${nomes.filter(Boolean).join(", ")}.`);
+  return { pagina, texto: linhas.join("\n"), quando: Date.now() };
+}
+// temporadas cadastradas (campo temporada ou o começo do título: "A VIGÍLIA - EPISÓDIO 1")
+const temporadas = () => [...new Set([...episodios.lista.map(e => e.temporada || e.titulo), ...Object.values(records).map(r => r.titulo)]
+  .map(t => String(t || "").replace(/\s*-\s*EPIS[ÓO]DIO.*$/i, "").replace(/\s*\|.*$/, "").trim()).filter(Boolean).map(t => t.toLowerCase()))];
+async function atualizaWiki(forcar) {
+  for (const t of temporadas()) {
+    // durante a live a wiki ganha personagens novos: relê de hora em hora; fora dela, a cada 12 h
+    const validade = atual.episodio && atual.total > 0 ? 55 * 60e3 : 12 * 3600e3;
+    if (!forcar && gloWiki[t]?.quando > Date.now() - validade) continue;
+    try { gloWiki[t] = await leWiki(t); } catch (e) { gloWiki[t] = { ...gloWiki[t], erro: e.message, quando: Date.now() }; }
+  }
+  fs.writeFileSync(GLOWIKI, JSON.stringify(gloWiki, null, 2));
+  gloCache = { texto: null };
+}
+setTimeout(() => atualizaWiki().catch(() => {}), 5000);
+setInterval(() => atualizaWiki().catch(() => {}), 3600e3);
+// glossário usado: o da wiki + as correções aprendidas ("Gwen => Gwayne") + as escritas no painel
+const glossario = () => [...Object.values(gloWiki).map(g => g.texto).filter(Boolean),
+  ...Object.entries(config().apelidos || {}).map(([de, para]) => `${de} => ${para}`), config().glossario || ""].join("\n").trim();
+// aprende correções comparando o texto antes e depois de uma edição: se uma palavra fora da wiki virou um nome da wiki, guarda o par
+function aprende(antes, depois) {
+  const pa = String(antes || "").split(/\s+/), pd = String(depois || "").split(/\s+/);
+  if (!pa.length || pa.length !== pd.length) return;
+  corrigeNomes("Inicio"); // garante a lista de nomes carregada
+  const novos = {};
+  pa.forEach((a, i) => {
+    const de = a.replace(/[^\p{L}']/gu, ""), para = pd[i].replace(/[^\p{L}']/gu, "");
+    if (de.length >= 3 && para && de !== para && /^\p{Lu}/u.test(de) && !gloCache.chave.has(semAcento(de)) && gloCache.chave.has(semAcento(para))) novos[de] = para;
+  });
+  if (!Object.keys(novos).length) return;
+  episodios.config = { ...config(), apelidos: Object.fromEntries(Object.entries({ ...(config().apelidos || {}), ...novos }).slice(-200)) };
+  salvaEps();
+  console.log("correções aprendidas:", novos);
+}
+
 function corrigeNomes(texto) {
-  const g = config().glossario || "";
+  const g = glossario();
   if (!g || !texto) return texto;
   if (gloCache.texto !== g) {
     const apelidos = [...g.matchAll(/^\s*(.+?)\s*(?:=>|→)\s*(.+?)\s*$/gm)].map(m => [m[1], m[2]]);
@@ -560,7 +640,9 @@ function corrigeNomes(texto) {
   for (const [de, para] of gloCache.apelidos) t = t.replace(new RegExp(`(?<![\\p{L}])${de.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}])`, "gu"), para);
   return t.replace(/\p{Lu}[\p{L}']{4,}/gu, p => {
     const k = semAcento(p); if (gloCache.chave.has(k)) return p;
-    const perto = gloCache.nomes.map(n => [n, distancia(k, semAcento(n))]).filter(([n, d]) => d <= 2 && semAcento(n)[0] === k[0]).sort((a, b) => a[1] - b[1])[0];
+    // mesma inicial, ou as duas começando com vogal (Aileen ≈ Eileen)
+    const inicio = n => semAcento(n)[0] === k[0] || (/[aeiou]/.test(semAcento(n)[0]) && /[aeiou]/.test(k[0]));
+    const perto = gloCache.nomes.map(n => [n, distancia(k, semAcento(n))]).filter(([n, d]) => d <= 2 && inicio(n)).sort((a, b) => a[1] - b[1])[0];
     return perto ? perto[0] : p;
   });
 }
@@ -616,7 +698,7 @@ async function geminiAudio(arq) {
   let f = (await up.json()).file;
   while (f?.state === "PROCESSING") { await new Promise(r => setTimeout(r, 5000)); f = await (await fetch(`${GEMINI}/v1beta/${f.name}`, { headers: k })).json(); }
   if (f?.state !== "ACTIVE") throw new Error("gemini: arquivo não ficou pronto");
-  const corpo = JSON.stringify({ contents: [{ parts: [{ fileData: { fileUri: f.uri, mimeType: f.mimeType } }, { text: PEDIDO_MOMENTOS + (config().glossario ? "\nUse exatamente a grafia oficial destes nomes (o áudio pode soar diferente):\n" + config().glossario : "") }] }], generationConfig: { responseMimeType: "application/json", responseSchema: ESQUEMA_MOMENTOS } });
+  const corpo = JSON.stringify({ contents: [{ parts: [{ fileData: { fileUri: f.uri, mimeType: f.mimeType } }, { text: PEDIDO_MOMENTOS + (glossario() ? "\nUse exatamente a grafia oficial destes nomes (o áudio pode soar diferente):\n" + glossario() : "") }] }], generationConfig: { responseMimeType: "application/json", responseSchema: ESQUEMA_MOMENTOS } });
   // só o modelo principal; um reserva (GEMINI_RESERVA) entra só se for definido no .env, porque os resumos dele são piores
   let j;
   for (const modelo of [env.GEMINI_MODELO || "gemini-3.8-flash", env.GEMINI_RESERVA].filter(Boolean)) {
@@ -685,6 +767,14 @@ function status() {
     agora: Date.now(), episodio: atual.episodio || null, aoVivo: !!(atual.episodio && atual.total > 0), total: atual.total || 0,
     itens: Object.entries(itens).map(([nome, v]) => ({ nome, ...v })),
     servidor: { ligadoHa: process.uptime() * 1000, memoriaLivre: os.freemem(), memoriaTotal: os.totalmem(), disco },
+    // quem usa o site: agora, hoje e desde o começo (pico = mais pessoas ao mesmo tempo, medido a cada minuto)
+    publico: (() => {
+      const dias = [...ac.historico, { dia: ac.dia, unicos: unicosHoje.size, views: ac.views, pico: Math.max(ac.pico, onlineAgora()) }];
+      const maior = dias.reduce((m, d) => (d.pico || 0) > (m.pico || 0) ? d : m, dias[0]);
+      return { online: onlineAgora(), picoHoje: Math.max(ac.pico, onlineAgora()), picoGeral: maior.pico || 0, picoGeralDia: maior.dia,
+        unicosHoje: unicosHoje.size, visitasHoje: ac.views, visitasTotal: dias.reduce((t, d) => t + (d.views || 0), 0),
+        mediaDia: Math.round(dias.reduce((t, d) => t + (d.unicos || 0), 0) / dias.length) };
+    })(),
   };
 }
 
