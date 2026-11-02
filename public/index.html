@@ -75,8 +75,11 @@ body.encerrado .clockw .dot{display:none}
 .chartbox{flex:1;display:flex;flex-direction:column;min-height:0}
 .chartbox .cw{position:relative;flex:1;min-height:0}
 .dica-g{display:none}
-@media (max-width:800px),(max-aspect-ratio:1/1){.dica-g{display:flex;flex-wrap:wrap;align-items:center;gap:.3em .9em;min-height:2.6em;padding:.4em 0;font-size:.82em;color:var(--mut);visibility:hidden}.dica-g.on{visibility:visible}.dica-g>b{color:var(--tx)}.dica-g b{color:var(--tx)}.dica-g i{display:inline-block;width:.55em;height:.55em;border-radius:50%;margin-right:.35em}}
-.linha-t{position:relative;display:flex;align-items:center;gap:.8em;padding-top:.8vh}
+/* a linha do tempo ocupa exatamente a largura da área do gráfico (o JS acerta o recuo); horários embaixo */
+.linha-t{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:.3em .8em;padding-top:.8vh}
+.linha-t input{order:0;flex:0 0 calc(100% + 14px)!important;margin:0 -7px!important}
+.linha-t #linhaI{order:1}.linha-t #linhaH{order:2;margin-left:auto}.linha-t #linhaV{order:3}.linha-t #linhaF{order:4;margin-left:auto}
+#g{touch-action:pan-y;cursor:crosshair}
 .linha-t .bolha{position:absolute;bottom:calc(100% - .2vh);transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line2);color:var(--tx);font:600 .78em Inter,sans-serif;padding:.25em .55em;border-radius:6px;pointer-events:none;opacity:0;transition:opacity .15s;white-space:nowrap}
 .linha-t .bolha.on{opacity:1}
 .linha-t input{flex:1;-webkit-appearance:none;appearance:none;height:2px;background:var(--line2);border-radius:2px;outline:0;cursor:pointer;margin:0}
@@ -407,10 +410,10 @@ button.ep-titulo:hover .seta{color:var(--tx)}
   </div>
 
   <div class="col">
-    <div class="box chartbox"><div class="lbl">Viewers ao vivo</div><div class="dica-g" id="dicaG"></div><div class="cw"><canvas id="g"></canvas></div>
+    <div class="box chartbox"><div class="lbl">Viewers ao vivo</div><div class="cw"><canvas id="g"></canvas></div>
       <p class="cena-aviso" id="cenaAviso" hidden>O resto do episódio ainda está sendo resumido. Os próximos momentos aparecem aqui assim que forem revisados.</p>
       <div class="cena" id="cena" hidden><img id="cenaImg" alt=""><div><small class="num" id="cenaH"></small><b id="cenaT"></b><p id="cenaC"></p><a id="cenaYT" target="_blank" rel="noopener">Ver no YouTube</a><button class="cena-corr" id="cenaCorr" type="button">Sugerir correção</button></div></div>
-      <div class="linha-t" id="linhaT" hidden><span class="num mut ponta" id="linhaI"></span><input type="range" id="linhaR" min="0" max="0" value="0" aria-label="Ver os números em outro momento da live"><span class="num mut ponta" id="linhaF"></span><span class="num mut" id="linhaH"></span><button id="linhaV" hidden>Ao vivo</button><span class="bolha num" id="linhaB"></span></div>
+      <div class="linha-t" id="linhaT" hidden><span class="num mut ponta" id="linhaI"></span><input type="range" id="linhaR" min="0" max="0" value="0" step="any" aria-label="Ver os números em outro momento da live"><span class="num mut ponta" id="linhaF"></span><span class="num mut" id="linhaH"></span><button id="linhaV" hidden>Ao vivo</button><span class="bolha num" id="linhaB"></span></div>
     </div>
       <div class="recs lado">
         <div class="rec-top">
@@ -531,16 +534,9 @@ const eixos = () => ({
   y: { beginAtZero: true, grid: { color: () => css("--grade") }, border: { display: false }, ticks: { maxTicksLimit: 5, font: { size: 10 }, callback: kfmt } },
   y2: { display: false, beginAtZero: true },
 });
-// no celular a caixinha de valores fica fora do gráfico, numa linha acima dele; no computador fica levemente transparente
+// no celular arrastar o gráfico já troca os números lá em cima, então não precisa da caixinha
 const dicaFora = matchMedia("(max-width:800px),(max-aspect-ratio:1/1)").matches;
-function dicaExterna({ tooltip: t }) {
-  const el = $("dicaG");
-  if (!t.opacity || !t.dataPoints?.length) { el.classList.remove("on"); return; }
-  el.innerHTML = `<b class="num">${hm(t.dataPoints[0].parsed.x)}</b>` + t.dataPoints.filter(p => p.parsed.y != null)
-    .map(p => `<span><i style="background:${p.dataset.borderColor}"></i>${p.dataset.label} <b class="num">${f(p.parsed.y)}</b></span>`).join("");
-  el.classList.add("on");
-}
-const dica = { enabled: !dicaFora, external: dicaFora ? dicaExterna : undefined, backgroundColor: "#1c1c1ce0", borderColor: "#2e2e2e", borderWidth: 1, padding: 10, boxPadding: 4, usePointStyle: true,
+const dica = { enabled: !dicaFora,backgroundColor: "#1c1c1ce0", borderColor: "#2e2e2e", borderWidth: 1, padding: 10, boxPadding: 4, usePointStyle: true,
   callbacks: { title: it => it.length ? hm(it[0].parsed.x) : "", label: c => ` ${c.dataset.label}: ${f(c.parsed.y)}` } };
 // no celular a legenda fica à esquerda e mais compacta, pra caber numa linha
 const celular = matchMedia("(max-width:800px),(max-aspect-ratio:1/1)").matches;
@@ -655,9 +651,11 @@ function redesenha(recorde, inicio) {
   ch.options.recorde = recorde;
   ch.update();
   primeira = false;
-  const r = $("linhaR"), fim = r.value == r.max;
-  r.max = tempos.length - 1; if (fim && simulando == null) r.value = r.max;
+  // a linha do tempo anda em horário (não em leituras), igual ao eixo do gráfico
+  const r = $("linhaR"), fim = +r.value >= +r.max;
+  r.min = tempos[0]; r.max = tempos.at(-1); if (fim && simulando == null) r.value = r.max;
   $("linhaT").hidden = tempos.length < 2;
+  alinhaLinha();
   $("linhaI").textContent = hm(tempos[0]); $("linhaF").textContent = hm(tempos.at(-1));
   momentos();
 }
@@ -680,9 +678,11 @@ function voltaAgora() {
 }
 // arrastar dispara muitos eventos: aplica só o último de cada quadro
 let quadro = null;
+// leitura mais perto de um horário
+const idxDe = t => { let a = 0, b = tempos.length - 1; while (b - a > 1) { const m = (a + b) >> 1; if (tempos[m] <= t) a = m; else b = m; } return t - tempos[a] <= tempos[b] - t ? a : b; };
 $("linhaR").oninput = e => {
-  const i = +e.target.value;
-  if (i == e.target.max && ultimo?.aoVivo) return voltaAgora();
+  const i = idxDe(+e.target.value);
+  if (i == tempos.length - 1 && ultimo?.aoVivo) return voltaAgora();
   simulando = i;
   if (quadro) return;
   quadro = requestAnimationFrame(() => {
@@ -710,12 +710,44 @@ function momentos() {
 }
 $("momentos").onclick = e => {
   const b = e.target.closest("button"); if (!b) return;
-  const r = $("linhaR"); r.value = b.dataset.i; r.dispatchEvent(new Event("input"));
+  const r = $("linhaR"); r.value = tempos[b.dataset.i]; r.dispatchEvent(new Event("input"));
 };
+// a trilha começa e termina junto com a área desenhada do gráfico
+function alinhaLinha() {
+  const a = ch.chartArea, lt = $("linhaT"); if (!a || lt.hidden) return;
+  const c = ch.canvas.getBoundingClientRect(), l = lt.getBoundingClientRect(); if (!l.width) return;
+  lt.style.paddingLeft = c.left - l.left + a.left + "px";
+  lt.style.paddingRight = l.right - c.left - a.right + "px";
+}
+// mexer o mouse no gráfico move a linha do tempo; clicar fixa; sair volta pra onde estava
+// no celular: arrastar o dedo no gráfico
+let salvo, arrastando = false;
+const tempoDoMouse = e => {
+  const a = ch.chartArea, x = e.clientX - ch.canvas.getBoundingClientRect().left;
+  return ch.scales.x.getValueForPixel(Math.min(a.right, Math.max(a.left, x)));
+};
+const vaiPara = t => { const r = $("linhaR"); r.value = t; r.dispatchEvent(new Event("input")); };
+ch.canvas.addEventListener("pointermove", e => {
+  if (tempos.length < 2 || (e.pointerType !== "mouse" && !arrastando)) return;
+  if (salvo === undefined) salvo = { sim: simulando, v: $("linhaR").value };
+  vaiPara(tempoDoMouse(e));
+});
+ch.canvas.addEventListener("pointerdown", e => {
+  if (tempos.length < 2) return;
+  arrastando = true; vaiPara(tempoDoMouse(e)); salvo = undefined;
+});
+addEventListener("pointerup", () => { if (arrastando) { arrastando = false; salvo = undefined; } });
+ch.canvas.addEventListener("pointerleave", e => {
+  if (e.pointerType !== "mouse" || salvo === undefined) return;
+  const s = salvo; salvo = undefined;
+  if (s.sim == null) voltaAgora(); else vaiPara(+s.v);
+});
+ch.options.onResize = () => requestAnimationFrame(alinhaLinha);
+addEventListener("resize", alinhaLinha);
 // balãozinho com o horário em cima da bolinha enquanto segura
 function bolha() {
-  const r = $("linhaR"), p = r.max > 0 ? r.value / r.max : 1;
-  $("linhaB").textContent = hm(tempos[+r.value]);
+  const r = $("linhaR"), p = r.max > r.min ? (r.value - r.min) / (r.max - r.min) : 1;
+  $("linhaB").textContent = hm(tempos[idxDe(+r.value)]);
   $("linhaB").style.left = r.offsetLeft + 7 + p * (r.offsetWidth - 14) + "px";
 }
 $("linhaR").addEventListener("pointerdown", () => { bolha(); $("linhaB").classList.add("on"); });
