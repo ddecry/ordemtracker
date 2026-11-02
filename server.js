@@ -253,12 +253,27 @@ const so = (o, ks) => Object.fromEntries(ks.filter(k => o[k] != null).map(k => [
 // endereço amigável do episódio: "A VIGÍLIA - EPISÓDIO 1" vira "a-vigilia-1"
 const kebab = t => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const slug = (titulo, id) => { const m = (titulo || "").match(/^(.*?)\s*-\s*EPIS[ÓO]DIO\s*(\d+)/i); return (m ? kebab(m[1]) + "-" + m[2] : kebab((titulo || "").replace(/\s*\|.*$/, ""))) || id; };
+// média sem o fim da live: quando a transmissão acaba todo mundo sai de uma vez e a queda puxaria a média pra baixo.
+// corta do fim pra trás as leituras abaixo de 90% da mediana dos 10 minutos anteriores (só aparecem no gráfico)
+const medias = new Map(); // id -> { chave, media }
+function mediaSemFim(id, r) {
+  if (id === atual.episodio) return r.media;
+  const m = medias.get(id);
+  if (m && m.chave === r.ultimaLeitura) return m.media;
+  const tot = fs.readFileSync(HIST, "utf8").split("\n").map(l => l.split(",")).filter(c => c[1] === id && +c[5] > 0).map(c => +c[5]);
+  const mediana = arr => { const s = [...arr].sort((a, b) => a - b); return s[s.length >> 1]; };
+  let fim = tot.length;
+  while (fim > 60 && tot[fim - 1] < .9 * mediana(tot.slice(fim - 61, fim - 1))) fim--;
+  const media = fim ? Math.round(tot.slice(0, fim).reduce((s, v) => s + v, 0) / fim) : r.media;
+  medias.set(id, { chave: r.ultimaLeitura, media });
+  return media;
+}
 function publicos() {
   const out = {};
   for (const [id, r] of Object.entries(records)) {
     const e = episodios.lista.find(x => x.id === id);
     if (e?.oculto) continue;
-    out[id] = { ...so({ ...r, titulo: e?.titulo || r.titulo, temporada: e?.temporada || null }, CAMPOS), slug: slug(r.titulo, id) };
+    out[id] = { ...so({ ...r, titulo: e?.titulo || r.titulo, temporada: e?.temporada || null, media: mediaSemFim(id, r) }, CAMPOS), slug: slug(r.titulo, id) };
   }
   return out;
 }
@@ -393,6 +408,13 @@ async function admin(req, res) {
     }).sort((a, b) => (b.data || "").localeCompare(a.data || ""));
     if (url.searchParams.get("acessos")) return json(res, 200, relatorio());
     if (url.searchParams.get("feedbacks")) return json(res, 200, feedbacks);
+    // senha de uso único pra página do episódio mandar a imagem da prévia
+    const pv = url.searchParams.get("previa");
+    if (pv && records[pv]) {
+      const token = crypto.randomBytes(16).toString("hex");
+      previaTokens.set(token, { id: pv, ate: Date.now() + 5 * 60e3 });
+      return json(res, 200, { token, url: "/ep/" + slug(records[pv].titulo, pv) + "#previa=" + token });
+    }
     return json(res, 200, { lista, aoVivo: atual.episodio, config: config() });
   }
   if (req.method === "POST") {
@@ -429,6 +451,42 @@ async function admin(req, res) {
     return json(res, 200, { ok: true });
   }
   json(res, 405, {});
+}
+
+// ---------- prévia do link (X, WhatsApp, Discord) ----------
+// a imagem é a mesma do "Compartilhar", gerada pela página do episódio a pedido do painel
+const SITE = env.SITE_URL || "https://ordemtracker.site";
+const PREVIAS = path.join(DADOS, "previas");
+fs.mkdirSync(PREVIAS, { recursive: true });
+const previaTokens = new Map(); // token -> { id, ate }
+async function recebePrevia(req, res, url) {
+  const t = previaTokens.get(url.searchParams.get("token") || "");
+  if (!t || t.ate < Date.now()) return json(res, 403, { erro: "Link expirado. Gere de novo pelo painel." });
+  const partes = []; let tam = 0;
+  for await (const c of req) { tam += c.length; if (tam > 4e6) return json(res, 413, { erro: "Imagem grande demais." }); partes.push(c); }
+  const png = Buffer.concat(partes);
+  if (png.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a") return json(res, 400, { erro: "Não é PNG." });
+  previaTokens.delete(url.searchParams.get("token"));
+  fs.writeFileSync(path.join(PREVIAS, t.id + ".png"), png);
+  json(res, 200, { ok: true });
+}
+const attr = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function og(caminho) {
+  const pub = publicos();
+  const p = caminho.match(/^\/ep\/([\w-]+)/)?.[1];
+  const id = p ? (pub[p] ? p : Object.keys(pub).find(k => pub[k].slug === p)) : null;
+  const r = id && pub[id];
+  // "A VIGÍLIA - EPISÓDIO 1 | ..." vira "A Vigília · Episódio 1"
+  const nome = t => t.toLowerCase().replace(/(^|\s)\p{L}/gu, c => c.toUpperCase());
+  const m = r?.titulo.match(/^(.*?)\s*-\s*EPIS[ÓO]DIO\s*(\d+)/i);
+  const titulo = r ? `${r.temporada || nome(m ? m[1] : r.titulo.replace(/\s*\|.*$/, ""))}${m ? " - Episódio " + m[2] : ""} · Ordem Tracker` : "Ordem Tracker";
+  const desc = "Contagem de viewers ao vivo das lives de Ordem Paranormal na Twitch, Kick, YouTube e TikTok. Projeto de fãs do Realitas News.";
+  // sem episódio na URL usa o último que foi ao ar
+  const ver = id || Object.entries(pub).sort((a, b) => (b[1].ultimaLeitura || "").localeCompare(a[1].ultimaLeitura || ""))[0]?.[0];
+  const arq = ver && path.join(PREVIAS, ver + ".png");
+  const img = arq && fs.existsSync(arq) ? `${SITE}/previa/${ver}.png?v=${Math.round(fs.statSync(arq).mtimeMs / 1000)}` : ver && /^[\w-]{11}$/.test(ver) ? `${SITE}/capa/${ver}.jpg` : `${SITE}/rn-branco.png`;
+  return [["og:type", "website"], ["og:site_name", "Ordem Tracker"], ["og:title", titulo], ["og:description", desc], ["og:url", SITE + caminho], ["og:image", img], ["og:locale", "pt_BR"]]
+    .map(([k, v]) => `<meta property="${k}" content="${attr(v)}">`).join("\n") + `\n<meta name="twitter:card" content="summary_large_image">`;
 }
 
 // páginas servidas sem comentários
@@ -487,6 +545,15 @@ http.createServer(async (req, res) => {
     res.writeHead(200, { "Content-Type": { png: "image/png", jpg: "image/jpeg" }[img[2]], "Cache-Control": "max-age=86400" });
     return res.end(fs.readFileSync(path.join(PUBLICO, img[1])));
   }
+  if (url.pathname === "/previa" && req.method === "POST") return recebePrevia(req, res, url);
+  const pv = url.pathname.match(/^\/previa\/([\w-]+)\.png$/);
+  if (pv && fs.existsSync(path.join(PREVIAS, pv[1] + ".png"))) {
+    res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "max-age=300" });
+    return res.end(fs.readFileSync(path.join(PREVIAS, pv[1] + ".png")));
+  }
   if (url.pathname !== "/" && !/^\/ep\/[\w-]+\/?$/.test(url.pathname)) { res.writeHead(404, { "Content-Type": "text/plain" }); return res.end("404"); }
-  html(res, "index.html");
+  const tags = og(url.pathname.replace(/\/$/, "") || "/");
+  const titulo = tags.match(/og:title" content="([^"]*)"/)[1];
+  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+  res.end(pagina("index.html").replace("<title>Ordem Tracker</title>", `<title>${titulo}</title>\n${tags}`));
 }).listen(PORTA, () => console.log(`http://localhost:${PORTA}`));

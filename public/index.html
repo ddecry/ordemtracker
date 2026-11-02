@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Ordem Tracker</title>
-<meta name="description" content="Projeto de fã, não oficial. Contagem de viewers ao vivo das lives de Ordem Paranormal na Twitch, Kick e YouTube.">
+<meta name="description" content="Contagem de viewers ao vivo das lives de Ordem Paranormal na Twitch, Kick, YouTube e TikTok. Projeto de fãs do Realitas News.">
+<link rel="icon" type="image/png" href="/rn-preto.png" media="(prefers-color-scheme: light)">
+<link rel="icon" type="image/png" href="/rn-branco.png" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=Inter+Tight:wght@700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -111,6 +113,7 @@ body.encerrado .clockw .dot{display:none}
 .modal-side .rn-logo{width:8em;height:8em;margin:-1.5em 0 -1.5em -1em}
 .modal-side h3,.eps-top h3{margin:0;font:600 18px Inter,sans-serif}
 .modal-side p{margin:0;color:var(--mut);font-size:.9em;line-height:1.45}
+#shareTxt{white-space:pre-line}
 .fmt{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .sbtn{display:flex;align-items:center;justify-content:center;gap:.5em;border:1px solid var(--line);background:var(--panel2);color:var(--tx);border-radius:12px;padding:.8em 1em;font:600 .95em Inter,sans-serif;cursor:pointer;text-decoration:none;transition:border-color .2s}
 .sbtn:hover{border-color:var(--mut)}.fmt .sbtn.on{border-color:var(--tx)}
@@ -147,6 +150,12 @@ body.encerrado .clockw .dot{display:none}
 .tag .ico{height:.95em;margin-right:.3em}
 
 @keyframes sobe{from{opacity:0;transform:translateY(10px)}}
+
+.rec-aviso{position:fixed;left:50%;top:76px;z-index:40;background:var(--tx);color:var(--bg);font:700 .9em Inter,sans-serif;padding:.5em .9em;border-radius:99px;opacity:0;transform:translate(-50%,-8px);pointer-events:none;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+.rec-aviso.on{animation:aviso 4.5s cubic-bezier(.2,.8,.2,1) both}
+@keyframes aviso{0%{opacity:0;transform:translate(-50%,-8px)}8%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0)}}
+#tot.recorde{animation:brilho 1s ease 3}
+@keyframes brilho{50%{text-shadow:0 0 28px rgba(255,255,255,.45)}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:700px){.modal-box{grid-template-columns:1fr}.modal-box img{max-width:100%;max-height:55vh}}
 @media (max-width:640px){.ep{grid-template-columns:110px 1fr}.ep img{width:110px}.ep .acoes{grid-column:1/-1;flex-direction:row;align-items:center}}
@@ -261,12 +270,12 @@ body.modo-espera .main,body.modo-espera .strip,body.modo-espera .prox{display:no
 .espera[hidden]{display:none}
 .esp-capa{aspect-ratio:16/9;width:100%;max-height:70vh;border-radius:18px;background:var(--panel2) center/cover no-repeat;box-shadow:var(--sombra)}
 .esp-info{display:flex;flex-direction:column;gap:1.6vh}
-.esp-tit{margin:0;font:700 clamp(22px,4.4vh,44px)/1.1 "Inter Tight",Inter,sans-serif;letter-spacing:-.01em}
+.esp-tit{margin:0;font:700 clamp(20px,3.9vh,38px)/1.1 "Inter Tight",Inter,sans-serif;letter-spacing:-.01em}
 .esp-cont{display:flex;gap:1.4vw;margin:1vh 0}
 .esp-cont div{display:flex;flex-direction:column;align-items:center;min-width:2.2em}
-.esp-cont b{font:800 clamp(34px,8vh,84px)/1 "Inter Tight",Inter,sans-serif;letter-spacing:-.02em}
+.esp-cont b{font:800 clamp(32px,7vh,72px)/1 "Inter Tight",Inter,sans-serif;letter-spacing:-.02em}
 .esp-cont span{margin-top:.6vh;color:var(--mut);font-size:.8em;letter-spacing:.1em;text-transform:uppercase}
-.esp-data{font-size:1.05em}
+.esp-data{font-size:.98em}
 .esp-data::first-letter{text-transform:uppercase}
 .esp-acoes{display:flex;gap:10px;margin-top:1vh}
 .esp-acoes .sbtn{padding:.75em 1.2em}
@@ -275,8 +284,10 @@ body.modo-espera .main,body.modo-espera .strip,body.modo-espera .prox{display:no
 .esp-capa::before{content:"";position:absolute;inset:0;background:var(--fundo) center/cover no-repeat;transition:filter .4s}
 .esp-capa.previa::before{filter:blur(6px) brightness(.85);transform:scale(1.06)}
 .esp-logo{position:relative;width:62%;max-height:70%;object-fit:contain;filter:drop-shadow(0 4px 24px rgba(0,0,0,.6))}
-.espera{grid-template-columns:minmax(0,min(46vw,760px)) auto;justify-content:center;align-content:center}
+.espera{grid-template-columns:minmax(0,min(40vw,660px)) auto;justify-content:center;align-content:center}
 @media (max-width:800px),(max-aspect-ratio:1/1){.espera{grid-template-columns:1fr;gap:20px}.esp-cont{gap:14px}.esp-acoes{flex-wrap:wrap}}
+/* compensa a header ser mais alta que o rodapé, pra ficar no meio da tela; botões ocupam a largura da contagem */
+@media (min-aspect-ratio:1/1) and (min-width:801px){.espera{margin-top:-4vh}.esp-acoes{display:grid;grid-auto-flow:column;grid-auto-columns:1fr}}
 .esp-cont b{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;display:inline-block;min-width:1.25em;text-align:center}
 @media (max-width:800px),(max-aspect-ratio:1/1){
   .espera{grid-template-columns:1fr;justify-content:stretch;align-content:start;gap:22px;padding-top:1vh}
@@ -357,7 +368,7 @@ button.ep-titulo:hover .seta{color:var(--tx)}
         <button class="ep-titulo" id="epSel" aria-haspopup="listbox"><span id="epNome"></span> <span class="mut" id="epNum"></span><svg class="seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
         <div class="menu-eps" id="menuEps" role="listbox"></div>
       </div>
-      <div class="big num" id="tot">0</div>
+      <div class="big num" id="tot">0</div><div class="rec-aviso" id="recAviso" aria-live="polite"></div>
       <div class="plats num">
         <div><img class="ico" src="/icones/twitch.png?v=2" alt="">Twitch <b id="tN">-</b></div>
         <div><img class="ico" src="/icones/kick-k.png?v=1" alt="">Kick <b id="kN">-</b></div>
@@ -429,7 +440,7 @@ button.ep-titulo:hover .seta{color:var(--tx)}
   <div class="eps-top"><h3>Episódios</h3><button class="fechar" id="epsFecha">Fechar</button></div>
   <div class="eps-lista" id="epsLista"></div>
 </div></div>
-<div class="aviso">Realitas News, projeto de fã não oficial e sem vínculo com o Cellbit ou a Ordem Paranormal. Logos, capas e artes pertencem aos seus autores. <a href="/privacidade">Privacidade e fontes</a></div>
+<div class="aviso">Realitas News, projeto de fãs não oficial e sem vínculo com o Cellbit ou a Ordem Paranormal. Logos, capas e artes pertencem aos seus autores. <a href="/privacidade">Privacidade e fontes</a></div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -609,6 +620,17 @@ $("linhaR").addEventListener("pointerdown", () => { bolha(); $("linhaB").classLi
 $("linhaR").addEventListener("input", bolha);
 addEventListener("pointerup", () => $("linhaB").classList.remove("on"));
 
+let recVisto = null;
+const tituloPagina = document.title;
+// com a live no ar, a aba mostra o número enquanto a pessoa está em outra aba
+let tituloVivo = null;
+const tituloAba = () => { document.title = document.hidden && tituloVivo ? tituloVivo : tituloPagina; };
+document.addEventListener("visibilitychange", tituloAba);
+function avisaRecorde(texto) {
+  const a = $("recAviso"); a.textContent = texto;
+  a.classList.remove("on"); void a.offsetWidth; a.classList.add("on");
+  $("tot").classList.add("recorde"); setTimeout(() => $("tot").classList.remove("recorde"), 4000);
+}
 let carregou = false, ultHora = null, ultimo = null, avisou = false;
 // episódio escolhido na lista (?ep=); sem isso mostra o ao vivo ou o último que foi ao ar
 const epPedido = location.pathname.match(/^\/ep\/([\w-]+)/)?.[1] || new URLSearchParams(location.search).get("ep");
@@ -647,6 +669,14 @@ async function up() {
     vAgora = v;
     if (simulando == null) mostra(v);
 
+    // recorde batido durante a live: do episódio, ou o maior da temporada
+    if (vivo && recVisto != null && r.recorde > recVisto) {
+      const outros = Object.entries(d.records).filter(([id, o]) => id !== d.ver && (o.temporada || "") === (r.temporada || "")).map(([, o]) => o.recorde || 0);
+      avisaRecorde(outros.length && r.recorde > Math.max(...outros) && recVisto <= Math.max(...outros) ? "Maior audiência da temporada!" : "Novo recorde do episódio!");
+    }
+    recVisto = r.recorde;
+    tituloVivo = vivo ? `${f(v.total)} - Ordem Tracker` : null;
+    tituloAba();
     conta("rec", r.recorde);
     $("recq").textContent = "às " + hm(r.quando);
     const pp = r.picos || r;
@@ -681,7 +711,20 @@ async function up() {
     if ($("eps").classList.contains("on")) listaEps();
   } catch (e) { document.body.classList.remove("carregando"); }
 }
-up(); setInterval(up, 5000);
+// pedido do painel: gera a imagem do compartilhar e guarda como prévia do link
+async function fazPrevia() {
+  const token = location.hash.match(/^#previa=([\w]+)/)?.[1]; if (!token) return;
+  history.replaceState(null, "", location.pathname);
+  formato = "h";
+  const aviso = document.createElement("div");
+  aviso.style.cssText = "position:fixed;left:50%;top:20px;transform:translateX(-50%);z-index:99;background:var(--panel2);border:1px solid var(--line2);padding:12px 18px;border-radius:12px;font-weight:600";
+  aviso.textContent = "Gerando a prévia do link…"; document.body.append(aviso);
+  try {
+    const r = await fetch("/previa?token=" + token, { method: "POST", headers: { "Content-Type": "image/png" }, body: await gerarImagem() });
+    aviso.textContent = r.ok ? "Prévia do link atualizada. Pode fechar esta aba." : (await r.json()).erro;
+  } catch { aviso.textContent = "Não deu para gerar a prévia."; }
+}
+up().then(fazPrevia); setInterval(up, 5000);
 
 // clique na capa: links das lives
 $("capa").onclick = e => { if (!e.target.closest("a")) $("capa").classList.toggle("aberta"); };
@@ -740,32 +783,29 @@ async function gerarImagem() {
   const d = ultimo, a = d.atual, r = d.records[d.ver];
   if (!r) throw new Error("sem episódio ao vivo");
   await document.fonts.ready;
-  // horizontal 1600x900: capa à esquerda, números à direita
-  const W = V ? 1080 : 1600, H = V ? 1350 : 700, P = 64, cv = document.createElement("canvas");
+  // horizontal 1600x840 (serve também de prévia do link); vertical 4:5 pro Instagram
+  const W = V ? 1080 : 1600, H = V ? 1350 : 840, P = 64, cv = document.createElement("canvas");
   cv.width = W; cv.height = H;
   const c = cv.getContext("2d");
   c.fillStyle = "#121212"; c.fillRect(0, 0, W, H);
 
-  // capa ocupando a altura toda, cortando os lados
+  // capa inteira em 16:9, sem cortar; vertical: em cima na largura toda; horizontal: à esquerda
   const capa = await carrega(`/capa/${d.ver}.jpg`).catch(() => null);
-  // vertical (4:5): capa em cima na largura toda; horizontal: capa à esquerda
-  const cw = V ? W - P * 2 : 780, chh = V ? cw / 2 : H - P * 2;
-  if (capa) {
-    c.save(); arred(c, P, P, cw, chh, 28); c.clip();
-    const s = Math.max(chh / capa.height, cw / capa.width), w = capa.width * s, h = capa.height * s;
-    c.drawImage(capa, P + (cw - w) / 2, P + (chh - h) / 2, w, h);
-    c.restore();
-  }
+  const cw = V ? W - P * 2 : 860, chh = cw * 9 / 16, cy = V ? 110 : (H - chh) / 2;
+  c.save(); arred(c, P, cy, cw, chh, 28); c.clip();
+  c.fillStyle = "#242424"; c.fillRect(P, cy, cw, chh);
+  if (capa) c.drawImage(capa, P, cy, cw, chh);
+  c.restore();
 
   // coluna de números
-  const X = V ? P : P + cw + 72, CW = W - X - P;
-  let y = V ? P + chh + 110 : P + 40;
+  const X = V ? P : P + cw + 64, CW = W - X - P;
+  let y = V ? cy + chh + 96 : cy + 34;
   c.textBaseline = "alphabetic";
   c.fillStyle = "#8a8a8a"; c.font = "600 24px Inter"; c.letterSpacing = "4px";
   c.fillText("RECORDE DO EPISÓDIO", X, y); c.letterSpacing = "0px";
 
-  y += 130;
-  c.fillStyle = "#ededed"; c.font = "800 136px Inter"; c.letterSpacing = "-5px";
+  y += V ? 150 : 122;
+  c.fillStyle = "#ededed"; c.font = `800 ${V ? 150 : 118}px Inter`; c.letterSpacing = "-5px";
   c.fillText(f(r.recorde), X - 4, y); c.letterSpacing = "0px";
   // barra das plataformas no pico
   y += 48;
@@ -776,20 +816,20 @@ async function gerarImagem() {
   for (const [, v, cor] of pk) { const w = (v || 0) / tot * CW; c.fillStyle = cor; c.fillRect(bx, y, w, 22); bx += w; }
   c.restore();
 
-  // número de cada plataforma
+  // número de cada plataforma: 4 colunas na vertical, 2x2 na horizontal
   y += 90;
-  const col = CW / 4;
+  const col = V ? CW / 4 : CW / 2;
   pk.forEach(([n, v, cor], i) => {
-    const px = X + col * i;
-    c.fillStyle = cor; c.beginPath(); c.arc(px + 8, y - 26, 8, 0, 7); c.fill();
-    c.fillStyle = "#8a8a8a"; c.font = "500 24px Inter"; c.fillText(n, px + 24, y - 18);
-    c.fillStyle = "#ededed"; c.font = "700 34px Inter"; c.fillText(f(v), px, y + 30);
+    const px = X + col * (V ? i : i % 2), py = y + (V ? 0 : Math.floor(i / 2) * 96);
+    c.fillStyle = cor; c.beginPath(); c.arc(px + 8, py - 26, 8, 0, 7); c.fill();
+    c.fillStyle = "#8a8a8a"; c.font = "500 24px Inter"; c.fillText(n, px + 24, py - 18);
+    c.fillStyle = "#ededed"; c.font = "700 34px Inter"; c.fillText(f(v), px, py + 26);
   });
 
-  // média, duração, likes
-  y += 92;
+  // média, duração
+  y += V ? 76 : 172;
   c.fillStyle = "#2a2a2a"; c.fillRect(X, y, CW, 2);
-  y += 58;
+  y += 54;
   const fimL = r.fimLive || r.ultimaLeitura;
   const dur = r.inicioLive && fimL ? (m => Math.floor(m / 60) + "h" + String(m % 60).padStart(2, "0"))(Math.round((new Date(fimL) - new Date(r.inicioLive)) / 60000)) : "-";
   [["Média", f(r.media)], ["Duração", dur]].forEach(([n, v], i) => {
@@ -800,7 +840,9 @@ async function gerarImagem() {
 
   // assinatura Realitas News no canto de baixo
   const rn = await carrega("/rn-branco.png").catch(() => null);
-  if (rn) { const t = 230; c.drawImage(rn, W - P - t + 30, H - P - t + 60, t, t); }
+  // a logo tem margem transparente; alinha o desenho dela com a margem da imagem
+  // parte visível da logo: 2–92% na largura e 20–83% na altura; encosta na margem direita e centraliza na linha de média/duração
+  if (rn) { const t = V ? 210 : 170; c.drawImage(rn, W - P - t * .918, y + 14 - t * .515, t, t); }
   return new Promise(ok => cv.toBlob(ok, "image/png"));
 }
 
@@ -814,10 +856,13 @@ async function abrirShare() {
   catch (e) { $("shareBtn").lastChild.textContent = "Compartilhar"; alert("Não deu pra gerar a imagem: " + e.message); return; }
   $("shareBtn").lastChild.textContent = "Compartilhar";
   $("prev").src = URL.createObjectURL(blobAtual);
-  const titulo = (r?.titulo || "").replace(/\s*\|.*$/, "");
-  const texto = `${titulo}: recorde de ${f(r.recorde)} pessoas assistindo ao mesmo tempo (YouTube ${f(r.youtube)}, Twitch ${f(r.twitch)}, Kick ${f(r.kick)}, TikTok ${f(r.tiktok)})`;
+  // mesmo nome que aparece na página: "A Vigília Episódio 1"
+  const titulo = [$("epNome").textContent, $("epNum").textContent].filter(Boolean).join(" - ");
+  const plats = [["YouTube", r.youtube], ["Twitch", r.twitch], ["Kick", r.kick], ["TikTok", r.tiktok]].filter(p => p[1]).map(([n, v]) => `${n}: ${f(v)}`).join("\n");
+  const link = location.origin + "/ep/" + (r.slug || d.ver);
+  const texto = `${titulo}\n\n${d.aoVivo ? "Recorde até agora" : "Recorde"}: ${f(r.recorde)} pessoas assistindo ao mesmo tempo\n\n${plats}`;
   $("shareTxt").textContent = texto;
-  $("sX").href = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(texto + " #OrdemParanormal");
+  $("sX").href = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(texto + "\n\n#OrdemParanormal") + "&url=" + encodeURIComponent(link);
   $("sDica").textContent = "";
   $("modal").classList.add("on");
 }

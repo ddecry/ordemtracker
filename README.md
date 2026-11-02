@@ -2,7 +2,7 @@
 
 Acompanhe em tempo real a audiência das lives de **Ordem Paranormal**, somando YouTube, Twitch, Kick e TikTok em um só lugar.
 
-É um projeto de fã da Realitas News, sem qualquer vínculo oficial com o Cellbit ou com a Ordem Paranormal.
+É um projeto de fãs do Realitas News, sem qualquer vínculo oficial com o Cellbit ou com a Ordem Paranormal.
 
 🔗 **https://ordemtracker.site**
 

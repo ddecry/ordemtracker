@@ -135,7 +135,7 @@ async function carrega() {
     ${e.id.startsWith("ag-") ? `<img alt="">` : `<img src="/capa/${e.id}.jpg" alt="" loading="lazy">`}
     <div><b>${esc(e.titulo || e.tituloYT || e.id)}</b>
       <small>${e.temporada ? esc(e.temporada) + " · " : ""}${e.data ? new Date(e.data).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "sem data"}${e.id === j.aoVivo ? " · AO VIVO" : ""}${e.recorde != null ? " · pico " + e.recorde.toLocaleString("pt-BR") : " · ainda sem dados"}${e.oculto ? " · escondido" : ""}</small></div>
-    <div class="a"><button type="button" class="sec" data-ed="${i}">Editar</button>${e.recorde == null ? `<button type="button" class="sec" data-rm="${i}">Remover</button>` : ""}</div>
+    <div class="a"><button type="button" class="sec" data-ed="${i}">Editar</button>${e.recorde != null ? `<button type="button" class="sec" data-pv="${esc(e.id)}">Prévia do link</button>` : ""}${e.recorde == null ? `<button type="button" class="sec" data-rm="${i}">Remover</button>` : ""}</div>
   </div>`).join("") || `<p>Nada cadastrado ainda.</p>`;
 }
 $("entrar").onclick = async () => {
@@ -159,6 +159,13 @@ $("form").onsubmit = async ev => {
 };
 $("lista").onclick = async ev => {
   const ed = ev.target.dataset.ed, rm = ev.target.dataset.rm;
+  // abre o episódio numa aba nova, que gera a imagem e manda pro servidor
+  if (ev.target.dataset.pv) {
+    const aba = open("about:blank", "_blank");
+    const j = await api("GET", null, "previa=" + encodeURIComponent(ev.target.dataset.pv)).catch(e => aviso(e.message, true));
+    if (j?.url && aba) aba.location = j.url; else aba?.close();
+    return;
+  }
   if (ed != null) {
     const e = dados[ed];
     editando = e.id; $("link").value = e.id.startsWith("ag-") ? "" : "https://www.youtube.com/watch?v=" + e.id; $("titulo").value = e.titulo; $("temporada").value = e.temporada;
