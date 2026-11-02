@@ -73,6 +73,15 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
 .fb button{grid-row:1/3;grid-column:2;align-self:center}
 .tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:9px;margin-right:6px;background:var(--line)}.tag.bug{background:var(--red);color:#fff}.tag.correcao{background:#3b82f6;color:#fff}
 
+/* status */
+.st-lista{display:grid;gap:8px}
+.st{display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.st i{width:10px;height:10px;border-radius:50%;background:var(--mut);grid-row:1/3}
+.st i.ok{background:var(--verde)}.st i.erro{background:var(--red)}
+.st b{font-weight:600}
+.st small{grid-column:2;color:var(--mut);font-size:13px}
+.st span{color:var(--mut);font-size:12px;text-align:right;grid-row:1/3;grid-column:3}
+
 /* momentos */
 .mo{display:grid;grid-template-columns:160px 1fr auto;gap:14px;padding:14px 0;border-bottom:1px solid var(--line);align-items:start}
 .mo img{width:160px;aspect-ratio:16/9;object-fit:cover;border-radius:8px;background:var(--panel2)}
@@ -102,6 +111,7 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
 <nav>
   <h1>Painel</h1>
   <button data-aba="agora" class="on">Agora</button>
+  <button data-aba="status">Status <span class="qtd" id="stQtd"></span></button>
   <button data-aba="publico">Público</button>
   <button data-aba="episodios">Episódios</button>
   <button data-aba="momentos">Momentos <span class="qtd" id="moQtd"></span></button>
@@ -124,6 +134,13 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
     <div><h3>Aparelho</h3><div id="acDisp"></div></div>
     <div><h3>De onde vieram</h3><div id="acOrig"></div></div>
   </div>
+</section>
+
+<section class="aba" id="aba-status" hidden>
+  <div class="topo"><div><h2>Status</h2><p id="stResumo">Se cada parte do site está funcionando. Atualiza a cada 10 segundos.</p></div></div>
+  <div id="stLista" class="st-lista"></div>
+  <h3>Servidor</h3>
+  <div class="stats" id="stServ"></div>
 </section>
 
 <section class="aba" id="aba-publico" hidden>
@@ -222,6 +239,7 @@ function abre(nome) {
   document.querySelectorAll(".aba").forEach(s => s.hidden = s.id !== "aba-" + nome);
   try { sessionStorage.setItem("aba", nome); } catch {}
   if (nome === "momentos") momentos();
+  if (nome === "status") status();
 }
 document.querySelectorAll("nav button[data-aba]").forEach(b => b.onclick = () => abre(b.dataset.aba));
 
@@ -242,7 +260,7 @@ async function carrega() {
   const sel = $("moEp"), atual = sel.value;
   sel.innerHTML = dados.filter(e => e.recorde != null).map(e => `<option value="${esc(e.id)}">${esc(titulo(e))}</option>`).join("");
   if (atual) sel.value = atual;
-  acessos(); feedbacks(); contaMomentos();
+  acessos(); feedbacks(); contaMomentos(); status();
   abre(sessionStorage.getItem("aba") || "agora");
 }
 $("entrar").onclick = async () => {
@@ -280,6 +298,27 @@ $("lista").onclick = async ev => {
     try { await api("POST", { id: dados[rm].id, remover: true }); await carrega(); } catch (e) { aviso(e.message, true); }
   }
 };
+
+// ---------- status: o que está funcionando agora ----------
+const ha = ms => { const s = Math.round(ms / 1000); return s < 60 ? "agora" : s < 3600 ? "há " + Math.round(s / 60) + " min" : s < 86400 ? "há " + Math.floor(s / 3600) + " h" : "há " + Math.floor(s / 86400) + " d"; };
+const gb = b => (b / 1073741824).toFixed(1).replace(".", ",") + " GB";
+async function status() {
+  let j; try { j = await api("GET", null, "status=1"); } catch { return; }
+  const erros = j.itens.filter(i => i.ok === false).length;
+  $("stQtd").textContent = erros || "";
+  $("stResumo").textContent = (j.aoVivo ? "Episódio ao vivo agora · " + n(j.total) + " assistindo. " : "Sem live agora. ") + (erros ? erros + (erros > 1 ? " partes com problema." : " parte com problema.") : "Tudo funcionando.");
+  const ordem = ["YouTube", "Twitch", "Kick", "TikTok", "Chat da Twitch", "Chat do YouTube", "Gravação", "Gemini"];
+  $("stLista").innerHTML = j.itens.sort((a, b) => (ordem.indexOf(a.nome) + 99) % 99 - (ordem.indexOf(b.nome) + 99) % 99).map(i => `<div class="st">
+    <i class="${i.ok === true ? "ok" : i.ok === false ? "erro" : ""}"></i><b>${esc(i.nome)}</b>
+    <span>${i.ok === false && i.ultimoOk ? "funcionou " + ha(j.agora - i.ultimoOk) : i.quando ? "checado " + ha(j.agora - i.quando) : ""}</span>
+    <small>${esc(i.info || (i.ok ? "funcionando" : i.ok === false ? "com erro" : "parado"))}${i.ultimaMsg ? " · última mensagem " + ha(j.agora - i.ultimaMsg) : ""}</small>
+  </div>`).join("");
+  const sv = j.servidor;
+  $("stServ").innerHTML = `<div class="stat"><span>Ligado</span><b>${ha(sv.ligadoHa).replace("há ", "")}</b></div>
+    <div class="stat"><span>Memória livre</span><b>${gb(sv.memoriaLivre)}</b></div>
+    <div class="stat"><span>Disco livre</span><b>${sv.disco ? gb(sv.disco.livre) : "-"}</b></div>
+    <div class="stat"><span>Episódio no ar</span><b>${j.aoVivo ? "Sim" : "Não"}</b></div>`;
+}
 
 // ---------- configurações ----------
 $("salvaCfg").onclick = async () => {
@@ -380,7 +419,7 @@ $("moSalva").onclick = async () => {
   try { await api("POST", { momentos: $("moEp").value, lista: mo }); $("moResumo").textContent += " · salvo"; contaMomentos(); } catch (e) { alert(e.message); }
 };
 
-setInterval(() => { if (!$("app").hidden) { acessos(); feedbacks(); } }, 10_000);
+setInterval(() => { if (!$("app").hidden) { acessos(); feedbacks(); status(); } }, 10_000);
 if (senha) carrega().catch(() => sessionStorage.removeItem("senha"));
 </script>
 </body></html>

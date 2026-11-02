@@ -104,7 +104,8 @@ async function chatYoutube() {
   if (!ytChat || !epAtual || !env.YOUTUBE_API_KEY) return;
   const u = `https://www.googleapis.com/youtube/v3/liveChat/messages?liveChatId=${ytChat}&part=snippet&maxResults=2000${ytChatPagina ? "&pageToken=" + ytChatPagina : ""}&key=${env.YOUTUBE_API_KEY}`;
   const r = await fetch(u);
-  if (!r.ok) { if (r.status === 403 || r.status === 404) ytChat = null; return; }
+  if (!r.ok) { marca("Chat do YouTube", false, "HTTP " + r.status); if (r.status === 403 || r.status === 404) ytChat = null; return; }
+  marca("Chat do YouTube", true, "lendo a cada 20 s");
   const j = await r.json();
   const primeira = !ytChatPagina;
   ytChatPagina = j.nextPageToken;
@@ -123,6 +124,16 @@ async function tiktok() {
 }
 
 const safe = fn => fn().catch(e => { console.warn(e.message); return null; });
+// ---------- status de cada parte, para a aba Status do painel ----------
+// ok: true (funcionando), false (com erro) ou null (desligado / sem nada para fazer agora)
+const estado = {}, ultimaMsg = {};
+function marca(nome, ok, info) {
+  const antes = estado[nome] || {};
+  estado[nome] = { ok, info: info == null ? null : String(info).slice(0, 200), quando: Date.now(), ultimoOk: ok ? Date.now() : antes.ultimoOk || null };
+}
+// coleta de uma plataforma: registra se respondeu, falhou ou está sem chave
+const coleta = (nome, fn) => fn().then(r => { marca(nome, r == null ? null : true, r == null ? "sem chave ou desligado" : null); return r; })
+  .catch(e => { marca(nome, false, e.message); console.warn(e.message); return null; });
 
 // ---------- chat da Twitch (leitura anônima pelo IRC oficial) ----------
 let epAtual = null;
@@ -145,6 +156,7 @@ function msg(plataforma, user, texto) {
   chat.msgs[plataforma] = (chat.msgs[plataforma] || 0) + 1;
   if (user) (chat.pessoas[plataforma] ||= new Set()).add(user.toLowerCase());
   janela.push(Date.now());
+  ultimaMsg[plataforma] = Date.now();
   if (texto) guardaMsg(plataforma, user, texto);
 }
 // mensagens do episódio pra análise depois: quem escreveu vira um código que muda a cada episódio
@@ -162,14 +174,14 @@ function guardaMsg(plataforma, user, texto) {
 
 function conectaTwitch() {
   const ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
-  ws.onopen = () => { ws.send("PASS SCHMOOPIIE"); ws.send("NICK justinfan" + Math.floor(Math.random() * 99999)); ws.send("JOIN #" + TWITCH); };
+  ws.onopen = () => { marca("Chat da Twitch", true, "conectado"); ws.send("PASS SCHMOOPIIE"); ws.send("NICK justinfan" + Math.floor(Math.random() * 99999)); ws.send("JOIN #" + TWITCH); };
   ws.onmessage = e => {
     for (const l of String(e.data).split("\r\n")) {
       if (l.startsWith("PING")) ws.send("PONG :tmi.twitch.tv");
       else if (l.includes(" PRIVMSG ")) msg("twitch", l.match(/^:([^!]+)!/)?.[1], l.match(/ PRIVMSG #\S+ :(.*)$/)?.[1]);
     }
   };
-  ws.onclose = () => setTimeout(conectaTwitch, 5000);
+  ws.onclose = () => { marca("Chat da Twitch", false, "desconectado, reconectando"); setTimeout(conectaTwitch, 5000); };
   ws.onerror = () => ws.close();
 }
 conectaTwitch();
@@ -212,7 +224,7 @@ function resumo(e) {
 }
 
 async function tick() {
-  const [t, k, y, tk] = await Promise.all([safe(twitch), safe(kick), safe(youtube), safe(tiktok)]);
+  const [t, k, y, tk] = await Promise.all([coleta("Twitch", twitch), coleta("Kick", kick), coleta("YouTube", youtube), coleta("TikTok", tiktok)]);
   // episódio = live do canal Ordem Paranormal no YouTube; Twitch e Kick só contam enquanto ela está no ar
   const id = y?.id || null;
   const tw = id ? t?.n ?? null : null, kk = id ? k?.n ?? null : null, tt = id ? tk?.n ?? null : null;
@@ -443,6 +455,7 @@ async function admin(req, res) {
     }).sort((a, b) => (b.data || "").localeCompare(a.data || ""));
     if (url.searchParams.get("acessos")) return json(res, 200, relatorio());
     // correções vêm com o texto atual do momento, pra comparar
+    if (url.searchParams.get("status")) return json(res, 200, status());
     if (url.searchParams.get("feedbacks")) return json(res, 200, feedbacks.map(f => f.tipo === "correcao" ? { ...f, atual: leMomentos(f.ep).find(m => m.quando === f.momento) || null } : f));
     const mid = url.searchParams.get("momentos");
     if (mid && records[mid]) return json(res, 200, { lista: leMomentos(mid) });
@@ -573,13 +586,14 @@ function gravacao() {
   // o endereço expira em algumas horas: quando cai, a próxima volta do tick recomeça
   execFile("yt-dlp", ["-g", "-f", "best[height<=480]/worst", "https://www.twitch.tv/" + TWITCH], { timeout: 60_000 }, (erro, saida) => {
     const url = String(saida || "").trim().split("\n")[0];
-    if (erro || !url.startsWith("http")) { console.warn("gravação: sem endereço da live", erro?.message || ""); gravando = null; return; }
+    if (erro || !url.startsWith("http")) { marca("Gravação", false, "não abriu a live da Twitch: " + (erro?.message || "sem endereço")); console.warn("gravação: sem endereço da live", erro?.message || ""); gravando = null; return; }
     const proc = spawn("ffmpeg", ["-v", "error", "-i", url,
       "-map", "0:a", "-ac", "1", "-ar", "16000", "-c:a", "libopus", "-b:a", "24k", "-f", "segment", "-segment_time", String(PARTE_MIN * 60), "-reset_timestamps", "1", "-strftime", "1", path.join(dir, "audio-%Y%m%dT%H%M%S.ogg"),
       "-map", "0:v", "-vf", "fps=1/30,scale=854:-2", "-q:v", "4", "-f", "image2", "-strftime", "1", path.join(dir, "capturas", "%Y%m%dT%H%M%S.jpg")], { stdio: ["ignore", "ignore", "pipe"] });
     proc.stderr.on("data", d => console.warn("ffmpeg:", String(d).trim().slice(0, 200)));
     proc.on("exit", () => { if (gravando?.proc === proc) gravando = null; });
     gravando = { id, proc };
+    marca("Gravação", true, "gravando áudio e capturas da Twitch");
     console.log("gravação: começou", id);
   });
   gravando = { id, proc: { kill() {} } }; // reserva enquanto o yt-dlp responde
@@ -639,6 +653,7 @@ async function analisaPartes() {
         salvaMomentos(id, [...leMomentos(id), ...novos].sort((a, b) => a.quando.localeCompare(b.quando)));
         fs.unlinkSync(path.join(dir, p));
         console.log("momentos:", id, p, novos.length);
+        marca("Gemini", true, novos.length + " momentos novos em rascunho");
       }
       // live acabou e tudo analisado: apaga o que sobrou da gravação
       if (gravando?.id !== id && !fs.readdirSync(dir).some(f => f.endsWith(".ogg"))) fs.rmSync(dir, { recursive: true, force: true });
@@ -646,11 +661,32 @@ async function analisaPartes() {
   } catch (e) {
     // cota gratuita acabou: as partes ficam guardadas e a análise tenta de novo de hora em hora até a cota renovar
     if (e.codigo === 429) pausaAte = Date.now() + 3600e3;
+    marca("Gemini", false, e.codigo === 429 ? "cota gratuita do dia esgotada; tenta de novo de hora em hora" : e.message);
     console.warn(e.message);
   }
   analisando = false;
 }
 setInterval(analisaPartes, 120_000);
+
+// relatório da aba Status
+function status() {
+  const os = require("os");
+  const partes = fs.existsSync(GRAVACAO) ? fs.readdirSync(GRAVACAO).flatMap(id => fs.readdirSync(path.join(GRAVACAO, id)).filter(f => f.endsWith(".ogg")).map(f => id + "/" + f)) : [];
+  const capturas = gravando ? (() => { try { return fs.readdirSync(path.join(GRAVACAO, gravando.id, "capturas")).sort(); } catch { return []; } })() : [];
+  const itens = { ...estado };
+  if (!gravando) itens["Gravação"] = { ok: env.GRAVACAO === "1" ? null : null, info: env.GRAVACAO === "1" ? "ligada; começa sozinha quando um episódio entrar no ar" : "desligada (GRAVACAO=0)", quando: Date.now() };
+  else if (capturas.length) itens["Gravação"] = { ...itens["Gravação"], info: `gravando · ${capturas.length} capturas · última às ${deHora14(capturas.at(-1).slice(0, 15)).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo" })}` };
+  if (!itens["Gemini"]) itens["Gemini"] = { ok: env.GEMINI_API_KEY ? null : false, info: env.GEMINI_API_KEY ? "nenhuma análise feita desde que o servidor ligou" : "sem GEMINI_API_KEY", quando: Date.now() };
+  if (partes.length) itens["Gemini"] = { ...itens["Gemini"], info: (itens["Gemini"].info ? itens["Gemini"].info + " · " : "") + partes.length + (partes.length > 1 ? " partes" : " parte") + " de áudio esperando análise" + (pausaAte > Date.now() ? " (próxima tentativa às " + new Date(pausaAte).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }) + ")" : "") };
+  if (!itens["Chat do YouTube"]) itens["Chat do YouTube"] = { ok: null, info: "só lê com o episódio no ar", quando: Date.now() };
+  for (const [p, nome] of [["twitch", "Chat da Twitch"], ["youtube", "Chat do YouTube"]]) if (itens[nome] && ultimaMsg[p]) itens[nome] = { ...itens[nome], ultimaMsg: ultimaMsg[p] };
+  let disco = null; try { const d = fs.statfsSync(DADOS); disco = { livre: d.bavail * d.bsize, total: d.blocks * d.bsize }; } catch {}
+  return {
+    agora: Date.now(), episodio: atual.episodio || null, aoVivo: !!(atual.episodio && atual.total > 0), total: atual.total || 0,
+    itens: Object.entries(itens).map(([nome, v]) => ({ nome, ...v })),
+    servidor: { ligadoHa: process.uptime() * 1000, memoriaLivre: os.freemem(), memoriaTotal: os.totalmem(), disco },
+  };
+}
 
 // ---------- prévia do link (X, WhatsApp, Discord) ----------
 // a imagem é a mesma do "Compartilhar", gerada pela página do episódio a pedido do painel
