@@ -19,6 +19,7 @@ button{background:var(--tx);color:var(--bg);border:0;border-radius:10px;padding:
 button.sec{background:none;color:var(--tx);border:1px solid var(--line)}
 button.peq{padding:6px 10px;font-size:13px}
 .mut{color:var(--mut);font-weight:400}
+a{color:var(--tx);text-underline-offset:2px}
 
 /* estrutura: menu lateral + conteúdo */
 #login{max-width:420px;margin:18vh auto;padding:0 16px}
@@ -52,6 +53,7 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
 .stat span{display:flex;align-items:center;gap:6px;color:var(--mut);font-size:12px}
+.stat small{display:block;color:var(--mut);font-size:12px;margin-top:2px}
 .stat b{display:block;font-size:28px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
 .stat.destaque b{font-size:34px}
 .pulso{width:8px;height:8px;border-radius:50%;background:var(--verde);animation:pulso 1.8s infinite;flex:none}
@@ -112,15 +114,36 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
 .mo.aprovado{opacity:1}.mo:not(.aprovado) img{opacity:.6}
 .selo{font-size:11px;font-weight:600;padding:2px 8px;border-radius:9px;background:var(--line)}.selo.ok{background:var(--verde);color:#062}
 
+/* celular: menu em duas linhas (todas as abas visíveis), cartões compactos, listas com miniatura ao lado */
 @media (max-width:760px){
+  body{font-size:14px}
   #app{grid-template-columns:1fr}
-  nav{position:sticky;top:0;z-index:5;height:auto;flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:10px;background:var(--bg)}
+  nav{position:sticky;top:0;z-index:5;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;align-content:flex-start;gap:4px;border-right:0;border-bottom:1px solid var(--line);padding:8px 10px;background:var(--bg)}
   nav h1,nav .vivo{display:none}
-  nav button{white-space:nowrap}
-  main{padding:20px 16px 48px}
-  .stats{grid-template-columns:1fr 1fr}.cols,.g,.g3{grid-template-columns:1fr}
-  .ep{grid-template-columns:80px 1fr}.ep img{width:80px}.ep .a{grid-column:1/-1;justify-content:flex-start}
-  .mo{grid-template-columns:1fr}.mo img{width:100%}.mo .a{flex-direction:row}
+  nav button{white-space:nowrap;padding:7px 10px;font-size:13px}
+  main{padding:16px 14px 48px}
+  h2{font-size:18px}
+  h3{margin:20px 0 8px;font-size:12px}
+  .topo{flex-direction:column;align-items:stretch;gap:10px;margin-bottom:14px}
+  .topo p{font-size:13px}
+  .stats{grid-template-columns:1fr 1fr;gap:8px}
+  .stat{padding:10px 12px;border-radius:10px}
+  .stat span{font-size:11px}
+  .stat b,.stat.destaque b{font-size:22px;margin-top:2px}
+  .grafico{padding:8px;margin-top:8px}.grafico svg{height:80px}.eixo{font-size:10px}
+  .cols,.g,.g3{grid-template-columns:1fr;gap:0}
+  .barra{font-size:12px}
+  .card{padding:14px}
+  .ep{grid-template-columns:72px 1fr;gap:10px}.ep img{width:72px}.ep .a{grid-column:1/-1;justify-content:flex-start}
+  .lista-eps{padding:2px 14px}
+  .mo{grid-template-columns:96px 1fr;gap:10px;padding:12px 0}.mo img{width:96px}
+  .mo .a{grid-column:1/-1;flex-direction:row}
+  .mo textarea{min-height:104px}.mo input{font-size:13px}
+  #moEp{min-width:0!important;width:100%!important}
+  .st{grid-template-columns:auto 1fr;padding:10px 12px}
+  .st small{grid-row:2}.st span{grid-row:3;grid-column:2;text-align:left;font-size:11px}.st i{grid-row:1}
+  .fb{grid-template-columns:1fr}.fb button,.fb>div{grid-row:auto!important;grid-column:1!important;justify-self:start}
+  .tab div{grid-template-columns:1fr 70px 70px}
 }
 </style></head>
 <body>
@@ -130,9 +153,8 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
 <div id="app" hidden>
 <nav>
   <h1>Painel</h1>
-  <button data-aba="agora" class="on">Agora</button>
+  <button data-aba="site" class="on">Site</button>
   <button data-aba="status">Status <span class="qtd" id="stQtd"></span></button>
-  <button data-aba="publico">Público</button>
   <button data-aba="episodios">Episódios</button>
   <button data-aba="momentos">Momentos <span class="qtd" id="moQtd"></span></button>
   <button data-aba="feedbacks">Feedbacks <span class="qtd" id="fbQtd"></span></button>
@@ -141,52 +163,37 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
 </nav>
 <main>
 
-<section class="aba" id="aba-agora">
-  <div class="topo"><div><h2>Agora</h2><p>Quem está no site neste momento. Atualiza a cada 10 segundos.</p></div></div>
+<section class="aba" id="aba-site">
+  <div class="topo"><div><h2>Site</h2><p>Quem usa o ordemtracker.site. Atualiza a cada 10 segundos.</p></div></div>
+  <h3 style="margin-top:0">Agora</h3>
   <div class="stats">
     <div class="stat destaque"><span><i class="pulso"></i>Online agora</span><b id="acOn">-</b></div>
     <div class="stat"><span>Pico hoje</span><b id="acPico">-</b></div>
-    <div class="stat"><span>Pessoas únicas hoje</span><b id="acUni">-</b></div>
+    <div class="stat"><span>Pessoas hoje</span><b id="acUni">-</b></div>
     <div class="stat"><span>Visitas hoje</span><b id="acViews">-</b></div>
   </div>
   <div class="grafico"><svg id="acSerie" viewBox="0 0 600 120" preserveAspectRatio="none"></svg><div class="eixo"><span id="acIni"></span><span>online nas últimas 6 horas</span><span>agora</span></div></div>
-  <div class="cols">
-    <div><h3>Aparelho</h3><div id="acDisp"></div></div>
-    <div><h3>De onde vieram</h3><div id="acOrig"></div></div>
-  </div>
-</section>
 
-<section class="aba" id="aba-status" hidden>
-  <div class="topo"><div><h2>Status</h2><p id="stResumo">Se cada parte do site está funcionando. Atualiza a cada 10 segundos.</p></div></div>
-  <h3 style="margin-top:0">Quem usa o site</h3>
-  <div class="stats" id="stPub"></div>
-  <h3>Partes do site</h3>
-  <div id="stLista" class="st-lista"></div>
-  <h3>Servidor</h3>
-  <div class="stats" id="stServ"></div>
-</section>
-
-<section class="aba" id="aba-publico" hidden>
-  <div class="topo"><div><h2>Público</h2><p>Como as pessoas usam o site hoje e nos últimos dias.</p></div></div>
-  <h3 style="margin-top:0">Desde o início</h3>
+  <h3>Desde o início</h3>
   <div class="stats">
+    <div class="stat"><span>Pico geral ao mesmo tempo</span><b id="acPicoGeral">-</b><small id="acPicoGeralDia"></small></div>
     <div class="stat"><span>Visitas no total</span><b id="acTotVis">-</b></div>
     <div class="stat"><span>Pessoas por dia (média)</span><b id="acMedUni">-</b></div>
-    <div class="stat"><span>Maior dia</span><b id="acMaior">-</b><span id="acMaiorDia"></span></div>
-    <div class="stat"><span>Dias com dados</span><b id="acDias">-</b></div>
+    <div class="stat"><span>Maior dia</span><b id="acMaior">-</b><small id="acMaiorDia"></small></div>
   </div>
-  <h3>Pessoas e visitas por dia</h3>
-  <div class="grafico"><svg id="acDiario" viewBox="0 0 600 120" preserveAspectRatio="none"></svg><div class="eixo"><span id="acDiaIni"></span><span><i class="leg" style="background:var(--tx)"></i>pessoas únicas <i class="leg" style="background:var(--mut);opacity:.5"></i>visitas</span><span>hoje</span></div></div>
-  <h3>Hoje</h3>
+  <div class="grafico"><svg id="acDiario" viewBox="0 0 600 120" preserveAspectRatio="none"></svg><div class="eixo"><span id="acDiaIni"></span><span><i class="leg" style="background:var(--tx)"></i>pessoas <i class="leg" style="background:var(--mut);opacity:.5"></i>visitas</span><span>hoje</span></div></div>
+
+  <h3>Como usam o site hoje</h3>
   <div class="stats">
     <div class="stat"><span>Tempo médio no site</span><b id="acTempo">-</b></div>
     <div class="stat"><span>Ficaram 10 min ou mais</span><b id="acMais10">-</b></div>
     <div class="stat"><span>Saíram em menos de 30 s</span><b id="acRap">-</b></div>
     <div class="stat"><span>Voltaram mais de uma vez</span><b id="acVolt">-</b></div>
   </div>
-  <h3>Entradas por horário</h3>
-  <div class="grafico"><svg id="acHoras" viewBox="0 0 600 120" preserveAspectRatio="none"></svg><div class="eixo"><span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span></div></div>
+  <div class="grafico"><svg id="acHoras" viewBox="0 0 600 120" preserveAspectRatio="none"></svg><div class="eixo"><span>0h</span><span>6h</span><span>entradas por horário</span><span>18h</span><span>23h</span></div></div>
   <div class="cols">
+    <div><h3>Aparelho</h3><div id="acDisp"></div></div>
+    <div><h3>De onde vieram</h3><div id="acOrig"></div></div>
     <div><h3>Navegador</h3><div id="acNav"></div></div>
     <div><h3>Sistema</h3><div id="acSis"></div></div>
   </div>
@@ -196,6 +203,13 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
     <div><h3>Últimos dias</h3><div id="acHist" class="tab"></div></div>
   </div>
   <p class="nota">Contagem anônima, sem cookies: cada pessoa vira um código que muda todo dia. "Online" considera quem abriu o site no último minuto.</p>
+</section>
+
+<section class="aba" id="aba-status" hidden>
+  <div class="topo"><div><h2>Status</h2><p id="stResumo">Se cada parte do site está funcionando. Atualiza a cada 10 segundos.</p></div></div>
+  <div id="stLista" class="st-lista"></div>
+  <h3>Servidor</h3>
+  <div class="stats" id="stServ"></div>
 </section>
 
 <section class="aba" id="aba-episodios" hidden>
@@ -275,7 +289,8 @@ async function api(metodo, corpo, busca) {
   return j;
 }
 const local = iso => { if (!iso) return ""; const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
-const titulo = e => (e.titulo || e.tituloYT || e.id).replace(/\s*\|.*$/, "");
+// títulos do YouTube vêm em maiúsculas ("A VIGÍLIA - EPISÓDIO 1"): mostra como "A Vigília - Episódio 1"
+const titulo = e => { const t = (e.titulo || e.tituloYT || e.id).replace(/\s*\|.*$/, ""); return t === t.toUpperCase() && /\p{L}{3}/u.test(t) ? t.toLowerCase().replace(/(^|[\s-])\p{L}/gu, c => c.toUpperCase()) : t; };
 // prévia da temporada para episódio ainda sem link: "A Vigília" -> /temporadas/a-vigilia.jpg
 const kebab = t => String(t).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s*-\s*epis.*$/, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
@@ -313,7 +328,7 @@ async function carrega() {
   sel.innerHTML = dados.filter(e => e.recorde != null).map(e => `<option value="${esc(e.id)}">${esc(titulo(e))}</option>`).join("");
   if (atual) sel.value = atual;
   acessos(); feedbacks(); contaMomentos(); status();
-  abre(sessionStorage.getItem("aba") || "agora");
+  abre(["agora","publico"].includes(sessionStorage.getItem("aba")) ? "site" : sessionStorage.getItem("aba") || "site");
 }
 $("entrar").onclick = async () => {
   senha = $("senha").value;
@@ -367,14 +382,6 @@ async function status() {
     <span>${i.ok === false && i.ultimoOk ? "funcionou " + ha(j.agora - i.ultimoOk) : i.quando ? "checado " + ha(j.agora - i.quando) : ""}</span>
     <small>${esc(i.info || (i.ok ? "funcionando" : i.ok === false ? "com erro" : "parado"))}${i.ultimaMsg ? " · última mensagem " + ha(j.agora - i.ultimaMsg) : ""}</small>
   </div>`).join("");
-  const p = j.publico, dia = d => d ? new Date(d + "T12:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) : "";
-  $("stPub").innerHTML = `<div class="stat destaque"><span><i class="pulso"></i>Online agora</span><b>${n(p.online)}</b></div>
-    <div class="stat"><span>Pico geral ao mesmo tempo</span><b>${n(p.picoGeral)}</b><span>${dia(p.picoGeralDia)}</span></div>
-    <div class="stat"><span>Pico hoje</span><b>${n(p.picoHoje)}</b></div>
-    <div class="stat"><span>Pessoas hoje</span><b>${n(p.unicosHoje)}</b></div>
-    <div class="stat"><span>Visitas hoje</span><b>${n(p.visitasHoje)}</b></div>
-    <div class="stat"><span>Visitas no total</span><b>${n(p.visitasTotal)}</b></div>
-    <div class="stat"><span>Pessoas por dia (média)</span><b>${n(p.mediaDia)}</b></div>`;
   const sv = j.servidor;
   $("stServ").innerHTML = `<div class="stat"><span>Ligado</span><b>${ha(sv.ligadoHa).replace("há ", "")}</b></div>
     <div class="stat"><span>Memória livre</span><b>${gb(sv.memoriaLivre)}</b></div>
@@ -431,11 +438,13 @@ async function acessos() {
   const eps = Object.values(j.eps);
   $("acEps").innerHTML = eps.length ? `<div><span>Episódio</span><span>Únicos</span><span>Pico online</span></div>` + eps.map(e => `<div><span>${esc(e.titulo.replace(/\s*\|.*$/, ""))}</span><span>${n(e.unicos)}</span><span>${n(e.pico)}</span></div>`).join("") : "<p>Os números aparecem a partir do próximo episódio ao vivo.</p>";
   // dias anteriores + hoje; cada pessoa é contada uma vez por dia (o código anônimo muda todo dia)
-  const dias = [...j.historico, { dia: "hoje", unicos: j.unicos, views: j.views }];
+  const dias = [...j.historico, { dia: "hoje", unicos: j.unicos, views: j.views, pico: j.pico }];
   const totVis = dias.reduce((t, d) => t + (d.views || 0), 0), maior = dias.reduce((m, d) => (d.unicos || 0) > (m.unicos || 0) ? d : m, dias[0]);
+  const picoDia = dias.reduce((m, d) => (d.pico || 0) > (m.pico || 0) ? d : m, dias[0]);
   const dataCurta = d => d === "hoje" ? "hoje" : new Date(d + "T12:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
   $("acTotVis").textContent = n(totVis); $("acMedUni").textContent = n(Math.round(dias.reduce((t, d) => t + (d.unicos || 0), 0) / dias.length));
-  $("acMaior").textContent = n(maior.unicos); $("acMaiorDia").textContent = "pessoas · " + dataCurta(maior.dia); $("acDias").textContent = n(dias.length);
+  $("acMaior").textContent = n(maior.unicos); $("acMaiorDia").textContent = "pessoas em " + dataCurta(maior.dia);
+  $("acPicoGeral").textContent = n(picoDia.pico); $("acPicoGeralDia").textContent = "em " + dataCurta(picoDia.dia);
   const dMax = Math.max(1, ...dias.map(d => Math.max(d.unicos || 0, d.views || 0))), lg = 600 / dias.length;
   $("acDiario").innerHTML = dias.map((d, i) => `<rect x="${i * lg + lg * .12}" y="${118 - (d.views || 0) / dMax * 110}" width="${lg * .76}" height="${(d.views || 0) / dMax * 110 + 2}" rx="2" fill="currentColor" opacity=".18"><title>${dataCurta(d.dia)}: ${n(d.views)} visitas</title></rect><rect x="${i * lg + lg * .3}" y="${118 - (d.unicos || 0) / dMax * 110}" width="${lg * .4}" height="${(d.unicos || 0) / dMax * 110 + 2}" rx="2" fill="currentColor" opacity=".85"><title>${dataCurta(d.dia)}: ${n(d.unicos)} pessoas</title></rect>`).join("");
   $("acDiaIni").textContent = dataCurta(dias[0].dia);

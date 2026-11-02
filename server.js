@@ -359,6 +359,10 @@ function registraAcesso(req, url) {
   if (/bot|crawl|spider|preview|curl|wget/i.test(ua)) return;
   const cod = crypto.createHash("sha256").update(ac.sal + ip + ua).digest("hex").slice(0, 16);
   online.set(cod, Date.now());
+  // pico registrado na hora (antes só a cada minuto, e um pico curto podia passar despercebido)
+  const agoraOn = online.size;
+  if (agoraOn > ac.pico) ac.pico = onlineAgora();
+  if (atual.episodio && atual.total > 0 && agoraOn > (ac.eps[atual.episodio]?.pico || 0)) (ac.eps[atual.episodio] ||= { pico: 0 }).pico = onlineAgora();
   // primeiro e último acesso do dia, pra saber quanto tempo a pessoa ficou
   const agora = Date.now(), t = ac.tempos[cod] ||= [agora, agora]; t[1] = agora;
   if (!unicosHoje.has(cod)) {
