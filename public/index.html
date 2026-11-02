@@ -150,19 +150,24 @@ body.encerrado .clockw .dot{display:none}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:700px){.modal-box{grid-template-columns:1fr}.modal-box img{max-width:100%;max-height:55vh}}
 @media (max-width:640px){.ep{grid-template-columns:110px 1fr}.ep img{width:110px}.ep .acoes{grid-column:1/-1;flex-direction:row;align-items:center}}
-@media (max-aspect-ratio:1/1){
+@media (max-width:800px){
   html,body{height:auto;overflow:auto}
   body{padding:16px;gap:16px;font-size:14px}
   .main{grid-template-columns:1fr}
   .col+.col{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:16px}
   .capa{max-height:none}
   .big{font-size:clamp(48px,16vw,96px)}
-  .plats{flex-wrap:wrap;justify-content:flex-start;gap:.6em 1.4em;font-size:14px}
+  .plats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6em 1em;font-size:14px}
   .picos{flex-wrap:wrap;gap:.4em 1.2em}
   .chartbox{height:260px;flex:none}
   .strip{flex-wrap:wrap;row-gap:12px}
   .st{flex:1 0 33%;padding:0 12px 0 0;border-left:0}
+  .top{gap:10px}
+  .marcas{flex:none}
+  .marcas .rn-logo{height:150%;margin:0 -.2em}
+  .top .sp{display:none}
   .top .tbtn span{display:none}
+  .prox:not([hidden])~.clockw{display:none}
   .prox .mut{display:none}
   .aviso{white-space:normal}
   .st .tags{flex-wrap:wrap;gap:.2em .8em}
@@ -186,7 +191,7 @@ body.encerrado .clockw .dot{display:none}
 .lado .picos{justify-content:flex-end}
 .ico{width:1.05em;height:1.05em;object-fit:contain}
 .ico[src*="kick"]{width:1em;height:1em}
-@media (max-aspect-ratio:1/1){.lado{grid-template-columns:1fr}.lado .picos{justify-content:flex-start}}
+@media (max-width:800px){.lado{grid-template-columns:1fr}.lado .picos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.lado .picos>.mut{grid-column:1/-1}}
 .hero{justify-content:flex-start;padding-top:.6vh}
 .hero .big{font-size:clamp(32px,min(10vh,6.4vw),118px)}
 .ep-titulo{font-size:clamp(18px,3.4vh,34px);margin:.6vh 0 .8vh}
@@ -233,7 +238,7 @@ body.encerrado .clockw .dot{display:none}
 .sl,.sr{display:flex;min-width:0}
 .sr{border-left:1px solid var(--line);padding-left:1.6vw}
 .sr .st:first-child{border-left:0;padding-left:0}
-@media (max-aspect-ratio:1/1){.strip{grid-template-columns:1fr;gap:12px}.sl,.sr{flex-wrap:wrap;row-gap:12px}.sr{border-left:0;padding-left:0}}
+@media (max-width:800px){.main,.strip{grid-template-columns:1fr}.strip{gap:12px}.sl,.sr{flex-wrap:wrap;row-gap:12px}.sr{border-left:0;padding-left:0}}
 .onde{gap:2.2vh}
 .onde-t{font:600 11px Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.7)}
 .onde-l{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;width:min(88%,460px)}
@@ -267,12 +272,12 @@ body.modo-espera .main,body.modo-espera .strip,body.modo-espera .prox{display:no
 .esp-acoes{display:flex;gap:10px;margin-top:1vh}
 .esp-acoes .sbtn{padding:.75em 1.2em}
 .esp-acoes .sbtn[hidden]{display:none}
-@media (max-aspect-ratio:1/1){.espera{grid-template-columns:1fr;gap:20px}.esp-cont{gap:14px}.esp-acoes{flex-wrap:wrap}}
 .esp-capa{position:relative;overflow:hidden;display:grid;place-items:center}
 .esp-capa::before{content:"";position:absolute;inset:0;background:var(--fundo) center/cover no-repeat;transition:filter .4s}
 .esp-capa.previa::before{filter:blur(6px) brightness(.85);transform:scale(1.06)}
 .esp-logo{position:relative;width:62%;max-height:70%;object-fit:contain;filter:drop-shadow(0 4px 24px rgba(0,0,0,.6))}
 .espera{grid-template-columns:minmax(0,min(46vw,760px)) auto;justify-content:center;align-content:center}
+@media (max-width:800px){.espera{grid-template-columns:1fr;gap:20px}.esp-cont{gap:14px}.esp-acoes{flex-wrap:wrap}}
 .esp-cont b{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;display:inline-block;min-width:1.25em;text-align:center}
 @media (max-aspect-ratio:1/1){
   .espera{grid-template-columns:1fr;justify-content:stretch;align-content:start;gap:22px;padding-top:1vh}
@@ -486,7 +491,7 @@ const eixos = () => ({
 });
 const dica = { backgroundColor: "#1c1c1c", borderColor: "#2e2e2e", borderWidth: 1, padding: 10, boxPadding: 4, usePointStyle: true,
   callbacks: { title: it => it.length ? hm(it[0].parsed.x) : "", label: c => ` ${c.dataset.label}: ${f(c.parsed.y)}` } };
-const legenda = { position: "top", align: "end", labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 14, font: { size: 11 } } };
+const legenda = { position: "top", align: "start", labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 8, font: { size: 10 } } };
 // linha vertical no momento escolhido na linha do tempo
 const marcaLinha = {
   id: "marca",
