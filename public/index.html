@@ -50,6 +50,13 @@ body.encerrado .clockw .dot{display:none}
 .plats{flex:none;display:flex;flex-wrap:wrap;justify-content:space-between;gap:.3em .8em;margin:1.4vh 0 .8vh;white-space:nowrap;font-size:clamp(10px,1.1vw,15px)}
 .plats b{font-size:1.15em}
 .ico{display:inline-block;width:auto;height:1.05em;vertical-align:-.17em;margin-right:.4em}
+.momentos{display:flex;margin-top:2vh}
+.momentos button{flex:1;display:flex;flex-direction:column;align-items:flex-start;gap:.2vh;background:none;border:0;border-left:1px solid var(--line);padding:0 1.2vw;color:var(--tx);font:inherit;cursor:pointer;text-align:left}
+.momentos button:first-child{border-left:0;padding-left:0}
+.momentos .cap{transition:color .2s}
+.momentos button:hover .cap{color:var(--tx)}
+.momentos b{font-size:1.25em;font-weight:700}
+.momentos small{color:var(--mut);font-size:.8em}
 .bar{flex:none;display:flex;height:clamp(30px,5vh,52px);border-radius:12px;overflow:hidden;background:var(--panel2)}
 .seg{display:flex;align-items:center;padding:0 .8em;min-width:0;font-weight:700;font-size:clamp(13px,2.1vh,21px);line-height:1;white-space:nowrap;overflow:hidden;transition:flex-basis 1.2s cubic-bezier(.2,.8,.2,1)}
 .seg[style*="flex-basis: 0%"]{padding:0}
@@ -65,6 +72,22 @@ body.encerrado .clockw .dot{display:none}
 
 .chartbox{flex:1;display:flex;flex-direction:column;min-height:0}
 .chartbox .cw{position:relative;flex:1;min-height:0}
+.linha-t{position:relative;display:flex;align-items:center;gap:.8em;padding-top:.8vh}
+.linha-t .bolha{position:absolute;bottom:calc(100% - .2vh);transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line2);color:var(--tx);font:600 .78em Inter,sans-serif;padding:.25em .55em;border-radius:6px;pointer-events:none;opacity:0;transition:opacity .15s;white-space:nowrap}
+.linha-t .bolha.on{opacity:1}
+.linha-t input{flex:1;-webkit-appearance:none;appearance:none;height:2px;background:var(--line2);border-radius:2px;outline:0;cursor:pointer;margin:0}
+.linha-t input::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--tx);border:3px solid var(--bg);box-shadow:0 0 0 1px var(--line2);transition:transform .15s}
+.linha-t input::-moz-range-thumb{width:10px;height:10px;border-radius:50%;background:var(--tx);border:3px solid var(--bg);box-shadow:0 0 0 1px var(--line2)}
+.linha-t input:hover::-webkit-slider-thumb,.linha-t input:active::-webkit-slider-thumb{transform:scale(1.25)}
+.linha-t .num{font-size:.85em;min-width:3.2em;text-align:right}
+.linha-t .ponta{min-width:0;font-size:.78em}
+.linha-t #linhaH{color:var(--tx);font-weight:600}
+.linha-t #linhaH:empty{display:none}
+.linha-t button{background:none;border:0;color:var(--mut);font:600 .8em Inter,sans-serif;cursor:pointer;padding:0;transition:color .2s}
+.linha-t button:hover{color:var(--tx)}
+.linha-t button{display:inline-flex;align-items:center;gap:.4em}
+.linha-t .vivo{width:7px;height:7px;border-radius:50%;background:#ef4444;animation:pisca 1.6s infinite}
+@keyframes pisca{50%{opacity:.35}}
 
 .strip{display:flex;align-items:stretch;border-top:1px solid var(--line);padding-top:1.4vh;animation:sobe .7s .24s cubic-bezier(.2,.8,.2,1) both}
 .st{flex:1;display:flex;flex-direction:column;gap:.2vh;padding:0 1.2vw;min-width:0;border-left:1px solid var(--line)}
@@ -97,6 +120,12 @@ body.encerrado .clockw .dot{display:none}
 .eps-box{border-radius:16px;width:min(920px,94vw);max-height:88vh;display:flex;flex-direction:column}
 .eps-top{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--line)}
 .eps-top .fechar{margin:0}
+.fb-box{width:min(480px,94vw)}
+.fb-form{display:flex;flex-direction:column;gap:12px;padding:18px 22px 22px}
+.fb-tipo{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fb-form textarea,.fb-form input{width:100%;background:var(--panel2);color:var(--tx);border:1px solid var(--line);border-radius:12px;padding:.8em 1em;font:inherit;font-size:.95em;resize:vertical;outline:0;transition:border-color .2s}
+.fb-form textarea:focus,.fb-form input:focus{border-color:var(--mut)}
+.fb-msg{margin:0;font-size:.85em;min-height:1.2em}
 .eps-lista{overflow:auto;padding:6px 22px 14px}
 .eps-lista .lbl{margin-top:12px}
 .ep{display:grid;grid-template-columns:168px minmax(0,1fr) auto;gap:18px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)}
@@ -270,6 +299,7 @@ button.ep-titulo:hover .seta{color:var(--tx)}
   <div class="sp"></div>
   <a class="prox" id="prox" target="_blank" rel="noopener" data-dica="Próximo episódio" aria-label="Próximo episódio" hidden><span class="mut">Próximo episódio em</span> <b class="num" id="proxC"></b><span id="proxT" hidden></span></a>
   <button class="tbtn" id="temaBtn" data-dica="Tema claro ou escuro" aria-label="Alternar tema"><svg class="i-lua" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><svg class="i-sol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></button>
+  <button class="tbtn" id="fbBtn" data-dica="Feedback e bugs" aria-label="Feedback e bugs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg></button>
   <button class="tbtn" id="epsBtn" data-dica="Episódios" aria-label="Episódios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z"/><path d="m6.2 5.3 3.1 3.9"/><path d="m12.4 3.4 3.1 4"/><path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg><span>Episódios</span></button>
   <button class="tbtn" id="shareBtn" data-dica="Compartilhar" aria-label="Compartilhar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg><span>Compartilhar</span></button>
   <div class="clockw"><span class="dot"></span><span class="num" id="clock">--:--:--</span></div>
@@ -306,11 +336,13 @@ button.ep-titulo:hover .seta{color:var(--tx)}
         <div class="seg yt" id="sY" style="flex-basis:57%"><span id="pY"></span></div>
         <div class="seg tt" id="sTT" style="flex-basis:0%"><span id="pTT"></span></div>
       </div>
+      <div class="momentos" id="momentos"></div>
     </div>
   </div>
 
   <div class="col">
-    <div class="box chartbox"><div class="lbl">Viewers ao vivo</div><div class="cw"><canvas id="g"></canvas></div></div>
+    <div class="box chartbox"><div class="lbl">Viewers ao vivo</div><div class="cw"><canvas id="g"></canvas></div>
+      <div class="linha-t" id="linhaT" hidden><span class="num mut ponta" id="linhaI"></span><input type="range" id="linhaR" min="0" max="0" value="0" aria-label="Ver os números em outro momento da live"><span class="num mut ponta" id="linhaF"></span><span class="num mut" id="linhaH"></span><button id="linhaV" hidden>Ao vivo</button><span class="bolha num" id="linhaB"></span></div></div>
       <div class="recs lado">
         <div class="rec-top">
           <div><div class="cap">Recorde do episódio</div><b class="num" id="rec">-</b><span class="mut" id="recq"></span></div>
@@ -348,6 +380,16 @@ button.ep-titulo:hover .seta{color:var(--tx)}
     <p id="sDica" style="font-size:.8em"></p>
     <button class="fechar" id="sFecha">Fechar</button>
   </div>
+</div></div>
+<div class="modal" id="fb"><div class="eps-box fb-box">
+  <div class="eps-top"><h3>Feedback e bugs</h3><button class="fechar" id="fbFecha">Fechar</button></div>
+  <form class="fb-form" id="fbForm">
+    <div class="fmt fb-tipo"><button type="button" class="sbtn on" data-tipo="bug">Reportar bug</button><button type="button" class="sbtn" data-tipo="ideia">Sugestão</button></div>
+    <textarea id="fbTexto" maxlength="1500" rows="5" required placeholder="Conte o que aconteceu ou o que você gostaria de ver no site"></textarea>
+    <input id="fbContato" maxlength="120" placeholder="Contato para resposta (opcional): @ no X ou e-mail">
+    <button class="sbtn pri" id="fbEnviar">Enviar</button>
+    <p class="mut fb-msg" id="fbMsg"></p>
+  </form>
 </div></div>
 <div class="modal" id="eps"><div class="eps-box">
   <div class="eps-top"><h3>Episódios</h3><button class="fechar" id="epsFecha">Fechar</button></div>
@@ -414,6 +456,16 @@ const eixos = () => ({
 const dica = { backgroundColor: "#1c1c1c", borderColor: "#2e2e2e", borderWidth: 1, padding: 10, boxPadding: 4, usePointStyle: true,
   callbacks: { title: it => it.length ? hm(it[0].parsed.x) : "", label: c => ` ${c.dataset.label}: ${f(c.parsed.y)}` } };
 const legenda = { position: "top", align: "end", labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 14, font: { size: 11 } } };
+// linha vertical no momento escolhido na linha do tempo
+const marcaLinha = {
+  id: "marca",
+  afterDatasetsDraw(chart) {
+    const t = chart.options.marca; if (t == null) return;
+    const { ctx, chartArea: a, scales: { x } } = chart, px = x.getPixelForValue(t);
+    ctx.save(); ctx.strokeStyle = css("--tx"); ctx.globalAlpha = .5; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(px, a.top); ctx.lineTo(px, a.bottom); ctx.stroke(); ctx.restore();
+  },
+};
 // linha tracejada de recorde do episódio
 const recordeLinha = {
   id: "recorde",
@@ -442,7 +494,7 @@ const novoGrafico = (el, sets, extra) => new Chart(el, {
     plugins: { legend: legenda, tooltip: dica }, scales: eixos() },
   plugins: extra,
 });
-const ch = novoGrafico($("g"), [linha("Total", css("--tx"), 2.5, true), linha("YouTube", "#ff2b2b", 1.6), linha("Twitch", "#9146ff", 1.6), linha("Kick", "#53fc18", 1.6), linha("TikTok", "#25f4ee", 1.6)], [recordeLinha]);
+const ch = novoGrafico($("g"), [linha("Total", css("--tx"), 2.5, true), linha("YouTube", "#ff2b2b", 1.6), linha("Twitch", "#9146ff", 1.6), linha("Kick", "#53fc18", 1.6), linha("TikTok", "#25f4ee", 1.6)], [recordeLinha, marcaLinha]);
 
 // leituras cruas; o gráfico mostra a mediana de 7 pra sumir com os "buracos" de leitura falha
 const tempos = [], brutos = [[], [], [], [], []];
@@ -464,7 +516,62 @@ function redesenha(recorde, inicio) {
   ch.options.recorde = recorde;
   ch.update();
   primeira = false;
+  const r = $("linhaR"), fim = r.value == r.max;
+  r.max = tempos.length - 1; if (fim && simulando == null) r.value = r.max;
+  $("linhaT").hidden = tempos.length < 2;
+  $("linhaI").textContent = hm(tempos[0]); $("linhaF").textContent = hm(tempos.at(-1));
+  momentos();
 }
+
+// linha do tempo: arrastar a bolinha mostra os números daquele momento
+let simulando = null, vAgora = null;
+function mostra(v) {
+  conta("tot", v.total); conta("tN", v.twitch); conta("kN", v.kick); conta("yN", v.youtube); conta("ttN", v.tiktok);
+  const T = v.total || 1, pt = (v.twitch || 0) / T * 100, pk = (v.kick || 0) / T * 100, py = (v.youtube || 0) / T * 100, ptt = (v.tiktok || 0) / T * 100;
+  $("sT").style.flexBasis = pt + "%"; $("sK").style.flexBasis = pk + "%"; $("sY").style.flexBasis = py + "%"; $("sTT").style.flexBasis = ptt + "%"; $("sTT").style.display = ptt ? "" : "none";
+  // só mostra a % se couber no pedaço da barra
+  const cabe = p => p * $("sT").parentNode.clientWidth / 100 > 70;
+  $("pT").textContent = cabe(pt) ? pc(pt) : ""; $("pY").textContent = cabe(py) ? pc(py) : ""; $("pK").textContent = cabe(pk) ? pc(pk) : ""; $("pTT").textContent = cabe(ptt) ? pc(ptt) : "";
+}
+function voltaAgora() {
+  simulando = null; $("linhaR").value = $("linhaR").max; $("linhaH").textContent = ""; $("linhaV").hidden = true;
+  ch.options.marca = null; ch.update("none");
+  if (vAgora) mostra(vAgora);
+}
+$("linhaR").oninput = e => {
+  const i = +e.target.value;
+  if (i == e.target.max && ultimo?.aoVivo) return voltaAgora();
+  simulando = i;
+  const [total, youtube, twitch, kick, tiktok] = brutos.map(arr => mediana(arr, i));
+  mostra({ total, youtube, twitch, kick, tiktok });
+  $("linhaH").textContent = hm(tempos[i]); $("linhaV").hidden = !ultimo?.aoVivo;
+  $("linhaV").innerHTML = ultimo?.aoVivo ? "<span class=\"vivo\"></span>Ao vivo" : "";
+  ch.options.marca = tempos[i]; ch.update("none");
+};
+$("linhaV").onclick = voltaAgora;
+// atalhos para momentos da live: começo, pico e fim (ou agora)
+function momentos() {
+  const tot = brutos[0].map((_, j) => mediana(brutos[0], j)), n = tempos.length - 1, rec = ultimo?.records[ultimo.ver];
+  // pico no momento do recorde oficial (o gráfico usa valores suavizados)
+  const quando = rec?.quando ? new Date(rec.quando).getTime() : null;
+  const pico = quando ? tempos.reduce((m, t, j) => Math.abs(t - quando) < Math.abs(tempos[m] - quando) ? j : m, 0) : tot.reduce((m, v, j) => v > tot[m] ? j : m, 0);
+  if (rec?.recorde) tot[pico] = rec.recorde;
+  const itens = [["Início", 0], ["Pico", pico], [ultimo?.aoVivo ? "Agora" : "Fim", n]];
+  $("momentos").innerHTML = itens.map(([nome, i]) => `<button data-i="${i}"><span class="cap">${nome}</span><b class="num">${f(tot[i])}</b><small class="num">${hm(tempos[i])}</small></button>`).join("");
+}
+$("momentos").onclick = e => {
+  const b = e.target.closest("button"); if (!b) return;
+  const r = $("linhaR"); r.value = b.dataset.i; r.dispatchEvent(new Event("input"));
+};
+// balãozinho com o horário em cima da bolinha enquanto segura
+function bolha() {
+  const r = $("linhaR"), p = r.max > 0 ? r.value / r.max : 1;
+  $("linhaB").textContent = hm(tempos[+r.value]);
+  $("linhaB").style.left = r.offsetLeft + 7 + p * (r.offsetWidth - 14) + "px";
+}
+$("linhaR").addEventListener("pointerdown", () => { bolha(); $("linhaB").classList.add("on"); });
+$("linhaR").addEventListener("input", bolha);
+addEventListener("pointerup", () => $("linhaB").classList.remove("on"));
 
 let carregou = false, ultHora = null, ultimo = null, avisou = false;
 // episódio escolhido na lista (?ep=); sem isso mostra o ao vivo ou o último que foi ao ar
@@ -501,12 +608,8 @@ async function up() {
       img.onload = () => { $("capa").style.backgroundImage = `url(${img.src})`; $("capa").classList.add("on"); };
       img.src = `/capa/${d.ver}.jpg`;
     }
-    conta("tot", v.total); conta("tN", v.twitch); conta("kN", v.kick); conta("yN", v.youtube); conta("ttN", v.tiktok);
-    const T = v.total || 1, pt = (v.twitch || 0) / T * 100, pk = (v.kick || 0) / T * 100, py = (v.youtube || 0) / T * 100, ptt = (v.tiktok || 0) / T * 100;
-    $("sT").style.flexBasis = pt + "%"; $("sK").style.flexBasis = pk + "%"; $("sY").style.flexBasis = py + "%"; $("sTT").style.flexBasis = ptt + "%"; $("sTT").style.display = ptt ? "" : "none";
-    // só mostra a % se couber no pedaço da barra
-    const cabe = p => p * $("sT").parentNode.clientWidth / 100 > 70;
-    $("pT").textContent = cabe(pt) ? pc(pt) : ""; $("pY").textContent = cabe(py) ? pc(py) : ""; $("pK").textContent = cabe(pk) ? pc(pk) : ""; $("pTT").textContent = cabe(ptt) ? pc(ptt) : "";
+    vAgora = v;
+    if (simulando == null) mostra(v);
 
     conta("rec", r.recorde);
     $("recq").textContent = "às " + hm(r.quando);
@@ -741,6 +844,26 @@ function montaMenu() {
 $("epSel").onclick = e => { e.stopPropagation(); montaMenu(); $("menuEps").classList.toggle("on"); };
 document.addEventListener("click", e => { if (!e.target.closest(".seletor")) $("menuEps").classList.remove("on"); });
 document.addEventListener("keydown", e => { if (e.key === "Escape") $("menuEps").classList.remove("on"); });
+// feedback e bugs
+let fbTipo = "bug";
+$("fbBtn").onclick = () => { $("fbMsg").textContent = ""; $("fb").classList.add("on"); setTimeout(() => $("fbTexto").focus(), 50); };
+$("fbFecha").onclick = () => $("fb").classList.remove("on");
+$("fb").onclick = e => { if (e.target.id === "fb") $("fb").classList.remove("on"); };
+document.querySelectorAll(".fb-tipo button").forEach(b => b.onclick = () => {
+  fbTipo = b.dataset.tipo; document.querySelectorAll(".fb-tipo button").forEach(x => x.classList.toggle("on", x === b));
+});
+$("fbForm").onsubmit = async e => {
+  e.preventDefault();
+  $("fbEnviar").disabled = true; $("fbMsg").textContent = "Enviando…";
+  try {
+    const r = await fetch("/feedback", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tipo: fbTipo, texto: $("fbTexto").value, contato: $("fbContato").value, pagina: location.pathname }) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.erro || "Não deu para enviar agora.");
+    $("fbTexto").value = ""; $("fbContato").value = ""; $("fbMsg").textContent = "Recebido, obrigado!";
+  } catch (err) { $("fbMsg").textContent = err.message; }
+  $("fbEnviar").disabled = false;
+};
 $("epsBtn").onclick = () => { listaEps(); $("eps").classList.add("on"); };
 $("epsFecha").onclick = () => $("eps").classList.remove("on");
 $("eps").onclick = e => { if (e.target.id === "eps") $("eps").classList.remove("on"); };

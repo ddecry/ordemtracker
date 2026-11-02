@@ -41,7 +41,13 @@ h3{font-size:13px;font-weight:600;margin:20px 0 8px}
 .barra i{grid-column:1/-1;height:6px;border-radius:9px;background:var(--line);overflow:hidden}.barra i u{display:block;height:100%;background:var(--tx)}
 .tab{font-size:13px}.tab div{display:grid;grid-template-columns:1fr 90px 90px;padding:8px 0;border-bottom:1px solid var(--line)}.tab div:first-child{color:var(--mut);font-size:12px}
 .tab span:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
+.mut{color:var(--mut);font-weight:400}
 .nota{font-size:12px;margin-top:16px}
+.fb{padding:12px 0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr auto;gap:4px 12px}
+.fb p{color:var(--tx);margin:0;white-space:pre-wrap;grid-column:1}
+.fb small{color:var(--mut);grid-column:1}
+.fb button{grid-row:1/3;grid-column:2;align-self:center}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:9px;margin-right:6px;background:var(--line)}.tag.bug{background:var(--red);color:#fff}
 @media (max-width:600px){.stats{grid-template-columns:1fr 1fr}.cols{grid-template-columns:1fr}}
 @media (max-width:600px){.g,.g3{grid-template-columns:1fr}.ep{grid-template-columns:80px 1fr}.ep img{width:80px}.ep .a{grid-column:1/-1}}
 </style></head>
@@ -65,9 +71,27 @@ h3{font-size:13px;font-weight:600;margin:20px 0 8px}
     <div><h3>Aparelho</h3><div id="acDisp"></div></div>
     <div><h3>De onde vieram</h3><div id="acOrig"></div></div>
   </div>
+  <div class="stats" style="margin-top:10px">
+    <div class="stat"><span>Tempo médio no site</span><b id="acTempo">-</b></div>
+    <div class="stat"><span>Ficaram 10 min ou mais</span><b id="acMais10">-</b></div>
+    <div class="stat"><span>Saíram em menos de 30 s</span><b id="acRap">-</b></div>
+    <div class="stat"><span>Voltaram mais de uma vez</span><b id="acVolt">-</b></div>
+  </div>
+  <h3>Entradas por horário</h3>
+  <div class="grafico"><svg id="acHoras" viewBox="0 0 600 120" preserveAspectRatio="none"></svg><div class="eixo"><span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span></div></div>
+  <div class="cols">
+    <div><h3>Navegador</h3><div id="acNav"></div></div>
+    <div><h3>Sistema</h3><div id="acSis"></div></div>
+  </div>
+  <h3>Páginas abertas</h3><div id="acPag"></div>
   <h3>Por episódio</h3><div id="acEps" class="tab"></div>
   <h3>Últimos dias</h3><div id="acHist" class="tab"></div>
   <p class="nota">Contagem anônima, sem cookies: cada pessoa vira um código que muda todo dia. "Online" considera quem abriu o site no último minuto.</p>
+</section>
+
+<section id="feedbacks" hidden>
+  <h2>Feedbacks e bugs <span class="mut" id="fbQtd"></span></h2>
+  <div id="fbLista"></div>
 </section>
 
 <form id="form" hidden>
@@ -106,7 +130,7 @@ async function carrega() {
   const j = await api("GET");
   dados = j.lista;
   $("tela").value = j.config.telaInicial; $("semProx").value = j.config.semProximo || "";
-  $("login").hidden = true; $("form").hidden = false; $("acessos").hidden = false; acessos();
+  $("login").hidden = true; $("form").hidden = false; $("acessos").hidden = false; acessos(); feedbacks();
   $("lista").innerHTML = dados.map((e, i) => `<div class="ep">
     ${e.id.startsWith("ag-") ? `<img alt="">` : `<img src="/capa/${e.id}.jpg" alt="" loading="lazy">`}
     <div><b>${esc(e.titulo || e.tituloYT || e.id)}</b>
@@ -159,11 +183,29 @@ async function acessos() {
   $("acDisp").innerHTML = barra("Celular", j.celular, disp) + barra("Computador", j.computador, disp);
   const tOrig = j.origens.reduce((t, o) => t + o[1], 0);
   $("acOrig").innerHTML = j.origens.map(([o, v]) => barra(o, v, tOrig)).join("") || "<p>Ainda sem visitas hoje.</p>";
+  const min = ms => { const s = Math.round(ms / 1000); return s < 60 ? s + " s" : Math.floor(s / 60) + " min" + (s % 60 && s < 600 ? " " + (s % 60) + " s" : ""); };
+  $("acTempo").textContent = j.tempoMedio ? min(j.tempoMedio) : "-"; $("acMais10").textContent = n(j.mais10); $("acRap").textContent = n(j.rapidos); $("acVolt").textContent = n(j.voltaram);
+  const hMax = Math.max(1, ...j.horas), larg = 600 / 24;
+  $("acHoras").innerHTML = j.horas.map((v, h) => `<rect x="${h * larg + 2}" y="${118 - v / hMax * 110}" width="${larg - 4}" height="${v / hMax * 110 + 2}" rx="2" fill="currentColor" opacity="${v ? .8 : .12}"><title>${h}h: ${n(v)}</title></rect>`).join("");
+  const lista = (arr, vazio) => { const t = arr.reduce((s, o) => s + o[1], 0); return arr.map(([k, v]) => barra(k, v, t)).join("") || `<p>${vazio}</p>`; };
+  $("acNav").innerHTML = lista(j.navegadores, "Ainda sem dados hoje."); $("acSis").innerHTML = lista(j.sistemas, "Ainda sem dados hoje."); $("acPag").innerHTML = lista(j.paginas, "Ainda sem visitas hoje.");
   const eps = Object.values(j.eps);
   $("acEps").innerHTML = eps.length ? `<div><span>Episódio</span><span>Únicos</span><span>Pico online</span></div>` + eps.map(e => `<div><span>${esc(e.titulo.replace(/\s*\|.*$/, ""))}</span><span>${n(e.unicos)}</span><span>${n(e.pico)}</span></div>`).join("") : "<p>Os números aparecem a partir do próximo episódio ao vivo.</p>";
   $("acHist").innerHTML = j.historico.length ? `<div><span>Dia</span><span>Únicos</span><span>Visitas</span></div>` + j.historico.slice().reverse().map(h => `<div><span>${new Date(h.dia + "T12:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" })}</span><span>${n(h.unicos)}</span><span>${n(h.views)}</span></div>`).join("") : "<p>O histórico começa amanhã.</p>";
 }
-setInterval(() => { if (!$("acessos").hidden) acessos(); }, 10_000);
+// feedbacks e bugs enviados pelo site
+async function feedbacks() {
+  let l; try { l = await api("GET", null, "feedbacks=1"); } catch { return; }
+  $("feedbacks").hidden = false; $("fbQtd").textContent = l.length ? "· " + l.length : "";
+  $("fbLista").innerHTML = l.length ? l.map(f => `<div class="fb"><p><span class="tag ${f.tipo}">${f.tipo === "bug" ? "Bug" : "Sugestão"}</span>${esc(f.texto)}</p>
+    <small>${new Date(f.quando).toLocaleString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} · ${esc(f.aparelho)} · ${esc(f.pagina || "/")}${f.contato ? " · " + esc(f.contato) : ""}</small>
+    <button class="sec" data-fb="${esc(f.id)}">Apagar</button></div>`).join("") : "<p>Nenhum por enquanto.</p>";
+}
+$("fbLista").onclick = async e => {
+  const id = e.target.dataset.fb; if (!id || !confirm("Apagar este feedback?")) return;
+  await api("POST", { apagaFeedback: id }).catch(() => {}); feedbacks();
+};
+setInterval(() => { if (!$("acessos").hidden) { acessos(); feedbacks(); } }, 10_000);
 if (senha) carrega().catch(() => sessionStorage.removeItem("senha"));
 </script>
 </main></body></html>

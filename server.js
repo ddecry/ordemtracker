@@ -270,7 +270,8 @@ const proximos = () => episodios.lista
 
 // ---------- acessos (anônimo: sem cookie; IP + navegador viram um código que muda todo dia) ----------
 const ACESSOS = path.join(DADOS, "acessos.json");
-let ac = { dia: "", sal: "", unicos: [], views: 0, pico: 0, celular: 0, computador: 0, origens: {}, eps: {}, serie: [], historico: [] };
+let ac = { dia: "", sal: "", unicos: [], views: 0, pico: 0, celular: 0, computador: 0, origens: {}, eps: {}, serie: [], historico: [],
+  navegadores: {}, sistemas: {}, horas: Array(24).fill(0), paginas: {}, tempos: {}, visitas: {} };
 try { ac = { ...ac, ...JSON.parse(fs.readFileSync(ACESSOS, "utf8")) }; } catch {}
 const online = new Map(); // código -> último acesso
 const unicosHoje = new Set(ac.unicos);
@@ -280,7 +281,8 @@ function viraDia() {
   const d = hojeSP();
   if (ac.dia === d) return;
   if (ac.dia) ac.historico = [...ac.historico, { dia: ac.dia, unicos: unicosHoje.size, views: ac.views, pico: ac.pico }].slice(-60);
-  Object.assign(ac, { dia: d, sal: crypto.randomBytes(16).toString("hex"), views: 0, pico: 0, celular: 0, computador: 0, origens: {}, serie: [] });
+  Object.assign(ac, { dia: d, sal: crypto.randomBytes(16).toString("hex"), views: 0, pico: 0, celular: 0, computador: 0, origens: {}, serie: [],
+    navegadores: {}, sistemas: {}, horas: Array(24).fill(0), paginas: {}, tempos: {}, visitas: {} });
   unicosHoje.clear();
 }
 function registraAcesso(req, url) {
@@ -290,9 +292,20 @@ function registraAcesso(req, url) {
   if (/bot|crawl|spider|preview|curl|wget/i.test(ua)) return;
   const cod = crypto.createHash("sha256").update(ac.sal + ip + ua).digest("hex").slice(0, 16);
   online.set(cod, Date.now());
-  if (!unicosHoje.has(cod)) { unicosHoje.add(cod); /Mobi|Android|iPhone/i.test(ua) ? ac.celular++ : ac.computador++; }
+  // primeiro e último acesso do dia, pra saber quanto tempo a pessoa ficou
+  const agora = Date.now(), t = ac.tempos[cod] ||= [agora, agora]; t[1] = agora;
+  if (!unicosHoje.has(cod)) {
+    unicosHoje.add(cod); /Mobi|Android|iPhone/i.test(ua) ? ac.celular++ : ac.computador++;
+    const nav = /Edg\//.test(ua) ? "Edge" : /OPR\/|Opera/.test(ua) ? "Opera" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "Outro";
+    const sis = /Android/.test(ua) ? "Android" : /iPhone|iPad/.test(ua) ? "iOS" : /Windows/.test(ua) ? "Windows" : /Mac OS/.test(ua) ? "macOS" : /Linux/.test(ua) ? "Linux" : "Outro";
+    ac.navegadores[nav] = (ac.navegadores[nav] || 0) + 1; ac.sistemas[sis] = (ac.sistemas[sis] || 0) + 1;
+    ac.horas[+new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false }) % 24]++;
+  }
   if (url.searchParams.get("nova") === "1") {
     ac.views++;
+    ac.visitas[cod] = (ac.visitas[cod] || 0) + 1;
+    const pg = url.searchParams.get("ep") ? "Episódio " + String(url.searchParams.get("ep")).slice(0, 40) : "Início";
+    ac.paginas[pg] = (ac.paginas[pg] || 0) + 1;
     const o = (url.searchParams.get("de") || "").replace(/^www\./, "").slice(0, 60) || "direto";
     ac.origens[o] = (ac.origens[o] || 0) + 1;
   }
@@ -315,7 +328,39 @@ const relatorio = () => ({
   origens: Object.entries(ac.origens).sort((a, b) => b[1] - a[1]).slice(0, 8), serie: ac.serie.slice(-360),
   eps: Object.fromEntries(Object.entries(ac.eps).map(([id, e]) => [id, { titulo: records[id]?.titulo || id, unicos: unicosEp[id]?.size || e.unicos || 0, pico: e.pico || 0 }])),
   historico: ac.historico.slice(-14), aoVivo: !!(atual.episodio && atual.total > 0),
+  navegadores: Object.entries(ac.navegadores).sort((a, b) => b[1] - a[1]), sistemas: Object.entries(ac.sistemas).sort((a, b) => b[1] - a[1]),
+  paginas: Object.entries(ac.paginas).sort((a, b) => b[1] - a[1]).slice(0, 8), horas: ac.horas, ...permanencia(),
 });
+// tempo no site: do primeiro ao último sinal do dia (a página avisa a cada 5 s enquanto está aberta)
+function permanencia() {
+  const dur = Object.values(ac.tempos).map(([a, b]) => b - a);
+  const ficaram = dur.filter(d => d > 0), voltaram = Object.values(ac.visitas).filter(v => v > 1).length;
+  return {
+    tempoMedio: ficaram.length ? ficaram.reduce((t, d) => t + d, 0) / ficaram.length : 0,
+    mais10: dur.filter(d => d >= 10 * 60e3).length, rapidos: dur.filter(d => d < 30e3).length, voltaram,
+  };
+}
+
+// ---------- feedbacks e bugs enviados pelo site ----------
+const FEEDBACKS = path.join(DADOS, "feedbacks.json");
+let feedbacks = [];
+try { feedbacks = JSON.parse(fs.readFileSync(FEEDBACKS, "utf8")); } catch {}
+const salvaFb = () => fs.writeFileSync(FEEDBACKS, JSON.stringify(feedbacks));
+const envios = new Map(); // ip -> horários dos últimos envios
+async function feedback(req, res) {
+  const ip = req.headers["x-forwarded-for"]?.split(",")[0].trim() || req.socket.remoteAddress;
+  const lista = (envios.get(ip) || []).filter(t => Date.now() - t < 3600e3);
+  if (lista.length >= 5) return json(res, 429, { erro: "Muitos envios. Tente de novo mais tarde." });
+  const b = await corpo(req).catch(() => null);
+  const texto = String(b?.texto || "").trim().slice(0, 1500);
+  if (texto.length < 5) return json(res, 400, { erro: "Escreva um pouco mais." });
+  envios.set(ip, [...lista, Date.now()]);
+  const ua = req.headers["user-agent"] || "";
+  feedbacks = [{ id: crypto.randomBytes(5).toString("hex"), tipo: b.tipo === "bug" ? "bug" : "ideia", texto, contato: String(b.contato || "").trim().slice(0, 120),
+    pagina: String(b.pagina || "").slice(0, 80), aparelho: /Mobi|Android|iPhone/i.test(ua) ? "Celular" : "Computador", quando: new Date().toISOString() }, ...feedbacks].slice(0, 500);
+  salvaFb();
+  json(res, 200, { ok: true });
+}
 
 // ---------- admin ----------
 const autorizado = req => {
@@ -347,10 +392,15 @@ async function admin(req, res) {
       return { id, titulo: e.titulo || "", tituloYT: r?.titulo || "", temporada: e.temporada || "", data: e.data || r?.inicioLive || "", oculto: !!e.oculto, recorde: r?.recorde ?? null };
     }).sort((a, b) => (b.data || "").localeCompare(a.data || ""));
     if (url.searchParams.get("acessos")) return json(res, 200, relatorio());
+    if (url.searchParams.get("feedbacks")) return json(res, 200, feedbacks);
     return json(res, 200, { lista, aoVivo: atual.episodio, config: config() });
   }
   if (req.method === "POST") {
     const b = await corpo(req).catch(() => null);
+    if (b?.apagaFeedback) {
+      feedbacks = feedbacks.filter(f => f.id !== b.apagaFeedback); salvaFb();
+      return json(res, 200, { ok: true });
+    }
     if (b?.config) {
       episodios.config = { telaInicial: b.config.telaInicial === "ultimo" ? "ultimo" : "contagem", semProximo: String(b.config.semProximo || "").slice(0, 120) };
       salvaEps();
@@ -411,6 +461,7 @@ http.createServer(async (req, res) => {
     const at = { ...so(atual, ["twitch", "kick", "youtube", "tiktok", "total", "hora", "episodio"]), extras: so(atual.extras || {}, ["inicio", "ytLikes", "msgsMin", "chatMsgs", "chatPessoas", "twitchSeguidores", "tiktokSeguidores"]) };
     return json(res, 200, { atual: at, records: pub, hist, ver, aoVivo, proximos: proximos(), config: config() });
   }
+  if (url.pathname === "/feedback" && req.method === "POST") return feedback(req, res);
   if (ADMIN && url.pathname === ADMIN + "/api") return admin(req, res);
   if (url.pathname === "/privacidade") {
     return html(res, "privacidade.html");
