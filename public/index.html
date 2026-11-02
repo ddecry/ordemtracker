@@ -93,6 +93,8 @@ body.encerrado .clockw .dot{display:none}
 .linha-t button[hidden]{display:none}
 .cena{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start;margin:1vh 0 .4vh;animation:sobe .3s ease both}
 .cena[hidden]{display:none}
+.cena-aviso{margin:1vh 0 .4vh;color:var(--mut);font-size:.85em}
+.cena-aviso[hidden]{display:none}
 .cena img{width:clamp(128px,13vw,210px);aspect-ratio:16/9;object-fit:cover;border-radius:8px;background:var(--panel2)}
 .cena img[hidden]{display:none}
 .cena small{color:var(--mut);font-size:.8em;margin-right:.5em}
@@ -249,8 +251,11 @@ body.encerrado .clockw .dot{display:none}
   box-shadow:0 8px 24px rgba(0,0,0,.25);color:var(--tx);font:500 12px/1 Inter,sans-serif;white-space:nowrap;pointer-events:none;
   opacity:0;transform:translate(-50%,-4px);transition:opacity .18s,transform .18s}
 [data-dica]:hover::after,[data-dica]:focus-visible::after{opacity:1;transform:translate(-50%,0);transition-delay:.25s}
-.top>[data-dica]:nth-last-child(-n+3)::after,.top .prox::after{left:auto;right:0;transform:translateY(-4px)}
-.top>[data-dica]:nth-last-child(-n+3):hover::after,.top .prox:hover::after{transform:none}
+/* dicas dos botões da direita abrem para a esquerda, pra não sair da tela */
+.top>.tbtn[data-dica]::after,.top .prox::after{left:auto;right:0;transform:translateY(-4px)}
+.top>.tbtn[data-dica]:hover::after,.top .prox:hover::after{transform:none}
+/* no celular não tem mouse: a dica ficaria presa na tela depois do toque */
+@media (hover:none){[data-dica]::after{display:none}}
 .marcas[data-dica]::after{left:0;transform:translateY(-4px)}
 .marcas[data-dica]:hover::after{transform:none}
 .ep>a[data-dica]::after{top:auto;bottom:8px}
@@ -403,6 +408,7 @@ button.ep-titulo:hover .seta{color:var(--tx)}
 
   <div class="col">
     <div class="box chartbox"><div class="lbl">Viewers ao vivo</div><div class="dica-g" id="dicaG"></div><div class="cw"><canvas id="g"></canvas></div>
+      <p class="cena-aviso" id="cenaAviso" hidden>O resto do episódio ainda está sendo resumido. Os próximos momentos aparecem aqui assim que forem revisados.</p>
       <div class="cena" id="cena" hidden><img id="cenaImg" alt=""><div><small class="num" id="cenaH"></small><b id="cenaT"></b><p id="cenaC"></p><a id="cenaYT" target="_blank" rel="noopener">Ver no YouTube</a><button class="cena-corr" id="cenaCorr" type="button">Sugerir correção</button></div></div>
       <div class="linha-t" id="linhaT" hidden><span class="num mut ponta" id="linhaI"></span><input type="range" id="linhaR" min="0" max="0" value="0" aria-label="Ver os números em outro momento da live"><span class="num mut ponta" id="linhaF"></span><span class="num mut" id="linhaH"></span><button id="linhaV" hidden>Ao vivo</button><span class="bolha num" id="linhaB"></span></div>
     </div>
@@ -592,12 +598,19 @@ const novoGrafico = (el, sets, extra) => new Chart(el, {
 const ch = novoGrafico($("g"), [linha("Total", css("--tx"), 2.5, true), linha("YouTube", "#ff2b2b", 1.6), linha("Twitch", "#9146ff", 1.6), linha("Kick", "#53fc18", 1.6), linha("TikTok", "#25f4ee", 1.6), { ...linha("Chat por minuto", "#8a8a8a", 1, true), borderColor: "#8a8a8a88", backgroundColor: "#8a8a8a30", pointStyle: "rect", yAxisID: "y2", order: 9 }], [recordeLinha, marcaLinha, cenasMarcas]);
 // momentos aprovados no painel: o que acontecia na história em cada parte da live
 let cenaAtual = null;
-const cenaEm = t => cenas.filter(c => c.t <= t + 30e3).at(-1) || null;
+// depois do último momento aprovado (com 15 min de folga) a parte ainda não foi resumida: mostra só um aviso
+const SEM_RESUMO = {};
+const cenaEm = t => {
+  const c = cenas.filter(c => c.t <= t + 30e3).at(-1) || null;
+  return cenas.length && t > cenas.at(-1).t + 15 * 60e3 ? SEM_RESUMO : c;
+};
 function mostraCena(t) {
-  const c = t == null ? null : cenaEm(t);
+  let c = t == null ? null : cenaEm(t);
   // mesmo momento de antes: nada pra trocar (evita recarregar a imagem a cada quadro)
   if (c === cenaAtual) return;
   cenaAtual = c;
+  $("cenaAviso").hidden = c !== SEM_RESUMO;
+  if (c === SEM_RESUMO) c = null;
   const antes = $("cena").hidden;
   $("cena").hidden = !c;
   // o cartão entra entre o gráfico e a linha do tempo: o gráfico encolhe pra caber

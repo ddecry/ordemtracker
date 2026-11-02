@@ -603,9 +603,9 @@ async function geminiAudio(arq) {
   while (f?.state === "PROCESSING") { await new Promise(r => setTimeout(r, 5000)); f = await (await fetch(`${GEMINI}/v1beta/${f.name}`, { headers: k })).json(); }
   if (f?.state !== "ACTIVE") throw new Error("gemini: arquivo não ficou pronto");
   const corpo = JSON.stringify({ contents: [{ parts: [{ fileData: { fileUri: f.uri, mimeType: f.mimeType } }, { text: PEDIDO_MOMENTOS + (config().glossario ? "\nUse exatamente a grafia oficial destes nomes (o áudio pode soar diferente):\n" + config().glossario : "") }] }], generationConfig: { responseMimeType: "application/json", responseSchema: ESQUEMA_MOMENTOS } });
-  // cada modelo tem a sua cota gratuita: se o principal estourar (429), tenta o mais leve com a mesma chave
+  // só o modelo principal; um reserva (GEMINI_RESERVA) entra só se for definido no .env, porque os resumos dele são piores
   let j;
-  for (const modelo of [env.GEMINI_MODELO || "gemini-3.8-flash", env.GEMINI_RESERVA || "gemini-3.5-flash-lite"]) {
+  for (const modelo of [env.GEMINI_MODELO || "gemini-3.8-flash", env.GEMINI_RESERVA].filter(Boolean)) {
     j = await fetch(`${GEMINI}/v1beta/models/${modelo}:generateContent`, { method: "POST", headers: { ...k, "Content-Type": "application/json" }, body: corpo })
       .then(r => r.json()).catch(e => ({ error: { code: 503, message: e.cause?.code || e.message } }));
     if (j.error?.code !== 429) break;
@@ -615,9 +615,9 @@ async function geminiAudio(arq) {
   return JSON.parse(j.candidates[0].content.parts[0].text);
 }
 // a cada 2 min: partes de áudio completas viram momentos (rascunho) com a captura mais próxima
-let analisando = false;
+let analisando = false, pausaAte = 0;
 async function analisaPartes() {
-  if (analisando || !env.GEMINI_API_KEY || !fs.existsSync(GRAVACAO)) return;
+  if (analisando || Date.now() < pausaAte || !env.GEMINI_API_KEY || !fs.existsSync(GRAVACAO)) return;
   analisando = true;
   try {
     for (const id of fs.readdirSync(GRAVACAO)) {
@@ -643,7 +643,11 @@ async function analisaPartes() {
       // live acabou e tudo analisado: apaga o que sobrou da gravação
       if (gravando?.id !== id && !fs.readdirSync(dir).some(f => f.endsWith(".ogg"))) fs.rmSync(dir, { recursive: true, force: true });
     }
-  } catch (e) { console.warn(e.message); }
+  } catch (e) {
+    // cota gratuita acabou: as partes ficam guardadas e a análise tenta de novo de hora em hora até a cota renovar
+    if (e.codigo === 429) pausaAte = Date.now() + 3600e3;
+    console.warn(e.message);
+  }
   analisando = false;
 }
 setInterval(analisaPartes, 120_000);
