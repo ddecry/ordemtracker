@@ -15,8 +15,9 @@ p{color:var(--mut);margin:0 0 16px}
 label{display:block;font-size:13px;color:var(--mut);margin-bottom:4px}
 input,select,textarea{width:100%;background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit}
 textarea{resize:vertical}
-button{background:var(--tx);color:var(--bg);border:0;border-radius:10px;padding:10px 16px;font:500 14px Inter,sans-serif;cursor:pointer}
+button{background:var(--tx);color:var(--bg);border:1px solid var(--tx);border-radius:10px;line-height:1.2;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;font:500 14px Inter,sans-serif;cursor:pointer}
 button.sec{background:none;color:var(--tx);border:1px solid var(--line)}
+nav button,.chips button{border-color:transparent}
 button.peq{padding:6px 10px;font-size:13px}
 .mut{color:var(--mut);font-weight:400}
 a{color:var(--tx);text-underline-offset:2px}
@@ -40,7 +41,7 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
 
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
 .g{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px}
-.g3{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:end}
+.g3{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center}
 .chk{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--tx);margin:0}.chk input{width:auto}
 #msg{min-height:1.4em;color:var(--mut);margin:10px 0 0}#msg.erro{color:var(--red)}
 .ep{display:grid;grid-template-columns:120px 1fr auto;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
@@ -70,11 +71,6 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
 .nota{font-size:12px;margin-top:20px}
 .leg{display:inline-block;width:8px;height:8px;border-radius:2px;margin:0 4px 0 10px}
 
-.fb{padding:14px 0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr auto;gap:4px 12px}
-.fb p{color:var(--tx);margin:0;white-space:pre-wrap;grid-column:1}
-.fb small{color:var(--mut);grid-column:1}
-.fb button{grid-row:1/3;grid-column:2;align-self:center}
-.tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:9px;margin-right:6px;background:var(--line)}.tag.bug{background:var(--red);color:#fff}.tag.correcao{background:#3b82f6;color:#fff}
 
 /* episódios e configurações */
 .passos{display:grid;gap:12px}
@@ -104,15 +100,50 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
 .st small{grid-column:2;color:var(--mut);font-size:13px}
 .st span{color:var(--mut);font-size:12px;text-align:right;grid-row:1/3;grid-column:3}
 
+/* listas no estilo do site: cartões com cantos suaves, rótulos pequenos e campos que só aparecem ao passar o mouse */
+.item{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px}
+.item-topo{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.item-tit{margin:0 0 8px;color:var(--tx);font-weight:600}
+.item-txt{margin:0;color:var(--tx);white-space:pre-wrap;line-height:1.5}
+.item-acoes{display:flex;gap:8px;margin-top:12px}
+.meta{color:var(--mut);font-size:12px;margin-left:auto}
+.chip{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.02em;padding:3px 9px;border-radius:99px;background:var(--panel2);color:var(--mut);border:1px solid var(--line)}
+.chip.azul{background:#3b82f61f;color:#7fb0ff;border-color:#3b82f640}
+.chip.verm{background:#ef44441f;color:#ff8a8a;border-color:#ef444440}
+.rot{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin-bottom:4px}
+.comp{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.comp p{margin:0;color:var(--tx);font-size:14px;line-height:1.5}
+.campo{background:transparent;border:1px solid transparent;border-radius:8px;padding:6px 8px;margin:0 -8px;width:calc(100% + 16px);color:var(--tx);font:inherit;resize:vertical;transition:border-color .15s,background .15s}
+.campo:hover{border-color:var(--line)}
+.campo:focus{outline:0;border-color:var(--mut);background:var(--panel2)}
+.comp .campo{margin:0;width:100%;border-color:var(--line)}
+.vazio{color:var(--mut);padding:20px 0}
 /* momentos */
-.mo{display:grid;grid-template-columns:160px 1fr auto;gap:14px;padding:14px 0;border-bottom:1px solid var(--line);align-items:start}
-.mo img{width:160px;aspect-ratio:16/9;object-fit:cover;border-radius:8px;background:var(--panel2)}
-.mo input{padding:7px 10px;font-weight:600;margin-bottom:6px}
-.mo textarea{padding:7px 10px;font-size:13px;min-height:54px}
-.mo .h{font-size:12px;color:var(--mut);margin-bottom:6px;display:flex;gap:8px;align-items:center}
-.mo .a{display:flex;flex-direction:column;gap:6px}
-.mo.aprovado{opacity:1}.mo:not(.aprovado) img{opacity:.6}
-.selo{font-size:11px;font-weight:600;padding:2px 8px;border-radius:9px;background:var(--line)}.selo.ok{background:var(--verde);color:#062}
+.mo{display:grid;grid-template-columns:200px 1fr;gap:16px;align-items:start}
+.mo:not(.no-site){border-style:dashed}
+.mo-midia{display:grid;gap:8px}
+.mo-midia img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:10px;background:var(--panel2)}
+.mo:not(.no-site) .mo-midia img{opacity:.55}
+.player{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:4px 12px 4px 4px}
+.player .pp{width:30px;height:30px;padding:0;border-radius:50%;background:var(--tx);color:var(--bg);border:0}
+.player .pp svg{width:12px;height:12px}
+.barra-a{height:4px;border-radius:9px;background:var(--line);cursor:pointer;position:relative}
+.barra-a::before{content:"";position:absolute;inset:-8px 0}
+.barra-a i{display:block;height:100%;width:0;border-radius:9px;background:var(--tx);transition:width .25s linear}
+.player .tempo{font-size:11px;color:var(--mut);min-width:3.5em;text-align:right}
+.player.on{border-color:var(--mut)}
+.mo-hora{font-weight:700;font-size:15px}
+.mo .tit{font-weight:600;font-size:15px}
+.mo textarea.campo{color:var(--mut);font-size:14px;line-height:1.5;min-height:66px}
+.no-site-tg{display:inline-flex;align-items:center;gap:6px;margin:0 0 0 auto;font-size:12px;color:var(--mut);cursor:pointer}
+.no-site-tg input{width:30px;height:18px;appearance:none;border-radius:99px;background:var(--line);position:relative;cursor:pointer;transition:background .2s;margin:0;padding:0;border:0}
+.no-site-tg input::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--mut);transition:transform .2s,background .2s}
+.no-site-tg input:checked{background:var(--verde)}
+.no-site-tg input:checked::after{transform:translateX(12px);background:#fff}
+.no-site-tg input:checked+span{color:var(--tx)}
+button.icone{background:none;border-color:transparent;color:var(--mut);padding:5px}
+button.icone:hover{color:var(--red)}
+button.icone svg{width:16px;height:16px}
 
 /* celular: menu em duas linhas (todas as abas visíveis), cartões compactos, listas com miniatura ao lado */
 @media (max-width:760px){
@@ -131,18 +162,22 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
   .stat span{font-size:11px}
   .stat b,.stat.destaque b{font-size:22px;margin-top:2px}
   .grafico{padding:8px;margin-top:8px}.grafico svg{height:80px}.eixo{font-size:10px}
-  .cols,.g,.g3{grid-template-columns:1fr;gap:0}
+  .cols,.g,.g3{grid-template-columns:1fr}.cols{gap:0}.g{gap:12px}
+  .topo>button{align-self:flex-start}
+  .card .topo{flex-direction:row;align-items:center;justify-content:space-between}
   .barra{font-size:12px}
   .card{padding:14px}
-  .ep{grid-template-columns:72px 1fr;gap:10px}.ep img{width:72px}.ep .a{grid-column:1/-1;justify-content:flex-start}
+  .ep{grid-template-columns:72px 1fr;gap:10px}.ep img{width:72px}.ep .a{grid-column:2;justify-content:flex-start}
   .lista-eps{padding:2px 14px}
-  .mo{grid-template-columns:96px 1fr;gap:10px;padding:12px 0}.mo img{width:96px}
-  .mo .a{grid-column:1/-1;flex-direction:row}
-  .mo textarea{min-height:104px}.mo input{font-size:13px}
   #moEp{min-width:0!important;width:100%!important}
+  .item{padding:12px;border-radius:12px}
+  .mo{grid-template-columns:1fr;gap:10px}
+  .mo-midia{grid-template-columns:132px 1fr;align-items:center}
+  .mo textarea.campo{min-height:90px}
+  .comp{grid-template-columns:1fr}
+  .meta{margin-left:0;width:100%}
   .st{grid-template-columns:auto 1fr;padding:10px 12px}
   .st small{grid-row:2}.st span{grid-row:3;grid-column:2;text-align:left;font-size:11px}.st i{grid-row:1}
-  .fb{grid-template-columns:1fr}.fb button,.fb>div{grid-row:auto!important;grid-column:1!important;justify-self:start}
   .tab div{grid-template-columns:1fr 70px 70px}
 }
 </style></head>
@@ -452,26 +487,35 @@ async function acessos() {
 }
 
 // ---------- feedbacks ----------
+const icone = { lixo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"/></svg>',
+  pausa: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>' };
+let fbVisto = "";
 async function feedbacks() {
   let l; try { l = await api("GET", null, "feedbacks=1"); } catch { return; }
   $("fbQtd").textContent = l.length || "";
+  // só redesenha se mudou, pra não apagar o que você está editando
+  const chave = JSON.stringify(l.map(f => f.id)); if (chave === fbVisto) return; fbVisto = chave;
   const data = f => new Date(f.quando).toLocaleString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
-  $("fbLista").innerHTML = l.length ? l.map(f => f.tipo === "correcao" ? `<div class="fb">
-    <p><span class="tag correcao">Correção</span>${f.atual ? `<b>${esc(hora(f.atual.quando))} · ${esc(f.atual.titulo)}</b>` : "Momento apagado"}</p>
-    ${f.atual ? `<small>Texto atual: ${esc(f.atual.contexto)}</small>` : ""}
-    <textarea data-tx="${esc(f.id)}" maxlength="240" rows="2" style="grid-column:1;margin-top:6px">${esc(f.texto)}</textarea>
-    <small>${data(f)} · ${esc(f.aparelho)}${f.contato ? " · " + esc(f.contato) : ""}</small>
-    <div style="grid-row:1/5;grid-column:2;align-self:center;display:flex;flex-direction:column;gap:6px">${f.atual ? `<button class="peq" data-aplica="${esc(f.id)}">Aplicar</button>` : ""}<button class="sec peq" data-fb="${esc(f.id)}">Recusar</button></div>
-  </div>` : `<div class="fb"><p><span class="tag ${f.tipo}">${f.tipo === "bug" ? "Bug" : "Sugestão"}</span>${esc(f.texto)}</p>
-    <small>${data(f)} · ${esc(f.aparelho)} · ${esc(f.pagina || "/")}${f.contato ? " · " + esc(f.contato) : ""}</small>
-    <button class="sec peq" data-fb="${esc(f.id)}">Apagar</button></div>`).join("") : "<p>Nenhum por enquanto.</p>";
+  const meta = f => `<small class="meta">${data(f)} · ${esc(f.aparelho)}${f.tipo !== "correcao" ? " · " + esc(f.pagina || "/") : ""}${f.contato ? " · " + esc(f.contato) : ""}</small>`;
+  $("fbLista").innerHTML = l.length ? l.map(f => f.tipo === "correcao" ? `<article class="item">
+    <div class="item-topo"><span class="chip azul">Correção de momento</span>${meta(f)}</div>
+    ${f.atual ? `<p class="item-tit">${esc(hora(f.atual.quando).slice(0, 5))} · ${esc(f.atual.titulo)}</p>
+      <div class="comp"><div><span class="rot">Texto atual</span><p>${esc(f.atual.contexto)}</p></div>
+      <div><span class="rot">Sugestão (dá pra ajustar antes de aplicar)</span><textarea class="campo" data-tx="${esc(f.id)}" maxlength="240" rows="3">${esc(f.texto)}</textarea></div></div>` : `<p class="mut">O momento foi apagado.</p>`}
+    <div class="item-acoes">${f.atual ? `<button class="peq" data-aplica="${esc(f.id)}">Aplicar</button>` : ""}<button class="sec peq" data-fb="${esc(f.id)}">Recusar</button></div>
+  </article>` : `<article class="item">
+    <div class="item-topo"><span class="chip ${f.tipo === "bug" ? "verm" : ""}">${f.tipo === "bug" ? "Bug" : "Sugestão"}</span>${meta(f)}</div>
+    <p class="item-txt">${esc(f.texto)}</p>
+    <div class="item-acoes"><button class="sec peq" data-fb="${esc(f.id)}">Apagar</button></div>
+  </article>`).join("") : '<p class="vazio">Nenhum feedback por enquanto.</p>';
 }
 $("fbLista").onclick = async e => {
-  const ap = e.target.dataset.aplica;
+  const b = e.target.closest("button"); if (!b) return;
   // aplica o texto sugerido (pode ser ajustado antes no campo)
-  if (ap) { await api("POST", { aplicaCorrecao: ap, texto: document.querySelector(`[data-tx="${ap}"]`).value }).catch(er => alert(er.message)); feedbacks(); return; }
-  const id = e.target.dataset.fb; if (!id || !confirm("Apagar este feedback?")) return;
-  await api("POST", { apagaFeedback: id }).catch(() => {}); feedbacks();
+  if (b.dataset.aplica) { await api("POST", { aplicaCorrecao: b.dataset.aplica, texto: document.querySelector(`[data-tx="${b.dataset.aplica}"]`).value }).catch(er => alert(er.message)); fbVisto = ""; feedbacks(); return; }
+  if (!b.dataset.fb || !confirm("Apagar este feedback?")) return;
+  await api("POST", { apagaFeedback: b.dataset.fb }).catch(() => {}); fbVisto = ""; feedbacks();
 };
 
 // ---------- momentos: revisão antes de ir pro site ----------
@@ -481,37 +525,69 @@ async function contaMomentos() {
   try { const j = await api("GET", null, "pendentes=1"); $("moQtd").textContent = j.pendentes || ""; } catch {}
 }
 async function momentos() {
-  const id = $("moEp").value; if (!id) { $("moLista").innerHTML = "<p>Nenhum episódio gravado ainda.</p>"; return; }
+  const id = $("moEp").value; if (!id) { $("moLista").innerHTML = '<p class="vazio">Nenhum episódio gravado ainda.</p>'; return; }
   let j; try { j = await api("GET", null, "momentos=" + encodeURIComponent(id)); } catch (e) { $("moLista").innerHTML = `<p>${esc(e.message)}</p>`; return; }
   mo = j.lista;
   desenhaMomentos();
 }
+const resumoMo = () => { const ok = mo.filter(m => m.aprovado).length; $("moResumo").textContent = mo.length ? `${mo.length} momentos · ${ok} no site · ${mo.length - ok} esperando` : ""; };
 function desenhaMomentos() {
-  const id = $("moEp").value, ok = mo.filter(m => m.aprovado).length;
-  $("moResumo").textContent = mo.length ? `${mo.length} momentos · ${ok} aprovados` : "";
-  $("moLista").innerHTML = mo.length ? mo.map((m, i) => `<div class="mo${m.aprovado ? " aprovado" : ""}">
-    <img alt="" data-cap="${m.captura ? esc(id + "/" + m.captura) : ""}">
-    <div><div class="h"><b>${hora(m.quando)}</b><span class="selo ${m.aprovado ? "ok" : ""}">${m.aprovado ? "Aprovado" : "Rascunho"}</span><span>${m.tipo === "mesa" ? "Mesa" : "História"}</span></div>
-      <input data-i="${i}" data-c="titulo" value="${esc(m.titulo)}" maxlength="80">
-      <textarea data-i="${i}" data-c="contexto" maxlength="240">${esc(m.contexto)}</textarea></div>
-    <div class="a"><button type="button" class="${m.aprovado ? "sec " : ""}peq" data-ap="${i}">${m.aprovado ? "Tirar do site" : "Aprovar"}</button><button type="button" class="sec peq" data-rm="${i}">Apagar</button></div>
-  </div>`).join("") : "<p>Ainda não tem momentos para este episódio. Eles aparecem aqui depois da análise da live.</p>";
+  const id = $("moEp").value;
+  resumoMo();
+  $("moLista").innerHTML = mo.length ? mo.map((m, i) => `<article class="item mo${m.aprovado ? " no-site" : ""}">
+    <div class="mo-midia">
+      <img alt="" data-cap="${m.captura ? esc(id + "/" + m.captura) : ""}">
+      ${m.audio ? `<div class="player" data-ouvir="${esc(id + "/" + m.audio)}"><button type="button" class="pp" aria-label="Ouvir trecho">${icone.play}</button><div class="barra-a"><i></i></div><span class="num tempo">ouvir</span></div>` : ""}
+    </div>
+    <div class="mo-corpo">
+      <div class="item-topo"><span class="mo-hora num">${hora(m.quando).slice(0, 5)}</span><span class="chip">${m.tipo === "mesa" ? "Mesa" : "História"}</span>
+        <label class="no-site-tg"><input type="checkbox" data-ap="${i}" ${m.aprovado ? "checked" : ""}><span>No site</span></label>
+        <button type="button" class="icone" data-rm="${i}" aria-label="Apagar momento" title="Apagar">${icone.lixo}</button></div>
+      <input class="campo tit" data-i="${i}" data-c="titulo" value="${esc(m.titulo)}" maxlength="80" aria-label="Título">
+      <textarea class="campo" data-i="${i}" data-c="contexto" maxlength="240" rows="3" aria-label="Descrição">${esc(m.contexto)}</textarea>
+    </div>
+  </article>`).join("") : '<p class="vazio">Ainda não tem momentos para este episódio. Eles aparecem aqui depois da análise da live.</p>';
   // capturas de rascunho só com a senha: busca com o cabeçalho e mostra como blob
   document.querySelectorAll("#moLista img[data-cap]").forEach(async img => {
     const c = img.dataset.cap; if (!c) return;
-    if (!capturas[c]) capturas[c] = fetch(location.pathname.replace(/\/$/, "") + "/api?captura=" + encodeURIComponent(c), { headers: { Authorization: "Bearer " + senha } })
-      .then(r => r.ok ? r.blob() : null).then(b => b && URL.createObjectURL(b));
+    if (!capturas[c]) capturas[c] = arquivo("captura", c);
     const u = await capturas[c]; if (u) img.src = u;
   });
 }
 const capturas = {};
+const arquivo = (tipo, c) => fetch(location.pathname.replace(/\/$/, "") + "/api?" + tipo + "=" + encodeURIComponent(c), { headers: { Authorization: "Bearer " + senha } })
+  .then(r => r.ok ? r.blob() : null).then(b => b && URL.createObjectURL(b));
 $("moEp").onchange = momentos;
 $("moLista").oninput = e => { const i = e.target.dataset.i; if (i != null) mo[i][e.target.dataset.c] = e.target.value; };
-$("moLista").onclick = e => {
-  const ap = e.target.dataset.ap, rm = e.target.dataset.rm;
-  if (ap != null) { mo[ap].aprovado = !mo[ap].aprovado; desenhaMomentos(); }
-  if (rm != null && confirm("Apagar este momento?")) { mo.splice(rm, 1); desenhaMomentos(); }
+$("moLista").onchange = e => {
+  const ap = e.target.dataset.ap; if (ap == null) return;
+  mo[ap].aprovado = e.target.checked; e.target.closest(".mo").classList.toggle("no-site", e.target.checked); resumoMo();
 };
+$("moLista").onclick = async e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.classList.contains("pp")) return tocar(b.closest(".player"));
+  if (b.dataset.rm != null && confirm("Apagar este momento?")) { mo.splice(b.dataset.rm, 1); desenhaMomentos(); }
+};
+// player do trecho: o áudio só baixa quando você aperta play; tocar um pausa o outro
+let tocando = null;
+const mmss = s => Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
+async function tocar(p) {
+  const btn = p.querySelector(".pp"), t = p.querySelector(".tempo"), barra = p.querySelector(".barra-a i");
+  if (!p.audio) {
+    t.textContent = "…"; btn.disabled = true;
+    const u = await arquivo("audio", p.dataset.ouvir); btn.disabled = false;
+    if (!u) { t.textContent = "indisponível"; return; }
+    const a = p.audio = new Audio(u);
+    a.ontimeupdate = () => { barra.style.width = (a.currentTime / (a.duration || 60)) * 100 + "%"; t.textContent = mmss(a.currentTime) + " / " + mmss(a.duration || 60); };
+    a.onplay = () => { btn.innerHTML = icone.pausa; p.classList.add("on"); };
+    a.onpause = a.onended = () => { btn.innerHTML = icone.play; p.classList.remove("on"); };
+    // clicar na barra pula pro ponto
+    p.querySelector(".barra-a").onclick = e => { const r = e.currentTarget.getBoundingClientRect(); a.currentTime = (e.clientX - r.left) / r.width * (a.duration || 60); if (a.paused) a.play(); };
+  }
+  if (tocando && tocando !== p.audio) tocando.pause();
+  tocando = p.audio;
+  p.audio.paused ? p.audio.play() : p.audio.pause();
+}
 $("moTodos").onclick = () => { mo.forEach(m => m.aprovado = true); desenhaMomentos(); };
 $("moSalva").onclick = async () => {
   try { await api("POST", { momentos: $("moEp").value, lista: mo }); $("moResumo").textContent += " · salvo"; contaMomentos(); } catch (e) { alert(e.message); }

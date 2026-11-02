@@ -18,6 +18,8 @@ const EPISODIO = new RegExp(env.FILTRO_EPISODIO || "EPIS[ÓO]DIO\\s*\\d+.*Ordem 
 const ADMIN = /^(\/[\w-]+)+$/.test(env.ADMIN_CAMINHO || "") && env.ADMIN_CAMINHO.length >= 6 ? env.ADMIN_CAMINHO : null;
 // senha do painel: de preferência só o hash (ADMIN_SENHA_HASH=scrypt$sal$hash), assim nem o servidor guarda a senha
 const SENHA_CFG = env.ADMIN_SENHA_HASH || env.ADMIN_SENHA || "";
+// senha simples só para testar no computador (ADMIN_SENHA_LOCAL no .env); no site publicado ela é ignorada
+const SENHA_LOCAL = env.NODE_ENV !== "production" && env.ADMIN_SENHA_LOCAL || null;
 const PORTA = +env.PORT || 3030;
 const INTERVALO = 10_000;
 const DADOS = env.DATA_DIR || path.join(__dirname, "dados");
@@ -439,7 +441,9 @@ async function feedback(req, res) {
 // ---------- admin ----------
 const autorizado = req => {
   const dado = (req.headers.authorization || "").replace(/^Bearer /, "");
-  if (!SENHA_CFG || !dado) return false;
+  if (!dado) return false;
+  if (SENHA_LOCAL && dado === SENHA_LOCAL) return true;
+  if (!SENHA_CFG) return false;
   const h = env.ADMIN_SENHA_HASH?.match(/^scrypt\$([0-9a-f]+)\$([0-9a-f]{64})$/);
   if (h) return crypto.timingSafeEqual(crypto.scryptSync(dado, Buffer.from(h[1], "hex"), 32), Buffer.from(h[2], "hex"));
   const a = crypto.createHash("sha256").update(env.ADMIN_SENHA || "").digest(), b = crypto.createHash("sha256").update(dado).digest();
@@ -475,6 +479,13 @@ async function admin(req, res) {
     const mid = url.searchParams.get("momentos");
     if (mid && records[mid]) return json(res, 200, { lista: leMomentos(mid) });
     if (url.searchParams.get("pendentes")) return json(res, 200, { pendentes: Object.keys(records).reduce((t, id) => t + leMomentos(id).filter(m => !m.aprovado).length, 0) });
+    // trecho de áudio do momento (só no painel)
+    const au = url.searchParams.get("audio")?.match(/^([\w-]+)\/([\w-]+\.ogg)$/);
+    if (au && records[au[1]]) {
+      const arq = path.join(MOMENTOS, au[1], "audio", au[2]);
+      if (!fs.existsSync(arq)) return json(res, 404, {});
+      res.writeHead(200, { "Content-Type": "audio/ogg" }); return res.end(fs.readFileSync(arq));
+    }
     // captura de rascunho (só no painel)
     const cap = url.searchParams.get("captura")?.match(/^([\w-]+)\/([\w-]+\.jpg)$/);
     if (cap && records[cap[1]]) {
@@ -508,9 +519,9 @@ async function admin(req, res) {
     }
     // revisão dos momentos: só guarda os campos conhecidos
     if (b?.momentos && records[b.momentos] && Array.isArray(b.lista)) {
-      const lista = b.lista.slice(0, 500).map(m => ({ quando: new Date(m.quando).toISOString(), segundoVideo: +m.segundoVideo || 0,
+      const lista = b.lista.slice(0, 500).map(m => ({ quando: new Date(m.quando).toISOString(), segundoVideo: Number.isFinite(+m.segundoVideo) && m.segundoVideo !== null && m.segundoVideo !== "" ? +m.segundoVideo : undefined,
         titulo: String(m.titulo || "").slice(0, 80), contexto: String(m.contexto || "").slice(0, 240), tipo: m.tipo === "mesa" ? "mesa" : "historia",
-        captura: /^[\w-]+\.jpg$/.test(m.captura || "") ? m.captura : null, aprovado: !!m.aprovado }));
+        captura: /^[\w-]+\.jpg$/.test(m.captura || "") ? m.captura : null, audio: /^[\w-]+\.ogg$/.test(m.audio || "") ? m.audio : undefined, aprovado: !!m.aprovado }));
       // nomes trocados à mão viram correção automática para os próximos momentos
       const antes = Object.fromEntries(leMomentos(b.momentos).map(m => [m.quando, m]));
       for (const m of lista) if (antes[m.quando]) { aprende(antes[m.quando].titulo, m.titulo); aprende(antes[m.quando].contexto, m.contexto); }
@@ -555,6 +566,8 @@ const leMomentos = id => {
   let lista; try { lista = JSON.parse(fs.readFileSync(path.join(MOMENTOS, id, "momentos.json"), "utf8")); } catch { return []; }
   // captura tirada depois (análise de vídeo gravado): capturas/<segundo do vídeo>.jpg
   for (const m of lista) if (!m.captura && m.segundoVideo != null && fs.existsSync(path.join(MOMENTOS, id, "capturas", m.segundoVideo + ".jpg"))) m.captura = m.segundoVideo + ".jpg";
+  // trecho de áudio do momento (gravado ao vivo, ou tirado do vídeo: audio/<segundo do vídeo>.ogg)
+  for (const m of lista) if (!m.audio && m.segundoVideo != null && fs.existsSync(path.join(MOMENTOS, id, "audio", m.segundoVideo + ".ogg"))) m.audio = m.segundoVideo + ".ogg";
   // rascunho até aprovar no painel; nomes corrigidos pelo glossário
   for (const m of lista) { m.aprovado ??= false; m.titulo = corrigeNomes(m.titulo); m.contexto = corrigeNomes(m.contexto); }
   return lista;
@@ -734,8 +747,16 @@ async function analisaPartes() {
           const cap = caps.filter(c => c.t >= t).sort((a, b) => a.t - b.t)[0] || caps.at(-1);
           let captura = null;
           if (cap) { captura = cap.f; fs.mkdirSync(path.join(MOMENTOS, id, "capturas"), { recursive: true }); fs.copyFileSync(path.join(dir, "capturas", cap.f), path.join(MOMENTOS, id, "capturas", cap.f)); }
-          return { quando: new Date(t).toISOString(), titulo: String(m.titulo).slice(0, 80), contexto: String(m.contexto).slice(0, 240), tipo: m.tipo === "mesa" ? "mesa" : "historia", captura, aprovado: false };
+          return { quando: new Date(t).toISOString(), titulo: String(m.titulo).slice(0, 80), contexto: String(m.contexto).slice(0, 240), tipo: m.tipo === "mesa" ? "mesa" : "historia", captura, aprovado: false, seg: (t - inicio.getTime()) / 1000 };
         });
+        // trecho de 1 min do áudio de cada momento (5 s antes até 55 s depois), pra ouvir no painel e conferir o resumo
+        fs.mkdirSync(path.join(MOMENTOS, id, "audio"), { recursive: true });
+        for (const m of novos) {
+          const nome = hora14(new Date(m.quando)) + ".ogg";
+          await new Promise(ok => execFile("ffmpeg", ["-v", "error", "-y", "-ss", String(Math.max(0, m.seg - 5)), "-t", "60", "-i", path.join(dir, p), "-c:a", "copy", path.join(MOMENTOS, id, "audio", nome)], () => ok()));
+          if (fs.existsSync(path.join(MOMENTOS, id, "audio", nome))) m.audio = nome;
+          delete m.seg;
+        }
         salvaMomentos(id, [...leMomentos(id), ...novos].sort((a, b) => a.quando.localeCompare(b.quando)));
         fs.unlinkSync(path.join(dir, p));
         console.log("momentos:", id, p, novos.length);
@@ -828,7 +849,7 @@ const html = (res, nome, extra = {}) => { res.writeHead(200, { "Content-Type": "
 const SEGURANCA = {
   "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "strict-origin-when-cross-origin",
   "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-  "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'",
+  "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'",
 };
 
 http.createServer(async (req, res) => {
