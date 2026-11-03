@@ -12,7 +12,10 @@ const TWITCH = env.TWITCH_CANAL || "cellbit";
 const KICK = env.KICK_CANAL || "cellbit";
 const YT_CANAL = env.YOUTUBE_CANAL_ID || "UCMRaVyexv18FrJu3NiYsbgQ"; // @OrdemParanormal
 const TIKTOK = env.TIKTOK_CANAL ?? "ordemparanormal"; // vazio = desliga
-const EPISODIO = new RegExp(env.FILTRO_EPISODIO || "EPIS[ÓO]DIO\\s*\\d+.*Ordem Paranormal", "i");
+// lives que entram sozinhas, sem cadastro: episódios ("A VIGÍLIA - EPISÓDIO 2 | Ordem Paranormal RPG") e o quadro Transcendendo
+const EPISODIO = new RegExp(env.FILTRO_EPISODIO || "(EPIS[ÓO]DIO\\s*\\d+|Transcendendo).*Ordem Paranormal", "i");
+// temporada pelo título quando a live entrou sozinha, sem cadastro no painel
+const temporadaDoTitulo = t => /transcendendo/i.test(t || "") ? "Transcendendo" : null;
 // endereço secreto do painel, definido no .env (sem ele o painel fica desligado)
 // endereço do painel, ex.: /menu/admin (letras, números, - e /)
 const ADMIN = /^(\/[\w-]+)+$/.test(env.ADMIN_CAMINHO || "") && env.ADMIN_CAMINHO.length >= 6 ? env.ADMIN_CAMINHO : null;
@@ -337,7 +340,7 @@ function publicos(teste) {
   for (const [id, r] of Object.entries(records)) {
     const e = episodios.lista.find(x => x.id === id);
     if (e?.oculto && id !== teste) continue;
-    out[id] = { ...so({ ...r, titulo: e?.titulo || r.titulo, temporada: e?.temporada || null, media: mediaSemFim(id, r) }, CAMPOS), slug: slug(r.titulo, id),
+    out[id] = { ...so({ ...r, titulo: e?.titulo || r.titulo, temporada: e?.temporada || temporadaDoTitulo(r.titulo), media: mediaSemFim(id, r) }, CAMPOS), slug: slug(r.titulo, id),
       // vídeo completo (sem membros), nome do episódio e trechos cortados da live, pra os momentos abrirem no ponto certo
       video: e?.video || null, nome: e?.nome || null, cortes: e?.video ? e.cortes || null : null,
       // a faixa de chat no gráfico só aparece quando o chat do episódio foi gravado inteiro (do Ep 2 em diante)
