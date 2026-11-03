@@ -227,7 +227,7 @@ body.encerrado .clockw .dot{display:none}
 }
 .estado{color:var(--mut);font-weight:500;margin-right:.3em}
 .estado.vivo{color:var(--red);font-weight:600}
-.ep-sub{margin:-.6vh 0 1vh;color:var(--mut);font:italic 500 clamp(13px,1.7vh,17px) Inter,sans-serif}
+.ep-sub{margin:-.6vh 0 1vh;color:var(--mut);font:500 clamp(13px,1.7vh,17px) Inter,sans-serif}
 .ep-titulo{margin:.3vh 0 1vh;font:600 clamp(16px,2.6vh,26px)/1.15 "Inter Tight",Inter,sans-serif;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ep-titulo .mut{font-weight:500}
 .prox{display:flex;align-items:center;gap:.4em;color:var(--tx);text-decoration:none;white-space:nowrap}
@@ -915,8 +915,9 @@ async function up() {
     const v = vivo ? a : { total: r.recorde, twitch: r.twitch, kick: r.kick, youtube: r.youtube, tiktok: r.tiktok };
     const nome = s => s.toLowerCase().replace(/(^|\s)\p{L}/gu, c => c.toUpperCase());
     $("epNome").textContent = r.temporada || nome(m ? m[1] : r.titulo.replace(/\s*\|.*$/, ""));
-    $("epNum").textContent = m ? nome(m[2]) : "";
-    $("epSub").textContent = r.nome ? "“" + r.nome + "”" : ""; $("epSub").hidden = !r.nome;
+    // com nome: título "A Vigília “O Vilarejo”" e o número do episódio embaixo
+    $("epNum").textContent = r.nome ? "“" + r.nome + "”" : m ? nome(m[2]) : "";
+    $("epSub").textContent = r.nome && m ? nome(m[2]) : ""; $("epSub").hidden = !(r.nome && m);
     proximo = vivo ? null : (d.proximos || []).find(p => new Date(p.data) > Date.now()) || null;
     const cfg = d.config || {};
     espera = !vivo && !epPedido && cfg.telaInicial !== "ultimo" && (proximo || cfg.semProximo) ? { texto: cfg.semProximo, ultimo: d.ver } : null;
@@ -1104,7 +1105,7 @@ async function gerarImagem() {
   // a logo tem margem transparente: parte visível em 2–92% da largura e 20–83% da altura
   let tx = P;
   if (rn) { const t = LH / .63; c.drawImage(rn, P - t * .02, P - t * .2, t, t); tx = P + t * .9 + 28; }
-  const titulo = [$("epNome").textContent, $("epNum").textContent].filter(Boolean).join(" - ") + (r.nome ? " · " + r.nome : "");
+  const titulo = r.nome ? `${$("epNome").textContent} “${r.nome}” · ${$("epSub").textContent}` : [$("epNome").textContent, $("epNum").textContent].filter(Boolean).join(" - ");
   txt(titulo, tx, meio + 12, "700 34px Inter", "#ededed");
   if (!V) txt("ordemtracker.site", W - P, meio + 10, "500 26px Inter", "#8a8a8a", 0, "right");
   const topo = P + LH + 48;
