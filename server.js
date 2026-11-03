@@ -86,8 +86,19 @@ async function procuraLive() {
   for (const e of episodios.lista) if (/^[\w-]{11}$/.test(e.id) && !ids.includes(e.id)) ids.push(e.id);
   const cadastrados = new Set(episodios.lista.map(e => e.id));
   // conta só live cadastrada no /admin ou com cara de episódio (ex.: "A VIGÍLIA - EPISÓDIO 2 | Ordem Paranormal RPG")
-  const vivo = (await ytApi(ids.slice(0, 50))).find(v => v.snippet?.liveBroadcastContent === "live" && (cadastrados.has(v.id) || EPISODIO.test(v.snippet.title)));
+  const videos = await ytApi(ids.slice(0, 50));
+  const vivo = videos.find(v => v.snippet?.liveBroadcastContent === "live" && (cadastrados.has(v.id) || EPISODIO.test(v.snippet.title)));
   ytLive = vivo?.id || null;
+  // live já agendada no YouTube (umas horas antes): troca o cadastro só da agenda pelo vídeo, pra ter capa e lembrete sem colar o link
+  let mudou = false;
+  for (const v of videos) {
+    if (v.snippet?.liveBroadcastContent !== "upcoming" || !EPISODIO.test(v.snippet.title) || cadastrados.has(v.id)) continue;
+    const e = episodios.lista.find(e => e.id.startsWith("ag-") && slug(e.titulo, e.id) === slug(v.snippet.title, v.id));
+    if (!e) continue;
+    e.id = v.id; e.data = v.liveStreamingDetails?.scheduledStartTime || e.data; mudou = true;
+    console.log(`episódio da agenda ligado ao vídeo agendado ${v.id}`);
+  }
+  if (mudou) salvaEps();
 }
 async function youtube() {
   if (!env.YOUTUBE_API_KEY) return null;
@@ -335,7 +346,7 @@ const config = () => ({ telaInicial: "contagem", semProximo: "", ...(episodios.c
 const proximos = () => episodios.lista
   .filter(e => !e.oculto && !records[e.id] && e.data && new Date(e.data) > Date.now() - 86_400_000)
   .sort((a, b) => a.data.localeCompare(b.data))
-  .map(({ id, titulo, temporada, data }) => ({ id, titulo, temporada, data }));
+  .map(({ id, titulo, temporada, data }) => ({ id, titulo, temporada, data, slug: slug(titulo, id) }));
 
 // ---------- acessos (anônimo: sem cookie; IP + navegador viram um código que muda todo dia) ----------
 const ACESSOS = path.join(DADOS, "acessos.json");
@@ -825,14 +836,15 @@ function og(caminho) {
   const pub = publicos();
   const p = caminho.match(/^\/ep\/([\w-]+)/)?.[1];
   const id = p ? (pub[p] ? p : Object.keys(pub).find(k => pub[k].slug === p)) : null;
-  const r = id && pub[id];
+  const fut = p && !id ? proximos().find(e => e.slug === p) : null;
+  const r = id ? pub[id] : fut && { titulo: fut.titulo, temporada: fut.temporada };
   // "A VIGÍLIA - EPISÓDIO 1 | ..." vira "A Vigília · Episódio 1"
   const nome = t => t.toLowerCase().replace(/(^|\s)\p{L}/gu, c => c.toUpperCase());
   const m = r?.titulo.match(/^(.*?)\s*-\s*EPIS[ÓO]DIO\s*(\d+)/i);
   const titulo = r ? `${r.temporada || nome(m ? m[1] : r.titulo.replace(/\s*\|.*$/, ""))}${m ? " - Episódio " + m[2] : ""} · Ordem Tracker` : "Ordem Tracker";
   const desc = "Contagem de viewers ao vivo das lives de Ordem Paranormal na Twitch, Kick, YouTube e TikTok. Projeto de fãs do Realitas News.";
   // sem episódio na URL usa o último que foi ao ar
-  const ver = id || Object.entries(pub).sort((a, b) => (b[1].ultimaLeitura || "").localeCompare(a[1].ultimaLeitura || ""))[0]?.[0];
+  const ver = id || (fut && !fut.id.startsWith("ag-") ? fut.id : null) || Object.entries(pub).sort((a, b) => (b[1].ultimaLeitura || "").localeCompare(a[1].ultimaLeitura || ""))[0]?.[0];
   const arq = ver && path.join(PREVIAS, ver + ".png");
   const img = arq && fs.existsSync(arq) ? `${SITE}/previa/${ver}.png?v=${Math.round(fs.statSync(arq).mtimeMs / 1000)}` : ver && /^[\w-]{11}$/.test(ver) ? `${SITE}/capa/${ver}.jpg` : `${SITE}/rn-branco.png`;
   return [["og:type", "website"], ["og:site_name", "Ordem Tracker"], ["og:title", titulo], ["og:description", desc], ["og:url", SITE + caminho], ["og:image", img], ["og:locale", "pt_BR"]]
@@ -862,11 +874,14 @@ http.createServer(async (req, res) => {
     const ultimoEp = Object.entries(pub).sort((p, q) => (q[1].ultimaLeitura || "").localeCompare(p[1].ultimaLeitura || ""))[0]?.[0];
     const p = url.searchParams.get("ep");
     const pedido = p && (pub[p] ? p : Object.keys(pub).find(id => pub[id].slug === p));
+    // episódio que ainda vai ao ar: a página fica zerada com a contagem e vira o painel sozinha quando a live começa
+    const futuro = p && !pedido ? proximos().find(e => e.slug === p || e.id === p) || null : null;
     const ver = pedido && pub[pedido] ? pedido : (atual.episodio && pub[atual.episodio] ? atual.episodio : ultimoEp);
     const aoVivo = !!atual.episodio && ver === atual.episodio && atual.total > 0;
     const linhas = fs.readFileSync(HIST, "utf8").trim().split("\n").slice(1);
     const hist = linhas.map(l => l.split(",")).filter(c => c[1] === ver).map(c => [c[0], ...c.slice(2, 6).map(v => (v === "" ? null : +v)), c[7] ? +c[7] : null, c[8] ? +c[8] : null]);
     const at = { ...so(atual, ["twitch", "kick", "youtube", "tiktok", "total", "hora", "episodio"]), extras: so(atual.extras || {}, ["inicio", "ytLikes", "msgsMin", "chatMsgs", "chatPessoas", "twitchSeguidores", "tiktokSeguidores"]) };
+    if (futuro) return json(res, 200, { atual: at, records: pub, hist: [], ver, aoVivo: false, futuro, proximos: proximos(), config: config(), momentos: [] });
     return json(res, 200, { atual: at, records: pub, hist, ver, aoVivo, proximos: proximos(), config: config(), momentos: ver ? momentosPublicos(ver) : [] });
   }
   if (url.pathname === "/feedback" && req.method === "POST") return feedback(req, res);
@@ -899,7 +914,8 @@ http.createServer(async (req, res) => {
   // captura de momento aprovado
   const mc = url.pathname.match(/^\/momento\/([\w-]+)\/([\w-]+\.jpg)$/);
   if (mc && leMomentos(mc[1]).some(m => m.aprovado && m.captura === mc[2]) && fs.existsSync(path.join(MOMENTOS, mc[1], "capturas", mc[2]))) {
-    res.writeHead(200, { "Content-Type": "image/jpeg", "Cache-Control": "max-age=3600" });
+    // a captura de um momento não muda: o navegador pode guardar por uma semana
+    res.writeHead(200, { "Content-Type": "image/jpeg", "Cache-Control": "max-age=604800" });
     return res.end(fs.readFileSync(path.join(MOMENTOS, mc[1], "capturas", mc[2])));
   }
   const pv = url.pathname.match(/^\/previa\/([\w-]+)\.png$/);

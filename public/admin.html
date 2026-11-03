@@ -1,11 +1,28 @@
 <!doctype html>
 <html lang="pt-BR"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
-<title>Painel</title>
+<title>Painel · Ordem Tracker</title>
+<link rel="icon" type="image/png" href="/rn-preto.png" media="(prefers-color-scheme: light)">
+<link rel="icon" type="image/png" href="/rn-branco.png" media="(prefers-color-scheme: dark)">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+// mesmo tema escolhido no site (claro ou escuro); sem escolha, segue o sistema
+(() => { let t = null; try { t = localStorage.getItem("tema"); } catch {}
+  document.documentElement.dataset.tema = t || (matchMedia("(prefers-color-scheme: light)").matches ? "claro" : "escuro"); })();
+</script>
 <style>
-:root{--bg:#0e0e0e;--panel:#161616;--panel2:#1d1d1d;--line:#262626;--tx:#ededed;--mut:#8a8a8a;--red:#ef4444;--verde:#22c55e}
-@media (prefers-color-scheme:light){:root{--bg:#f4f4f4;--panel:#fff;--panel2:#f0f0f0;--line:#e2e2e2;--tx:#161616;--mut:#6b6b6b}}
+/* mesmas cores do site */
+:root{--bg:#121212;--panel:#181818;--panel2:#242424;--line:#2a2a2a;--tx:#ededed;--mut:#8a8a8a;--red:#ef4444;--verde:#22c55e;--rn:url(/rn-branco.png)}
+:root[data-tema="claro"]{--bg:#f3f3f3;--panel:#fff;--panel2:#e7e7e7;--line:#ddd;--tx:#151515;--mut:#6e6e6e;--rn:url(/rn-preto.png)}
+/* cabeçalho igual ao do site: logo do Realitas, nome da página e atalhos */
+.top{display:flex;align-items:center;gap:18px;height:60px;padding:0 24px;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;background:var(--bg)}
+.top .rn-logo{display:block;width:46px;height:46px;background:var(--rn) center/contain no-repeat;margin:0 -6px}
+.top .nome{font-weight:600;color:var(--mut)}
+.top .sp{flex:1}
+.top a.tlink,.top button.tlink{display:inline-flex;align-items:center;gap:6px;background:none;border:0;padding:6px 0;color:var(--mut);font:500 14px Inter,sans-serif;text-decoration:none;cursor:pointer}
+.top a.tlink:hover,.top button.tlink:hover{color:var(--tx)}
+.top svg{width:17px;height:17px}
+:root[data-tema="claro"] .i-sol,:root:not([data-tema="claro"]) .i-lua{display:none}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 Inter,sans-serif}
 h1{font-size:18px;font-weight:700;margin:0}
@@ -24,9 +41,9 @@ a{color:var(--tx);text-underline-offset:2px}
 
 /* estrutura: menu lateral + conteúdo */
 #login{max-width:420px;margin:18vh auto;padding:0 16px}
-#app{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+#app{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 61px)}
 #app[hidden]{display:none}
-nav{border-right:1px solid var(--line);padding:24px 14px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh}
+nav{border-right:1px solid var(--line);padding:24px 14px;display:flex;flex-direction:column;gap:4px;position:sticky;top:61px;height:calc(100vh - 61px)}
 nav h1{padding:0 10px 18px}
 nav button{display:flex;align-items:center;justify-content:space-between;gap:8px;background:none;color:var(--mut);text-align:left;padding:9px 10px;border-radius:8px;font-weight:500}
 nav button:hover{color:var(--tx);background:var(--panel)}
@@ -38,6 +55,7 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
 .aba[hidden]{display:none}
 .topo{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px}
 .topo p{margin:0}
+.topo button{white-space:nowrap;flex:none}
 
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
 .g{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px}
@@ -149,9 +167,15 @@ button.icone svg{width:16px;height:16px}
 @media (max-width:760px){
   body{font-size:14px}
   #app{grid-template-columns:1fr}
+  .top{position:static;height:52px;padding:0 14px;gap:14px}
+  .top .rn-logo{width:40px;height:40px}
+  .top .tlink span{display:none}
   nav{position:sticky;top:0;z-index:5;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;align-content:flex-start;gap:4px;border-right:0;border-bottom:1px solid var(--line);padding:8px 10px;background:var(--bg)}
   nav h1,nav .vivo{display:none}
   nav button{white-space:nowrap;padding:7px 10px;font-size:13px}
+  /* 6 abas em 2 linhas de 3, todas do mesmo tamanho */
+  nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+  nav button{justify-content:center;gap:5px;padding:7px 4px;overflow:hidden;text-overflow:ellipsis}
   main{padding:16px 14px 48px}
   h2{font-size:18px}
   h3{margin:20px 0 8px;font-size:12px}
@@ -182,12 +206,17 @@ button.icone svg{width:16px;height:16px}
 }
 </style></head>
 <body>
+<header class="top">
+  <a href="/" aria-label="Ir para o site" title="Ir para o site"><span class="rn-logo" role="img" aria-label="Realitas News"></span></a>
+  <div class="sp"></div>
+  <button class="tlink" id="temaBtn" type="button" aria-label="Tema claro ou escuro" title="Tema claro ou escuro"><svg class="i-lua" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><svg class="i-sol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></button>
+  <a class="tlink" href="/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg><span>Abrir o site</span></a>
+</header>
 <div id="login"><h2>Painel</h2><p>Entre com a senha do painel.</p><label for="senha">Senha</label>
   <div class="g3" style="grid-template-columns:1fr auto"><input id="senha" type="password" autocomplete="current-password"><button id="entrar">Entrar</button></div></div>
 
 <div id="app" hidden>
 <nav>
-  <h1>Painel</h1>
   <button data-aba="site" class="on">Site</button>
   <button data-aba="status">Status <span class="qtd" id="stQtd"></span></button>
   <button data-aba="episodios">Episódios</button>
@@ -314,6 +343,11 @@ button.icone svg{width:16px;height:16px}
 
 <script>
 const $ = id => document.getElementById(id);
+// troca o tema e guarda a escolha (vale pro site também)
+$("temaBtn").onclick = () => {
+  const novo = document.documentElement.dataset.tema === "claro" ? "escuro" : "claro";
+  document.documentElement.dataset.tema = novo; try { localStorage.setItem("tema", novo); } catch {}
+};
 let senha = sessionStorage.getItem("senha") || "", dados = [], editando = null;
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const aviso = (t, erro) => { $("msg").textContent = t; $("msg").className = erro ? "erro" : ""; };
