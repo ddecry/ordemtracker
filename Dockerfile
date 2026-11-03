@@ -4,6 +4,7 @@ RUN apk add --no-cache ffmpeg python3 py3-pip && pip install --no-cache-dir --br
 WORKDIR /app
 COPY server.js ./
 COPY public ./public
+COPY ref ./ref
 ENV DATA_DIR=/dados NODE_ENV=production
 VOLUME /dados
 EXPOSE 3030

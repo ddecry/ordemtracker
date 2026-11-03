@@ -319,6 +319,16 @@ const so = (o, ks) => Object.fromEntries(ks.filter(k => o[k] != null).map(k => [
 // endereço amigável do episódio: "A VIGÍLIA - EPISÓDIO 1" vira "a-vigilia-1"
 const kebab = t => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const slug = (titulo, id) => { const m = (titulo || "").match(/^(.*?)\s*-\s*EPIS[ÓO]DIO\s*(\d+)/i); return (m ? kebab(m[1]) + "-" + m[2] : kebab((titulo || "").replace(/\s*\|.*$/, ""))) || id; };
+// título sem número de episódio (ex.: Transcendendo): endereço curto pela temporada e a ordem da live nela → /ep/transcendendo-1
+const temporadaDe = id => episodios.lista.find(e => e.id === id)?.temporada || temporadaDoTitulo(records[id]?.titulo);
+function slugEp(id, titulo, temporada) {
+  if (!temporada || /EPIS[ÓO]DIO\s*\d+/i.test(titulo || "")) return slug(titulo, id);
+  const da = Object.keys(records).filter(k => temporadaDe(k) === temporada)
+    .sort((a, b) => (records[a].inicioLive || records[a].inicio || "").localeCompare(records[b].inicioLive || records[b].inicio || ""));
+  return kebab(temporada) + "-" + ((da.indexOf(id) + 1) || da.length + 1);
+}
+// acha o episódio pelo id, pelo endereço curto ou pelo endereço antigo (título inteiro), pra links já compartilhados não quebrarem
+const achaEp = (pub, p) => pub[p] ? p : Object.keys(pub).find(k => pub[k].slug === p || slug(pub[k].titulo, k) === p);
 // média sem o fim da live: quando a transmissão acaba todo mundo sai de uma vez e a queda puxaria a média pra baixo.
 // corta do fim pra trás as leituras abaixo de 90% da mediana dos 10 minutos anteriores (só aparecem no gráfico)
 const medias = new Map(); // id -> { chave, media }
@@ -340,7 +350,7 @@ function publicos(teste) {
   for (const [id, r] of Object.entries(records)) {
     const e = episodios.lista.find(x => x.id === id);
     if (e?.oculto && id !== teste) continue;
-    out[id] = { ...so({ ...r, titulo: e?.titulo || r.titulo, temporada: e?.temporada || temporadaDoTitulo(r.titulo), media: mediaSemFim(id, r) }, CAMPOS), slug: slug(r.titulo, id),
+    out[id] = { ...so({ ...r, titulo: e?.titulo || r.titulo, temporada: e?.temporada || temporadaDoTitulo(r.titulo), media: mediaSemFim(id, r) }, CAMPOS), slug: slugEp(id, e?.titulo || r.titulo, temporadaDe(id)),
       // vídeo completo (sem membros), nome do episódio e trechos cortados da live, pra os momentos abrirem no ponto certo
       video: e?.video || null, nome: e?.nome || null, cortes: e?.video ? e.cortes || null : null,
       // a faixa de chat no gráfico só aparece quando o chat do episódio foi gravado inteiro (do Ep 2 em diante)
@@ -352,7 +362,7 @@ const config = () => ({ telaInicial: "contagem", semProximo: "", ...(episodios.c
 const proximos = () => episodios.lista
   .filter(e => !e.oculto && !records[e.id] && e.data && new Date(e.data) > Date.now() - 86_400_000)
   .sort((a, b) => a.data.localeCompare(b.data))
-  .map(({ id, titulo, temporada, data }) => ({ id, titulo, temporada, data, slug: slug(titulo, id) }));
+  .map(({ id, titulo, temporada, data }) => ({ id, titulo, temporada, data, slug: slugEp(id, titulo, temporada) }));
 
 // ---------- acessos (anônimo: sem cookie; IP + navegador viram um código que muda todo dia) ----------
 const ACESSOS = path.join(DADOS, "acessos.json");
@@ -515,7 +525,7 @@ async function admin(req, res) {
     if (pv && records[pv]) {
       const token = crypto.randomBytes(16).toString("hex");
       previaTokens.set(token, { id: pv, ate: Date.now() + 5 * 60e3 });
-      return json(res, 200, { token, url: "/ep/" + slug(records[pv].titulo, pv) + "#previa=" + token });
+      return json(res, 200, { token, url: "/ep/" + slugEp(pv, records[pv].titulo, temporadaDe(pv)) + "#previa=" + token });
     }
     return json(res, 200, { lista, aoVivo: atual.episodio, config: config(), wiki: gloWiki });
   }
@@ -691,7 +701,20 @@ const momentosPublicos = id => leMomentos(id).filter(m => m.aprovado)
 
 // ---------- gravação durante a live (público, sem login) ----------
 // áudio em partes de 30 min e uma captura a cada 30 s; cada parte pronta vai pro Gemini, que devolve os momentos como rascunho
-const { spawn, execFile } = require("child_process");
+const { spawn, execFile, execFileSync } = require("child_process");
+// capturas que não mostram a live: a tela de intervalo comercial da Twitch (quem assiste sem login recebe ela no lugar da live)
+// e quadros pretos ou lisos. Compara uma miniatura 16x9 com a tela de referência em ref/twitch-intervalo.jpg
+const miniatura = f => { try { return execFileSync("ffmpeg", ["-v", "error", "-i", f, "-vf", "scale=16:9", "-pix_fmt", "rgb24", "-f", "rawvideo", "-"]); } catch { return null; } };
+let refIntervalo;
+function foraDaLive(f) {
+  const b = miniatura(f);
+  if (!b) return true;
+  if (Math.max(...b) - Math.min(...b) < 16) return true; // preto ou liso
+  refIntervalo ??= miniatura(path.join(__dirname, "ref", "twitch-intervalo.jpg"));
+  if (!refIntervalo || refIntervalo.length !== b.length) return false;
+  let d = 0; for (let i = 0; i < b.length; i++) d += Math.abs(b[i] - refIntervalo[i]);
+  return d / b.length < 10;
+}
 const GRAVACAO = path.join(DADOS, "gravacao");
 const PARTE_MIN = 30;
 let gravando = null; // { id, proc }
@@ -766,7 +789,9 @@ async function analisaPartes() {
         const caps = fs.readdirSync(path.join(dir, "capturas")).filter(f => f.endsWith(".jpg")).map(f => ({ f, t: deHora14(f.slice(0, 15)).getTime() }));
         const novos = lista.map(m => {
           const t = inicio.getTime() + Math.max(0, Math.min(PARTE_MIN * 60, m.segundo)) * 1000;
-          const cap = caps.filter(c => c.t >= t).sort((a, b) => a.t - b.t)[0] || caps.at(-1);
+          // a captura de live mais perto do momento (primeiro as de depois, depois as de antes), pulando intervalo comercial e tela preta
+          const depois = caps.filter(c => c.t >= t).sort((a, b) => a.t - b.t), antes = caps.filter(c => c.t < t).sort((a, b) => b.t - a.t);
+          const cap = [...depois.slice(0, 20), ...antes.slice(0, 20)].find(c => !foraDaLive(path.join(dir, "capturas", c.f)));
           let captura = null;
           if (cap) { captura = cap.f; fs.mkdirSync(path.join(MOMENTOS, id, "capturas"), { recursive: true }); fs.copyFileSync(path.join(dir, "capturas", cap.f), path.join(MOMENTOS, id, "capturas", cap.f)); }
           return { quando: new Date(t).toISOString(), titulo: String(m.titulo).slice(0, 80), contexto: String(m.contexto).slice(0, 240), tipo: m.tipo === "mesa" ? "mesa" : "historia", captura, aprovado: false, seg: (t - inicio.getTime()) / 1000 };
@@ -846,7 +871,7 @@ const attr = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;"
 function og(caminho) {
   const pub = publicos();
   const p = caminho.match(/^\/ep\/([\w-]+)/)?.[1];
-  const id = p ? (pub[p] ? p : Object.keys(pub).find(k => pub[k].slug === p)) : null;
+  const id = p ? achaEp(pub, p) : null;
   const fut = p && !id ? proximos().find(e => e.slug === p) : null;
   const r = id ? pub[id] : fut && { titulo: fut.titulo, temporada: fut.temporada };
   // "A VIGÍLIA - EPISÓDIO 1 | ..." vira "A Vigília · Episódio 1"
@@ -887,7 +912,7 @@ http.createServer(async (req, res) => {
     const pub = publicos(teste);
     const ultimoEp = Object.entries(pub).sort((p, q) => (q[1].ultimaLeitura || "").localeCompare(p[1].ultimaLeitura || ""))[0]?.[0];
     const p = url.searchParams.get("ep");
-    const pedido = p && (pub[p] ? p : Object.keys(pub).find(id => pub[id].slug === p));
+    const pedido = p && achaEp(pub, p);
     // episódio que ainda vai ao ar: a página fica zerada com a contagem e vira o painel sozinha quando a live começa
     const futuro = p && !pedido ? proximos().find(e => e.slug === p || e.id === p) || null : null;
     const ver = pedido && pub[pedido] ? pedido : (atual.episodio && pub[atual.episodio] ? atual.episodio : ultimoEp);
