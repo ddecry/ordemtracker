@@ -288,6 +288,10 @@ button.icone svg{width:16px;height:16px}
         <div><label for="temporada">Temporada</label><input id="temporada" maxlength="100" placeholder="A Vigília"></div></div>
       <div><label for="titulo">Título no site <span class="mut">(opcional)</span></label><input id="titulo" maxlength="200" placeholder="A Vigília - Episódio 2">
         <small class="ajuda">Vazio usa o título do YouTube.</small></div>
+      <div class="g"><div><label for="video">Vídeo completo no YouTube <span class="mut">(opcional)</span></label><input id="video" autocomplete="off" placeholder="https://www.youtube.com/watch?v=...">
+        <small class="ajuda">O vídeo aberto pra todos, postado depois da live. Os links do site passam a abrir ele.</small></div>
+        <div><label for="nome">Nome do episódio <span class="mut">(opcional)</span></label><input id="nome" maxlength="100" placeholder="O Vilarejo">
+        <small class="ajuda">Vazio pega o nome entre aspas do título do vídeo.</small></div></div>
     </div>
     <img id="previa" alt="" hidden style="width:240px;aspect-ratio:16/9;object-fit:cover;border-radius:8px;margin:12px 0 0">
     <div class="g3" style="margin-top:14px;grid-template-columns:1fr auto">
@@ -413,7 +417,7 @@ $("novoEp").onclick = () => { $("limpa").click(); aviso(""); $("form").hidden = 
 $("form").onsubmit = async ev => {
   ev.preventDefault();
   try {
-    await api("POST", { link: $("link").value, antigo: editando, id: editando, titulo: $("titulo").value, temporada: $("temporada").value, data: $("data").value ? new Date($("data").value).toISOString() : "", oculto: $("oculto").checked });
+    await api("POST", { link: $("link").value, antigo: editando, id: editando, titulo: $("titulo").value, temporada: $("temporada").value, video: $("video").value, nome: $("nome").value, data: $("data").value ? new Date($("data").value).toISOString() : "", oculto: $("oculto").checked });
     $("limpa").click(); await carrega(); aviso("Salvo.");
   } catch (e) { aviso(e.message, true); }
 };
@@ -429,7 +433,7 @@ $("lista").onclick = async ev => {
   }
   if (ed != null) {
     const e = dados[ed];
-    editando = e.id; $("link").value = e.id.startsWith("ag-") ? "" : "https://www.youtube.com/watch?v=" + e.id; $("titulo").value = e.titulo; $("temporada").value = e.temporada;
+    editando = e.id; $("link").value = e.id.startsWith("ag-") ? "" : "https://www.youtube.com/watch?v=" + e.id; $("titulo").value = e.titulo; $("temporada").value = e.temporada; $("video").value = e.video ? "https://www.youtube.com/watch?v=" + e.video : ""; $("nome").value = e.nome || "";
     $("data").value = local(e.data); $("oculto").checked = e.oculto; $("link").oninput(); $("formT").textContent = "Editando " + titulo(e); $("form").hidden = false; aviso(""); scrollTo(0, 0);
   }
   if (rm != null && confirm("Remover este cadastro?")) {

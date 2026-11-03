@@ -337,6 +337,8 @@ function publicos() {
     const e = episodios.lista.find(x => x.id === id);
     if (e?.oculto) continue;
     out[id] = { ...so({ ...r, titulo: e?.titulo || r.titulo, temporada: e?.temporada || null, media: mediaSemFim(id, r) }, CAMPOS), slug: slug(r.titulo, id),
+      // vídeo completo (sem membros), nome do episódio e trechos cortados da live, pra os momentos abrirem no ponto certo
+      video: e?.video || null, nome: e?.nome || null, cortes: e?.video ? e.cortes || null : null,
       // a faixa de chat no gráfico só aparece quando o chat do episódio foi gravado inteiro (do Ep 2 em diante)
       chatCompleto: fs.existsSync(path.join(CHATLOG, id.replace(/[^\w-]/g, "_") + ".jsonl")) };
   }
@@ -481,7 +483,7 @@ async function admin(req, res) {
     const ids = new Set([...episodios.lista.map(e => e.id), ...Object.keys(records)]);
     const lista = [...ids].map(id => {
       const e = episodios.lista.find(x => x.id === id) || {}, r = records[id];
-      return { id, titulo: e.titulo || "", tituloYT: r?.titulo || "", temporada: e.temporada || "", data: e.data || r?.inicioLive || "", oculto: !!e.oculto, recorde: r?.recorde ?? null };
+      return { id, titulo: e.titulo || "", tituloYT: r?.titulo || "", video: e.video || "", nome: e.nome || "", temporada: e.temporada || "", data: e.data || r?.inicioLive || "", oculto: !!e.oculto, recorde: r?.recorde ?? null };
     }).sort((a, b) => (b.data || "").localeCompare(a.data || ""));
     if (url.searchParams.get("acessos")) return json(res, 200, relatorio());
     // correções vêm com o texto atual do momento, pra comparar
@@ -560,7 +562,12 @@ async function admin(req, res) {
       if (!yt && !b.data) return json(res, 400, { erro: "Não achei esse vídeo no YouTube. Confira o link ou preencha a data." });
       const ytTitulo = yt?.snippet?.title?.replace(/\s*\|.*$/, "") || "";
       const ytData = yt?.liveStreamingDetails?.scheduledStartTime || yt?.liveStreamingDetails?.actualStartTime || "";
-      const e = { id, titulo: String(b.titulo || ytTitulo).slice(0, 200), temporada: String(b.temporada || "").slice(0, 100), data: b.data ? new Date(b.data).toISOString() : ytData, oculto: !!b.oculto };
+      // vídeo completo postado depois da live: o nome do episódio vem do título dele ("O Vilarejo")
+      const antes = i >= 0 ? episodios.lista[i] : {}, video = idDoLink(b.video) || null;
+      const ytVideo = video && video !== antes.video && env.YOUTUBE_API_KEY ? (await ytApi([video]).catch(() => []))[0] : null;
+      const nomeYT = (ytVideo?.snippet?.title || yt?.snippet?.title || "").match(/["“]([^"”]+)["”]/)?.[1] || "";
+      const e = { id, titulo: String(b.titulo || ytTitulo).slice(0, 200), temporada: String(b.temporada || "").slice(0, 100), data: b.data ? new Date(b.data).toISOString() : ytData, oculto: !!b.oculto,
+        video, nome: String(b.nome || nomeYT || "").slice(0, 100) || null, cortes: video && video === antes.video ? antes.cortes || null : null };
       if (i >= 0) episodios.lista[i] = e; else episodios.lista.push(e);
       ytUltimaBusca = 0; // procura a live de novo no próximo ciclo
     }
