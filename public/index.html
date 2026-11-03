@@ -127,13 +127,11 @@ body.encerrado .clockw .dot{display:none}
 .cena img{width:clamp(128px,13vw,210px);aspect-ratio:16/9;object-fit:cover;border-radius:8px;background:var(--panel2)}
 .cena img[hidden]{display:none}
 .cena small{color:var(--mut);font-size:.8em;margin-right:.5em}
-.cena .cena-chat{margin:0 0 .4em;font-size:.85em;color:var(--mut);display:flex;flex-wrap:wrap;gap:.2em .6em;align-items:baseline}
+.cena .cena-chat{margin:0 0 .4em;font-size:.85em;line-height:1.4;color:var(--mut);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .cena .cena-chat[hidden]{display:none}
 .cena-chat b{color:var(--tx);font-weight:600}
 .cena-chat b.quente{color:var(--red)}
-.cena-chat span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
-/* celular: a reação numa linha só; as palavras que não couberem terminam em "…" */
-@media (max-width:800px),(max-aspect-ratio:1/1){.cena .cena-chat{flex-wrap:nowrap}.cena-chat b{flex:none}.cena-chat span{flex:1;min-width:0}}
+.cena-chat span{margin-left:.35em}
 .cena b{font-size:1.05em}
 .cena p{margin:.25em 0 .4em;color:var(--mut);font-size:.92em;line-height:1.4}
 .cena a,.cena-corr{color:var(--tx);font-size:.8em;font-weight:600}
@@ -753,9 +751,11 @@ function mostraCena(t) {
   $("cenaCorr").dataset.t = c.t;
   $("cenaH").textContent = hm(c.t); $("cenaT").textContent = c.titulo; $("cenaC").textContent = c.contexto;
   // reação do chat naquele trecho: quanto agitou em relação à média da live e o que mais gente escreveu
-  const ch = c.chat;
-  $("cenaChat").hidden = !ch;
-  if (ch) $("cenaChat").innerHTML = `<b class="${ch.ritmo >= 1.5 ? "quente" : ""}">Chat: ${ch.ritmo >= 1.1 ? ch.ritmo.toLocaleString("pt-BR") + "x mais agitado" : ch.ritmo <= 0.9 ? "mais calmo que a média" : "na média"}</b>${ch.top.length ? `<span>${ch.top.map(t => esc(t.p)).join(", ")}</span>` : ""}`;
+  // reação do chat: o resumo do que o chat falava (feito pelo Gemini junto com o momento);
+  // "mais agitado" só quando o chat ficou bem acima do normal
+  const ch = c.chat, agitado = ch && ch.ritmo >= 1.3, resumo = c.chatResumo;
+  $("cenaChat").hidden = !resumo && !agitado;
+  $("cenaChat").innerHTML = `<b class="${ch?.ritmo >= 1.5 ? "quente" : ""}">${agitado ? `Chat ${ch.ritmo.toLocaleString("pt-BR")}x mais agitado` : "Chat"}${resumo ? ":" : ""}</b>${resumo ? `<span>${esc(resumo)}</span>` : ""}`;
   $("cenaImg").hidden = !c.captura; if (c.captura) $("cenaImg").src = c.captura;
   // link pro mesmo ponto no vídeo do YouTube, pelo horário real do momento
   const r = ultimo?.records[ultimo.ver], ini = r?.inicioLive && new Date(r.inicioLive).getTime();

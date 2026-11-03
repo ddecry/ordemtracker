@@ -583,6 +583,7 @@ function desenhaMomentos() {
         <button type="button" class="icone" data-rm="${i}" aria-label="Apagar momento" title="Apagar">${icone.lixo}</button></div>
       <input class="campo tit" data-i="${i}" data-c="titulo" value="${esc(m.titulo)}" maxlength="80" aria-label="Título">
       <textarea class="campo" data-i="${i}" data-c="contexto" maxlength="240" rows="3" aria-label="Descrição">${esc(m.contexto)}</textarea>
+      <input class="campo" data-i="${i}" data-c="chatResumo" value="${esc(m.chatResumo || "")}" maxlength="160" placeholder="O que o chat falava (vazio: não mostra)" aria-label="Reação do chat">
     </div>
   </article>`).join("") : '<p class="vazio">Ainda não tem momentos para este episódio. Eles aparecem aqui depois da análise da live.</p>';
   // capturas de rascunho só com a senha: busca com o cabeçalho e mostra como blob

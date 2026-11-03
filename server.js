@@ -580,7 +580,8 @@ async function admin(req, res) {
     if (b?.momentos && records[b.momentos] && Array.isArray(b.lista)) {
       const lista = b.lista.slice(0, 500).map(m => ({ quando: new Date(m.quando).toISOString(), segundoVideo: Number.isFinite(+m.segundoVideo) && m.segundoVideo !== null && m.segundoVideo !== "" ? +m.segundoVideo : undefined,
         titulo: String(m.titulo || "").slice(0, 80), contexto: String(m.contexto || "").slice(0, 240), tipo: m.tipo === "mesa" ? "mesa" : "historia",
-        captura: /^[\w-]+\.jpg$/.test(m.captura || "") ? m.captura : null, audio: /^[\w-]+\.ogg$/.test(m.audio || "") ? m.audio : undefined, aprovado: !!m.aprovado }));
+        captura: /^[\w-]+\.jpg$/.test(m.captura || "") ? m.captura : null, audio: /^[\w-]+\.ogg$/.test(m.audio || "") ? m.audio : undefined,
+        chatResumo: m.chatResumo ? String(m.chatResumo).slice(0, 160) : undefined, aprovado: !!m.aprovado }));
       // nomes trocados à mão viram correção automática para os próximos momentos
       const antes = Object.fromEntries(leMomentos(b.momentos).map(m => [m.quando, m]));
       for (const m of lista) if (antes[m.quando]) { aprende(antes[m.quando].titulo, m.titulo); aprende(antes[m.quando].contexto, m.contexto); }
@@ -729,7 +730,7 @@ function corrigeNomes(texto) {
 }
 const salvaMomentos = (id, lista) => { fs.mkdirSync(path.join(MOMENTOS, id), { recursive: true }); fs.writeFileSync(path.join(MOMENTOS, id, "momentos.json"), JSON.stringify(lista, null, 2)); };
 const momentosPublicos = id => { const reac = reacoesChat(id); return leMomentos(id).filter(m => m.aprovado)
-  .map(m => ({ quando: m.quando, titulo: m.titulo, contexto: m.contexto, tipo: m.tipo, captura: m.captura ? `/momento/${id}/${m.captura}` : null, chat: reac?.(m.quando) || null })); };
+  .map(m => ({ quando: m.quando, titulo: m.titulo, contexto: m.contexto, tipo: m.tipo, captura: m.captura ? `/momento/${id}/${m.captura}` : null, chat: reac?.(m.quando) || null, chatResumo: m.chatResumo || null })); };
 
 // ---------- reação do chat em cada momento (episódios com o chat gravado inteiro) ----------
 // janela de 2 min a partir de 30 s antes do momento: quanto o chat agitou em relação à média da live
@@ -824,9 +825,28 @@ Liste os principais acontecimentos deste trecho: momentos da história (revelaç
 Para cada um, informe o segundo deste trecho em que começa, um título curto (até 8 palavras) e uma frase de contexto (até 25 palavras), em português.
 Seja factual: use só nomes de personagens e lugares que foram ditos claramente. Não invente. Prefira 1 momento a cada 3 a 8 minutos.`;
 const ESQUEMA_MOMENTOS = { type: "ARRAY", items: { type: "OBJECT", properties: {
-  segundo: { type: "INTEGER" }, titulo: { type: "STRING" }, contexto: { type: "STRING" }, tipo: { type: "STRING", enum: ["historia", "mesa"] } },
+  segundo: { type: "INTEGER" }, titulo: { type: "STRING" }, contexto: { type: "STRING" }, tipo: { type: "STRING", enum: ["historia", "mesa"] }, chat: { type: "STRING" } },
   required: ["segundo", "titulo", "contexto", "tipo"] } };
-async function geminiAudio(arq) {
+// mensagens do chat no trecho do áudio, pra o Gemini resumir o que o chat falava em cada momento (no mesmo pedido, sem gastar cota a mais)
+// "segundo texto" por linha; se passar de 3000 mensagens, pega uma amostra espalhada pelo trecho
+function chatDoTrecho(id, inicio, segundos) {
+  let linhas; try { linhas = fs.readFileSync(path.join(CHATLOG, id.replace(/[^\w-]/g, "_") + ".jsonl"), "utf8").split("\n"); } catch { return ""; }
+  const t0 = inicio.getTime(), t1 = t0 + segundos * 1000, l = [];
+  for (const s of linhas) {
+    if (!s) continue;
+    let m; try { m = JSON.parse(s); } catch { continue; }
+    const t = new Date(m.q).getTime();
+    if (t >= t0 && t < t1) l.push(Math.round((t - t0) / 1000) + " " + String(m.t).replace(/\s+/g, " ").slice(0, 120));
+  }
+  const passo = Math.max(1, l.length / 3000);
+  return Array.from({ length: Math.min(l.length, 3000) }, (_, i) => l[Math.floor(i * passo)]).join("\n");
+}
+const PEDIDO_CHAT = `
+Abaixo estão mensagens do chat da live neste mesmo trecho (cada linha: segundo do trecho e o texto).
+Para cada momento, preencha "chat" com um resumo de até 15 palavras do que o chat estava falando ou como reagiu logo depois do momento (ex.: "rindo da piada do Grifo e pedindo replay"). Em português, sem citar nomes de quem escreveu. Se o chat não reagiu ao momento, deixe "chat" vazio.
+Mensagens do chat:
+`;
+async function geminiAudio(arq, chat = "") {
   const k = { "x-goog-api-key": env.GEMINI_API_KEY };
   const tam = fs.statSync(arq).size;
   const ini = await fetch(`${GEMINI}/upload/v1beta/files`, { method: "POST", headers: { ...k, "X-Goog-Upload-Protocol": "resumable", "X-Goog-Upload-Command": "start",
@@ -835,7 +855,7 @@ async function geminiAudio(arq) {
   let f = (await up.json()).file;
   while (f?.state === "PROCESSING") { await new Promise(r => setTimeout(r, 5000)); f = await (await fetch(`${GEMINI}/v1beta/${f.name}`, { headers: k })).json(); }
   if (f?.state !== "ACTIVE") throw new Error("gemini: arquivo não ficou pronto");
-  const corpo = JSON.stringify({ contents: [{ parts: [{ fileData: { fileUri: f.uri, mimeType: f.mimeType } }, { text: PEDIDO_MOMENTOS + (glossario() ? "\nUse exatamente a grafia oficial destes nomes (o áudio pode soar diferente):\n" + glossario() : "") }] }], generationConfig: { responseMimeType: "application/json", responseSchema: ESQUEMA_MOMENTOS } });
+  const corpo = JSON.stringify({ contents: [{ parts: [{ fileData: { fileUri: f.uri, mimeType: f.mimeType } }, { text: PEDIDO_MOMENTOS + (glossario() ? "\nUse exatamente a grafia oficial destes nomes (o áudio pode soar diferente):\n" + glossario() : "") + (chat ? PEDIDO_CHAT + chat : "") }] }], generationConfig: { responseMimeType: "application/json", responseSchema: ESQUEMA_MOMENTOS } });
   // só o modelo principal; um reserva (GEMINI_RESERVA) entra só se for definido no .env, porque os resumos dele são piores
   let j;
   for (const modelo of [env.GEMINI_MODELO || "gemini-3.8-flash", env.GEMINI_RESERVA].filter(Boolean)) {
@@ -860,7 +880,7 @@ async function analisaPartes() {
       const prontas = gravando?.id === id ? partes.slice(0, -1) : partes;
       for (const p of prontas) {
         const inicio = deHora14(p.slice(6, 21));
-        const lista = await geminiAudio(path.join(dir, p));
+        const lista = await geminiAudio(path.join(dir, p), chatDoTrecho(id, inicio, PARTE_MIN * 60));
         const caps = fs.readdirSync(path.join(dir, "capturas")).filter(f => f.endsWith(".jpg")).map(f => ({ f, t: deHora14(f.slice(0, 15)).getTime() }));
         const novos = lista.map(m => {
           const t = inicio.getTime() + Math.max(0, Math.min(PARTE_MIN * 60, m.segundo)) * 1000;
@@ -869,7 +889,7 @@ async function analisaPartes() {
           const cap = [...depois.slice(0, 20), ...antes.slice(0, 20)].find(c => !foraDaLive(path.join(dir, "capturas", c.f)));
           let captura = null;
           if (cap) { captura = cap.f; fs.mkdirSync(path.join(MOMENTOS, id, "capturas"), { recursive: true }); fs.copyFileSync(path.join(dir, "capturas", cap.f), path.join(MOMENTOS, id, "capturas", cap.f)); }
-          return { quando: new Date(t).toISOString(), titulo: String(m.titulo).slice(0, 80), contexto: String(m.contexto).slice(0, 240), tipo: m.tipo === "mesa" ? "mesa" : "historia", captura, aprovado: false, seg: (t - inicio.getTime()) / 1000 };
+          return { quando: new Date(t).toISOString(), titulo: String(m.titulo).slice(0, 80), contexto: String(m.contexto).slice(0, 240), tipo: m.tipo === "mesa" ? "mesa" : "historia", captura, chatResumo: m.chat ? String(m.chat).slice(0, 160) : undefined, aprovado: false, seg: (t - inicio.getTime()) / 1000 };
         });
         // trecho de 1 min do áudio de cada momento (5 s antes até 55 s depois), pra ouvir no painel e conferir o resumo
         fs.mkdirSync(path.join(MOMENTOS, id, "audio"), { recursive: true });
