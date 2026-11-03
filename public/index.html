@@ -918,7 +918,10 @@ async function up() {
     $("epNome").textContent = r.temporada || nome(m ? m[1] : r.titulo.replace(/\s*\|.*$/, ""));
     // com nome: título "A Vigília “O Vilarejo”" e o número do episódio embaixo
     $("epNum").textContent = r.nome ? "“" + r.nome + "”" : m ? nome(m[2]) : "";
-    $("epSub").textContent = r.nome && m ? nome(m[2]) : ""; $("epSub").hidden = !(r.nome && m);
+    // sem número de episódio (ex.: Transcendendo): o resto do título da live vai embaixo
+    const resto = !m && r.temporada ? r.titulo.replace(/\s*\|.*$/, "").replace(new RegExp("^" + r.temporada.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*", "i"), "") : "";
+    const sub = r.nome && m ? nome(m[2]) : resto;
+    $("epSub").textContent = sub; $("epSub").hidden = !sub;
     proximo = vivo ? null : (d.proximos || []).find(p => new Date(p.data) > Date.now()) || null;
     const cfg = d.config || {};
     espera = !vivo && !epPedido && cfg.telaInicial !== "ultimo" && (proximo || cfg.semProximo) ? { texto: cfg.semProximo, ultimo: d.ver } : null;
