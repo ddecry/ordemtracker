@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
-<title>Painel · Ordem Tracker</title>
+<title>Painel | Ordem Tracker</title>
 <link rel="icon" type="image/png" href="/rn-preto.png" media="(prefers-color-scheme: light)">
 <link rel="icon" type="image/png" href="/rn-branco.png" media="(prefers-color-scheme: dark)">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -390,7 +390,7 @@ async function carrega() {
   const item = (e, i) => `<div class="ep">
     ${e.id.startsWith("ag-") ? `<img class="borrada" src="/temporadas/${kebab(e.temporada || titulo(e))}.jpg" alt="" onerror="this.removeAttribute('src')">` : `<img src="/capa/${e.id}.jpg" alt="" loading="lazy">`}
     <div><b>${esc(titulo(e))}</b>${e.id === j.aoVivo ? '<span class="selo2 vivo">AO VIVO</span>' : ""}${e.oculto ? '<span class="selo2">escondido</span>' : ""}${e.recorde == null ? (e.id.startsWith("ag-") ? '<span class="selo2">sem link ainda</span>' : '<span class="selo2">live agendada</span>') : ""}
-      <small>${e.temporada ? esc(e.temporada) + " · " : ""}${e.data ? new Date(e.data).toLocaleString("pt-BR", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "sem data"}${e.recorde != null ? " · pico " + e.recorde.toLocaleString("pt-BR") : ""}</small></div>
+      <small>${e.temporada ? esc(e.temporada) + ", " : ""}${e.data ? new Date(e.data).toLocaleString("pt-BR", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "sem data"}${e.recorde != null ? " - pico " + e.recorde.toLocaleString("pt-BR") : ""}</small></div>
     <div class="a">${e.teste ? `<a class="sec peq" href="${esc(e.teste)}" target="_blank" rel="noopener">Abrir teste</a>` : ""}<button type="button" class="sec peq" data-ed="${i}">Editar</button>${e.recorde != null ? `<button type="button" class="sec peq" data-pv="${esc(e.id)}">Prévia do link</button>` : `<button type="button" class="sec peq" data-rm="${i}">Remover</button>`}</div>
   </div>`;
   const prox = dados.map((e, i) => [e, i]).filter(([e]) => e.recorde == null).sort((p, q) => (p[0].data || "").localeCompare(q[0].data || ""));
@@ -448,12 +448,12 @@ async function status() {
   let j; try { j = await api("GET", null, "status=1"); } catch { return; }
   const erros = j.itens.filter(i => i.ok === false).length;
   $("stQtd").textContent = erros || "";
-  $("stResumo").textContent = (j.aoVivo ? "Episódio ao vivo agora · " + n(j.total) + " assistindo. " : "Sem live agora. ") + (erros ? erros + (erros > 1 ? " partes com problema." : " parte com problema.") : "Tudo funcionando.");
+  $("stResumo").textContent = (j.aoVivo ? "Episódio ao vivo agora: " + n(j.total) + " assistindo. " : "Sem live agora. ") + (erros ? erros + (erros > 1 ? " partes com problema." : " parte com problema.") : "Tudo funcionando.");
   const ordem = ["YouTube", "Twitch", "Kick", "TikTok", "Chat da Twitch", "Chat do YouTube", "Gravação", "Gemini"];
   $("stLista").innerHTML = j.itens.sort((a, b) => (ordem.indexOf(a.nome) + 99) % 99 - (ordem.indexOf(b.nome) + 99) % 99).map(i => `<div class="st">
     <i class="${i.ok === true ? "ok" : i.ok === false ? "erro" : ""}"></i><b>${esc(i.nome)}</b>
     <span>${i.ok === false && i.ultimoOk ? "funcionou " + ha(j.agora - i.ultimoOk) : i.quando ? "checado " + ha(j.agora - i.quando) : ""}</span>
-    <small>${esc(i.info || (i.ok ? "funcionando" : i.ok === false ? "com erro" : "parado"))}${i.ultimaMsg ? " · última mensagem " + ha(j.agora - i.ultimaMsg) : ""}</small>
+    <small>${esc(i.info || (i.ok ? "funcionando" : i.ok === false ? "com erro" : "parado"))}${i.ultimaMsg ? ", última mensagem " + ha(j.agora - i.ultimaMsg) : ""}</small>
   </div>`).join("");
   const sv = j.servidor;
   $("stServ").innerHTML = `<div class="stat"><span>Ligado</span><b>${ha(sv.ligadoHa).replace("há ", "")}</b></div>
@@ -480,7 +480,7 @@ $("salvaCfg").onclick = async () => {
 // nomes lidos da wiki, por temporada
 function mostraWiki(w) {
   const t = Object.values(w || {});
-  $("wiki").innerHTML = t.length ? t.map(g => `<div class="wiki"><b>${esc(g.pagina || "Temporada")}</b> <span class="mut">· ${g.erro ? "erro: " + esc(g.erro) : "atualizado " + ha(Date.now() - g.quando)}</span>${g.texto ? `<pre>${esc(g.texto)}</pre>` : ""}</div>`).join("") : '<p class="mut">Ainda não leu a wiki. Cadastre a temporada dos episódios e clique em "Atualizar da wiki".</p>';
+  $("wiki").innerHTML = t.length ? t.map(g => `<div class="wiki"><b>${esc(g.pagina || "Temporada")}</b><span class="mut">: ${g.erro ? "erro: " + esc(g.erro) : "atualizado " + ha(Date.now() - g.quando)}</span>${g.texto ? `<pre>${esc(g.texto)}</pre>` : ""}</div>`).join("") : '<p class="mut">Ainda não leu a wiki. Cadastre a temporada dos episódios e clique em "Atualizar da wiki".</p>';
 }
 $("atualizaWiki").onclick = async () => {
   $("atualizaWiki").disabled = true; $("atualizaWiki").textContent = "Atualizando…";
@@ -535,10 +535,10 @@ async function feedbacks() {
   // só redesenha se mudou, pra não apagar o que você está editando
   const chave = JSON.stringify(l.map(f => f.id)); if (chave === fbVisto) return; fbVisto = chave;
   const data = f => new Date(f.quando).toLocaleString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
-  const meta = f => `<small class="meta">${data(f)} · ${esc(f.aparelho)}${f.tipo !== "correcao" ? " · " + esc(f.pagina || "/") : ""}${f.contato ? " · " + esc(f.contato) : ""}</small>`;
+  const meta = f => `<small class="meta">${data(f)}, ${esc(f.aparelho)}${f.tipo !== "correcao" ? ", " + esc(f.pagina || "/") : ""}${f.contato ? ", " + esc(f.contato) : ""}</small>`;
   $("fbLista").innerHTML = l.length ? l.map(f => f.tipo === "correcao" ? `<article class="item">
     <div class="item-topo"><span class="chip azul">Correção de momento</span>${meta(f)}</div>
-    ${f.atual ? `<p class="item-tit">${esc(hora(f.atual.quando).slice(0, 5))} · ${esc(f.atual.titulo)}</p>
+    ${f.atual ? `<p class="item-tit">${esc(hora(f.atual.quando).slice(0, 5))} - ${esc(f.atual.titulo)}</p>
       <div class="comp"><div><span class="rot">Texto atual</span><p>${esc(f.atual.contexto)}</p></div>
       <div><span class="rot">Sugestão (dá pra ajustar antes de aplicar)</span><textarea class="campo" data-tx="${esc(f.id)}" maxlength="240" rows="3">${esc(f.texto)}</textarea></div></div>` : `<p class="mut">O momento foi apagado.</p>`}
     <div class="item-acoes">${f.atual ? `<button class="peq" data-aplica="${esc(f.id)}">Aplicar</button>` : ""}<button class="sec peq" data-fb="${esc(f.id)}">Recusar</button></div>
@@ -568,7 +568,7 @@ async function momentos() {
   mo = j.lista;
   desenhaMomentos();
 }
-const resumoMo = () => { const ok = mo.filter(m => m.aprovado).length; $("moResumo").textContent = mo.length ? `${mo.length} momentos · ${ok} no site · ${mo.length - ok} esperando` : ""; };
+const resumoMo = () => { const ok = mo.filter(m => m.aprovado).length; $("moResumo").textContent = mo.length ? `${mo.length} momentos, ${ok} no site, ${mo.length - ok} esperando` : ""; };
 function desenhaMomentos() {
   const id = $("moEp").value;
   resumoMo();
@@ -628,7 +628,7 @@ async function tocar(p) {
 }
 $("moTodos").onclick = () => { mo.forEach(m => m.aprovado = true); desenhaMomentos(); };
 $("moSalva").onclick = async () => {
-  try { await api("POST", { momentos: $("moEp").value, lista: mo }); $("moResumo").textContent += " · salvo"; contaMomentos(); } catch (e) { alert(e.message); }
+  try { await api("POST", { momentos: $("moEp").value, lista: mo }); $("moResumo").textContent += ", salvo"; contaMomentos(); } catch (e) { alert(e.message); }
 };
 
 setInterval(() => { if (!$("app").hidden) { acessos(); feedbacks(); status(); } }, 10_000);

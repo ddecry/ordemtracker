@@ -60,9 +60,31 @@ async function twitch() {
   if (!twitchId) twitchId = (await (await fetch(`https://api.twitch.tv/helix/users?login=${TWITCH}`, { headers: h })).json())?.data?.[0]?.id;
   // com token de app a Twitch devolve só o total de seguidores, que é o que usamos
   const seg = twitchId ? (await (await fetch(`https://api.twitch.tv/helix/channels/followers?broadcaster_id=${twitchId}&first=1`, { headers: h })).json())?.total : null;
-  return { n: s?.viewer_count ?? 0, title: s?.title, seguidores: seg, jogo: s?.game_name, inicio: s?.started_at };
+  return { n: s?.viewer_count ?? 0, title: s?.title, seguidores: seg, jogo: s?.game_name, jogoId: s?.game_id, inicio: s?.started_at, h };
 }
 let twitchId = null;
+
+// clipes da Twitch criados durante o episódio (do começo da live até 1 h depois do fim), mais vistos primeiro
+// https://dev.twitch.tv/docs/api/reference/#get-clips — guarda 5 min pra não pedir de novo a cada visita
+const clipesCache = new Map();
+async function clipes(id) {
+  const r = records[id];
+  if (!r || !env.TWITCH_CLIENT_ID) return [];
+  const c = clipesCache.get(id);
+  if (c && Date.now() - c.q < 300_000) return c.lista;
+  const tk = await token("twitch", "https://id.twitch.tv/oauth2/token", env.TWITCH_CLIENT_ID, env.TWITCH_CLIENT_SECRET);
+  const h = { "Client-Id": env.TWITCH_CLIENT_ID, Authorization: "Bearer " + tk };
+  if (!twitchId) twitchId = (await (await fetch(`https://api.twitch.tv/helix/users?login=${TWITCH}`, { headers: h })).json())?.data?.[0]?.id;
+  if (!twitchId) return [];
+  const ini = new Date(new Date(r.inicioLive || r.inicio).getTime() - 10 * 60e3).toISOString();
+  const fim = new Date(r.fimLive ? new Date(r.fimLive).getTime() + 3600e3 : Date.now()).toISOString();
+  const j = await (await fetch(`https://api.twitch.tv/helix/clips?broadcaster_id=${twitchId}&started_at=${ini}&ended_at=${fim}&first=24`, { headers: h })).json();
+  const lista = (j.data || []).sort((a, b) => b.view_count - a.view_count).map(x => ({
+    id: x.id, titulo: x.title, views: x.view_count, criador: x.creator_name, duracao: Math.round(x.duration), capa: x.thumbnail_url, quando: x.created_at,
+  }));
+  clipesCache.set(id, { q: Date.now(), lista });
+  return lista;
+}
 
 // Kick Public API (oficial): https://docs.kick.com
 async function kick() {
@@ -121,7 +143,7 @@ async function youtube() {
 let ytChat = null, ytChatPagina = null;
 async function chatYoutube() {
   if (!ytChat || !epAtual || !env.YOUTUBE_API_KEY) return;
-  const u = `https://www.googleapis.com/youtube/v3/liveChat/messages?liveChatId=${ytChat}&part=snippet&maxResults=2000${ytChatPagina ? "&pageToken=" + ytChatPagina : ""}&key=${env.YOUTUBE_API_KEY}`;
+  const u = `https://www.googleapis.com/youtube/v3/liveChat/messages?liveChatId=${ytChat}&part=snippet${LAB ? ",authorDetails" : ""}&maxResults=2000${ytChatPagina ? "&pageToken=" + ytChatPagina : ""}&key=${env.YOUTUBE_API_KEY}`;
   const r = await fetch(u);
   if (!r.ok) { marca("Chat do YouTube", false, "HTTP " + r.status); if (r.status === 403 || r.status === 404) ytChat = null; return; }
   marca("Chat do YouTube", true, "lendo a cada 20 s");
@@ -129,7 +151,10 @@ async function chatYoutube() {
   const primeira = !ytChatPagina;
   ytChatPagina = j.nextPageToken;
   if (primeira) return; // a primeira página traz mensagens antigas; começa a contar daqui
-  for (const m of j.items || []) if (m.snippet?.type === "textMessageEvent") msg("youtube", m.snippet.authorChannelId, m.snippet.displayMessage);
+  for (const m of j.items || []) {
+    if (m.snippet?.type === "textMessageEvent") msg("youtube", m.snippet.authorChannelId, m.snippet.displayMessage);
+    LAB?.youtube(epAtual, m);
+  }
 }
 setInterval(() => safe(chatYoutube), 20_000);
 
@@ -193,11 +218,14 @@ function guardaMsg(plataforma, user, texto) {
 
 function conectaTwitch() {
   const ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
-  ws.onopen = () => { marca("Chat da Twitch", true, "conectado"); ws.send("PASS SCHMOOPIIE"); ws.send("NICK justinfan" + Math.floor(Math.random() * 99999)); ws.send("JOIN #" + TWITCH); };
+  ws.onopen = () => { marca("Chat da Twitch", true, "conectado"); LAB?.capTwitch(ws); ws.send("PASS SCHMOOPIIE"); ws.send("NICK justinfan" + Math.floor(Math.random() * 99999)); ws.send("JOIN #" + TWITCH); };
   ws.onmessage = e => {
-    for (const l of String(e.data).split("\r\n")) {
+    for (const linha of String(e.data).split("\r\n")) {
+      // com as tags pedidas (laboratório), a linha começa com "@tags "
+      const i = linha.startsWith("@") ? linha.indexOf(" ") : -1, l = i < 0 ? linha : linha.slice(i + 1);
       if (l.startsWith("PING")) ws.send("PONG :tmi.twitch.tv");
       else if (l.includes(" PRIVMSG ")) msg("twitch", l.match(/^:([^!]+)!/)?.[1], l.match(/ PRIVMSG #\S+ :(.*)$/)?.[1]);
+      if (LAB && i >= 0) LAB.twitch(epAtual, linha.slice(1, i), l);
     }
   };
   ws.onclose = () => { marca("Chat da Twitch", false, "desconectado, reconectando"); setTimeout(conectaTwitch, 5000); };
@@ -208,6 +236,9 @@ conectaTwitch();
 // ---------- recordes e episódios cadastrados ----------
 let records = {};
 try { records = JSON.parse(fs.readFileSync(DB, "utf8")); } catch {}
+// laboratório (lab.js): dados extras em teste, só no computador; no site publicado fica desligado
+const LAB = env.NODE_ENV !== "production" && fs.existsSync(path.join(__dirname, "lab.js")) ? require("./lab")({ DADOS, HIST, records }) : null;
+let labRanking = 0;
 let episodios = { lista: [] };
 try { episodios = JSON.parse(fs.readFileSync(EPS, "utf8")); } catch {}
 const salvaEps = () => fs.writeFileSync(EPS, JSON.stringify(episodios, null, 2));
@@ -255,6 +286,7 @@ async function tick() {
   const tw = id ? t?.n ?? null : null, kk = id ? k?.n ?? null : null, tt = id ? tk?.n ?? null : null;
   const total = id ? (tw || 0) + (kk || 0) + (y?.n || 0) + (tt || 0) : 0;
   const hora = new Date().toISOString();
+  if (LAB && id && t?.n && Date.now() - labRanking > 120_000) { labRanking = Date.now(); safe(() => LAB.ranking(id, t.h, TWITCH, t.jogoId)); }
   if (id !== epAtual) { if (epAtual) salvaChat(epAtual); if (id) carregaChat(id); epAtual = id; }
   janela = janela.filter(x => x > Date.now() - 60_000);
   atual = {
@@ -829,9 +861,9 @@ function status() {
   const capturas = gravando ? (() => { try { return fs.readdirSync(path.join(GRAVACAO, gravando.id, "capturas")).sort(); } catch { return []; } })() : [];
   const itens = { ...estado };
   if (!gravando) itens["Gravação"] = { ok: env.GRAVACAO === "1" ? null : null, info: env.GRAVACAO === "1" ? "ligada; começa sozinha quando um episódio entrar no ar" : "desligada (GRAVACAO=0)", quando: Date.now() };
-  else if (capturas.length) itens["Gravação"] = { ...itens["Gravação"], info: `gravando · ${capturas.length} capturas · última às ${deHora14(capturas.at(-1).slice(0, 15)).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo" })}` };
+  else if (capturas.length) itens["Gravação"] = { ...itens["Gravação"], info: `gravando, ${capturas.length} capturas, última às ${deHora14(capturas.at(-1).slice(0, 15)).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo" })}` };
   if (!itens["Gemini"]) itens["Gemini"] = { ok: env.GEMINI_API_KEY ? null : false, info: env.GEMINI_API_KEY ? "nenhuma análise feita desde que o servidor ligou" : "sem GEMINI_API_KEY", quando: Date.now() };
-  if (partes.length) itens["Gemini"] = { ...itens["Gemini"], info: (itens["Gemini"].info ? itens["Gemini"].info + " · " : "") + partes.length + (partes.length > 1 ? " partes" : " parte") + " de áudio esperando análise" + (pausaAte > Date.now() ? " (próxima tentativa às " + new Date(pausaAte).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }) + ")" : "") };
+  if (partes.length) itens["Gemini"] = { ...itens["Gemini"], info: (itens["Gemini"].info ? itens["Gemini"].info + ", " : "") + partes.length + (partes.length > 1 ? " partes" : " parte") + " de áudio esperando análise" + (pausaAte > Date.now() ? " (próxima tentativa às " + new Date(pausaAte).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }) + ")" : "") };
   if (!itens["Chat do YouTube"]) itens["Chat do YouTube"] = { ok: null, info: "só lê com o episódio no ar", quando: Date.now() };
   for (const [p, nome] of [["twitch", "Chat da Twitch"], ["youtube", "Chat do YouTube"]]) if (itens[nome] && ultimaMsg[p]) itens[nome] = { ...itens[nome], ultimaMsg: ultimaMsg[p] };
   let disco = null; try { const d = fs.statfsSync(DADOS); disco = { livre: d.bavail * d.bsize, total: d.blocks * d.bsize }; } catch {}
@@ -874,10 +906,10 @@ function og(caminho) {
   const id = p ? achaEp(pub, p) : null;
   const fut = p && !id ? proximos().find(e => e.slug === p) : null;
   const r = id ? pub[id] : fut && { titulo: fut.titulo, temporada: fut.temporada };
-  // "A VIGÍLIA - EPISÓDIO 1 | ..." vira "A Vigília · Episódio 1"
+  // "A VIGÍLIA - EPISÓDIO 1 | ..." vira "A Vigília - Episódio 1"
   const nome = t => t.toLowerCase().replace(/(^|\s)\p{L}/gu, c => c.toUpperCase());
   const m = r?.titulo.match(/^(.*?)\s*-\s*EPIS[ÓO]DIO\s*(\d+)/i);
-  const titulo = r ? `${r.temporada || nome(m ? m[1] : r.titulo.replace(/\s*\|.*$/, ""))}${m ? " - Episódio " + m[2] : ""} · Ordem Tracker` : "Ordem Tracker";
+  const titulo = r ? `${r.temporada || nome(m ? m[1] : r.titulo.replace(/\s*\|.*$/, ""))}${m ? " - Episódio " + m[2] : ""} | Ordem Tracker` : "Ordem Tracker";
   const desc = "Contagem de viewers ao vivo das lives de Ordem Paranormal na Twitch, Kick, YouTube e TikTok. Projeto de fãs do Realitas News.";
   // sem episódio na URL usa o último que foi ao ar
   const ver = id || (fut && !fut.id.startsWith("ag-") ? fut.id : null) || Object.entries(pub).sort((a, b) => (b[1].ultimaLeitura || "").localeCompare(a[1].ultimaLeitura || ""))[0]?.[0];
@@ -897,12 +929,22 @@ const html = (res, nome, extra = {}) => { res.writeHead(200, { "Content-Type": "
 const SEGURANCA = {
   "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "strict-origin-when-cross-origin",
   "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-  "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'",
+  // clipes: player oficial da Twitch num quadro e as miniaturas dos clipes
+  "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://static-cdn.jtvnw.net https://clips-media-assets2.twitch.tv; media-src 'self' blob:; connect-src 'self'; frame-src https://clips.twitch.tv; frame-ancestors 'none'",
 };
 
 http.createServer(async (req, res) => {
   for (const [k, v] of Object.entries(SEGURANCA)) res.setHeader(k, v);
   const url = new URL(req.url, "http://x");
+  // clipes mais vistos da Twitch feitos durante o episódio
+  if (url.pathname === "/api/clipes") {
+    const p = url.searchParams.get("ep") || "", pub = publicos();
+    const id = achaEp(pub, p);
+    return json(res, 200, { lista: id ? await clipes(id).catch(e => { console.warn("clipes: " + e.message); return []; }) : [] });
+  }
+  // relatório do laboratório (só no computador): /api/lab?ep=<id>
+  if (LAB && url.pathname === "/api/lab") return json(res, 200, LAB.relatorio(url.searchParams.get("ep") || epAtual || ""));
+  if (LAB && url.pathname === "/lab") return html(res, "lab.html");
   if (url.pathname === "/api") {
     registraAcesso(req, url);
     // episódio exibido: o pedido (?ep=), o ao vivo, ou o último que foi ao ar

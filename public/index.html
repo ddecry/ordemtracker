@@ -176,6 +176,21 @@ body.encerrado .clockw .dot{display:none}
 .fb-form textarea:focus,.fb-form input:focus{border-color:var(--mut)}
 .fb-msg{margin:0;font-size:.85em;min-height:1.2em}
 .eps-lista{overflow:auto;padding:6px 22px 14px}
+/* clipes da Twitch: grade de miniaturas; o escolhido toca no player oficial em cima */
+.clipes{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;padding:6px 0}
+.clipes button{display:flex;flex-direction:column;gap:6px;padding:0;border:0;background:none;color:var(--tx);text-align:left;cursor:pointer;font:inherit;min-width:0}
+.clipes .cap{position:relative;border-radius:10px;overflow:hidden;aspect-ratio:16/9;background:var(--panel2)}
+.clipes img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s}
+.clipes button:hover img{transform:scale(1.04)}
+.clipes[hidden]{display:none}
+.clipe-player .voltar{margin:0 0 10px;padding:6px 0;border:0;background:none;color:var(--tx);font:600 14px Inter,sans-serif;cursor:pointer}
+.clipes .cap span{position:absolute;bottom:6px;text-transform:none;font:600 12px Inter,sans-serif;color:#fff;background:rgba(0,0,0,.7);padding:2px 6px;border-radius:5px}
+.clipes .cap .v{left:6px}.clipes .cap .d{right:6px}
+.clipes b{font-size:14px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.clipes small{color:var(--mut);font-size:12px}
+.clipe-player{margin:6px 0 14px}
+.clipe-player iframe{width:100%;aspect-ratio:16/9;border:0;border-radius:12px;background:#000;display:block}
+.clipe-player p{margin:8px 0 0;color:var(--mut);font-size:13px}
 .eps-lista .lbl{margin-top:12px}
 .ep{display:grid;grid-template-columns:168px minmax(0,1fr) auto;gap:18px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)}
 .ep:last-child{border-bottom:0}
@@ -331,6 +346,11 @@ body.modo-espera .main,body.modo-espera .strip,body.modo-espera .prox{display:no
 .esp-cont div{display:flex;flex-direction:column;align-items:center;min-width:2.2em}
 .esp-cont b{font:800 clamp(32px,7vh,72px)/1 "Inter Tight",Inter,sans-serif;letter-spacing:-.02em}
 .esp-cont span{margin-top:.6vh;color:var(--mut);font-size:.8em;letter-spacing:.1em;text-transform:uppercase}
+/* live no ar na página inicial: número de agora no lugar da contagem, alinhado à esquerda */
+.esp-cont .esp-vivo{align-items:flex-start}
+.esp-cont .esp-vivo b{min-width:0;text-align:left}
+.espera .cap .dot{display:inline-block;margin-right:.5em;vertical-align:middle}
+body.espera-vivo .espera .cap{color:var(--red)}
 .esp-data{font-size:.98em}
 .esp-data::first-letter{text-transform:uppercase}
 .esp-acoes{display:flex;gap:10px;margin-top:1vh}
@@ -437,6 +457,10 @@ button.ep-titulo:hover .seta{color:var(--tx)}
   .prox{font-size:12px;letter-spacing:-.01em}
   .tbtn{min-width:34px}
 }
+/* celular estreito sem live: o relógio sai pra caber os botões (com live ele fica, com o ponto vermelho, e a contagem do próximo some) */
+@media (max-width:400px){body.encerrado .clockw{display:none}.top{gap:10px}}
+/* bem estreito: a contagem do próximo episódio sai do topo (ela continua no menu da página inicial) */
+@media (max-width:360px){.top .prox{display:none!important}}
 </style>
 </head>
 <body class="carregando">
@@ -446,7 +470,8 @@ button.ep-titulo:hover .seta{color:var(--tx)}
   <a class="prox" id="prox" target="_blank" rel="noopener" data-dica="Próximo episódio" aria-label="Próximo episódio" hidden><span class="mut">Próximo episódio em</span> <b class="num" id="proxC"></b><span id="proxT" hidden></span></a>
   <button class="tbtn" id="temaBtn" data-dica="Tema claro ou escuro" aria-label="Alternar tema"><svg class="i-lua" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><svg class="i-sol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></button>
   <button class="tbtn" id="fbBtn" data-dica="Feedback e bugs" aria-label="Feedback e bugs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg></button>
-  <button class="tbtn" id="epsBtn" data-dica="Episódios" aria-label="Episódios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z"/><path d="m6.2 5.3 3.1 3.9"/><path d="m12.4 3.4 3.1 4"/><path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg><span>Episódios</span></button>
+  <button class="tbtn" id="epsBtn" data-dica="Episódios" aria-label="Episódios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="m17 2-5 5-5-5"/></svg><span>Episódios</span></button>
+  <button class="tbtn" id="clipesBtn" data-dica="Clipes mais vistos" aria-label="Clipes mais vistos" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z"/><path d="m6.2 5.3 3.1 3.9"/><path d="m12.4 3.4 3.1 4"/><path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg><span>Clipes</span></button>
   <button class="tbtn" id="shareBtn" data-dica="Compartilhar" aria-label="Compartilhar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg><span>Compartilhar</span></button>
   <div class="clockw"><span class="dot"></span><span class="num" id="clock">--:--:--</span></div>
 </div>
@@ -488,7 +513,7 @@ button.ep-titulo:hover .seta{color:var(--tx)}
   </div>
 
   <div class="col">
-    <div class="box chartbox"><div class="lbl">Viewers ao vivo</div><div class="cw"><canvas id="g"></canvas><div class="futuro-aviso" id="futAviso" hidden><span class="cap">Ainda não começou · começa em</span><b class="num" id="futCont"></b><small class="mut" id="futData"></small><p class="mut">Pode deixar esta página aberta: quando a live começar, os números começam a mudar aqui sozinhos.</p></div></div>
+    <div class="box chartbox"><div class="lbl">Viewers ao vivo</div><div class="cw"><canvas id="g"></canvas><div class="futuro-aviso" id="futAviso" hidden><span class="cap">Ainda não começou, começa em</span><b class="num" id="futCont"></b><small class="mut" id="futData"></small><p class="mut">Pode deixar esta página aberta: quando a live começar, os números começam a mudar aqui sozinhos.</p></div></div>
       <div class="cena-slot" id="cenaSlot" hidden><div class="cena-faixa" id="cenaDica"><small>Momentos do episódio</small><div id="cenaThumbs"></div></div><p class="cena-aviso" id="cenaAviso" hidden>O resto do episódio ainda está sendo resumido. Os próximos momentos aparecem aqui assim que forem revisados.</p>
       <div class="cena" id="cena" hidden><img id="cenaImg" alt=""><div><small class="num" id="cenaH"></small><b id="cenaT"></b><p id="cenaC"></p><a id="cenaYT" target="_blank" rel="noopener">Ver no YouTube</a><button class="cena-corr" id="cenaCorr" type="button">Sugerir correção</button><button class="cena-corr" id="cenaTodas" type="button">Todas as cenas</button></div></div></div>
       <div class="linha-t" id="linhaT" hidden><span class="num mut ponta" id="linhaI"></span><input type="range" id="linhaR" min="0" max="0" value="0" step="any" aria-label="Ver os números em outro momento da live"><span class="num mut ponta" id="linhaF"></span><span class="num mut" id="linhaH"></span><button id="linhaV" hidden>Ao vivo</button><span class="bolha num" id="linhaB"></span></div>
@@ -541,6 +566,13 @@ button.ep-titulo:hover .seta{color:var(--tx)}
     <button class="sbtn pri" id="fbEnviar">Enviar</button>
     <p class="mut fb-msg" id="fbMsg"></p>
   </form>
+</div></div>
+<div class="modal" id="clipes"><div class="eps-box">
+  <div class="eps-top"><h3>Clipes mais vistos na Twitch</h3><button class="fechar" id="clipesFecha">Fechar</button></div>
+  <div class="eps-lista">
+    <div class="clipe-player" id="clipePlayer" hidden><button type="button" class="voltar" id="clipeVolta">← Voltar aos clipes</button><iframe id="clipeFrame" title="Clipe da Twitch" allowfullscreen></iframe><p id="clipeInfo"></p></div>
+    <div class="clipes" id="clipesLista"></div>
+  </div>
 </div></div>
 <div class="modal" id="eps"><div class="eps-box">
   <div class="eps-top"><h3>Episódios</h3><button class="fechar" id="epsFecha">Fechar</button></div>
@@ -774,7 +806,7 @@ let barra = {};
 const barDica = document.body.appendChild(Object.assign(document.createElement("div"), { className: "bar-dica num" }));
 const dicaBarra = e => {
   const s = e.target.closest(".seg"), d = s && barra[s.id]; if (!d) return barDica.classList.remove("on");
-  barDica.innerHTML = `<i style="background:${getComputedStyle(s).backgroundColor}"></i>${d[0]} <b>${pc(d[1])}</b> · ${f(d[2])}`;
+  barDica.innerHTML = `<i style="background:${getComputedStyle(s).backgroundColor}"></i>${d[0]} <b>${pc(d[1])}</b>, ${f(d[2])}`;
   const meia = barDica.offsetWidth / 2 + 8; // não deixa o balão sair pela lateral da tela
   barDica.style.left = Math.min(Math.max(e.clientX, meia), innerWidth - meia) + "px"; barDica.style.top = s.getBoundingClientRect().top + "px";
   barDica.classList.add("on");
@@ -924,7 +956,10 @@ async function up() {
     $("epSub").textContent = sub; $("epSub").hidden = !sub;
     proximo = vivo ? null : (d.proximos || []).find(p => new Date(p.data) > Date.now()) || null;
     const cfg = d.config || {};
-    espera = !vivo && !epPedido && cfg.telaInicial !== "ultimo" && (proximo || cfg.semProximo) ? { texto: cfg.semProximo, ultimo: d.ver } : null;
+    // página inicial é sempre o menu; com live no ar, ela fica em destaque no meio e o painel abre clicando
+    const anterior = Object.entries(d.records).filter(([id, o]) => id !== d.ver && o.fimLive).sort((p, q) => (q[1].inicioLive || "").localeCompare(p[1].inicioLive || ""))[0]?.[0];
+    espera = vivo && !epPedido ? { aoVivo: true, ver: d.ver, ultimo: anterior || d.ver }
+      : !vivo && !epPedido && cfg.telaInicial !== "ultimo" && (proximo || cfg.semProximo) ? { texto: cfg.semProximo, ultimo: d.ver } : null;
     document.body.classList.toggle("modo-espera", !!espera);
     $("espera").hidden = !espera;
     contagem();
@@ -946,7 +981,8 @@ async function up() {
       avisaRecorde(outros.length && r.recorde > Math.max(...outros) && recVisto <= Math.max(...outros) ? "Maior audiência da temporada!" : "Novo recorde do episódio!");
     }
     recVisto = r.recorde;
-    tituloVivo = vivo ? `${f(v.total)} - Ordem Tracker` : null;
+    carregaClipes(d.ver);
+    tituloVivo = vivo ? `${f(v.total)} | Ordem Tracker` : null;
     tituloAba();
     conta("rec", r.recorde);
     $("recq").textContent = "às " + hm(r.quando);
@@ -1049,7 +1085,23 @@ function contagem() {
   if (espera) {
     $("espUltimo").href = "/ep/" + (ultimo.records[espera.ultimo]?.slug || espera.ultimo);
     $("espLembrete").hidden = !proximo;
-    if (proximo) {
+    $("espLembrete").textContent = "Lembrete no YouTube"; $("espLembrete").target = "_blank";
+    document.body.classList.toggle("espera-vivo", !!espera.aoVivo);
+    if (espera.aoVivo) {
+      // live no ar: capa, título e quantas pessoas assistem agora; tudo leva pro painel da live
+      const r = ultimo.records[espera.ver] || {}, link = "/ep/" + (r.slug || espera.ver);
+      $("espRot").innerHTML = `<span class="dot"></span>Ao vivo agora${r.temporada ? ": " + esc(r.temporada) : ""}`;
+      $("espTit").textContent = [$("epNome").textContent, $("epNum").textContent].filter(Boolean).join(" ");
+      $("espCont").innerHTML = `<div class="esp-vivo"><b>${f(ultimo.atual?.total)}</b><span>assistindo agora</span></div>`;
+      const ini = r.inicioLive && new Date(r.inicioLive);
+      $("espData").textContent = [$("epSub").textContent, ini ? "no ar desde " + hm(ini) : ""].filter(Boolean).join(", ");
+      $("espLembrete").hidden = false; $("espLembrete").textContent = "Ver painel ao vivo"; $("espLembrete").href = link; $("espLembrete").removeAttribute("target");
+      $("espUltimo").hidden = espera.ultimo === espera.ver;
+      const img = `/capa/${espera.ver}.jpg`, c = $("espCapa");
+      if (c.dataset.img !== img) { c.dataset.img = img; c.dataset.id = ""; c.style.setProperty("--fundo", `url(${img})`); }
+      c.classList.remove("previa"); c.classList.add("abre"); c.dataset.href = link;
+    } else if (proximo) {
+      $("espUltimo").hidden = false;
       const s = Math.max(0, Math.floor((new Date(proximo.data) - Date.now()) / 1000));
       const partes = [["dias", Math.floor(s / 86400)], ["horas", Math.floor(s / 3600) % 24], ["min", Math.floor(s / 60) % 60], ["seg", s % 60]];
       $("espCont").innerHTML = partes.map(([n, v]) => `<div><b>${dois(v)}</b><span>${n}</span></div>`).join("");
@@ -1069,6 +1121,7 @@ function contagem() {
       // clicar na capa abre o painel do episódio, ainda zerado
       c.dataset.href = "/ep/" + (proximo.slug || proximo.id); c.classList.add("abre");
     } else {
+      $("espUltimo").hidden = false;
       $("espRot").textContent = "Ordem Paranormal"; $("espTit").textContent = espera.texto; $("espCont").innerHTML = ""; $("espData").textContent = "";
       const c = $("espCapa"); if (c.dataset.id !== espera.ultimo) { c.dataset.id = espera.ultimo; c.style.setProperty("--fundo", `url(/capa/${espera.ultimo}.jpg)`); }
       c.classList.remove("previa", "abre"); c.dataset.img = ""; c.dataset.href = "";
@@ -1110,7 +1163,7 @@ async function gerarImagem() {
   // a logo tem margem transparente: parte visível em 2–92% da largura e 20–83% da altura
   let tx = P;
   if (rn) { const t = LH / .63; c.drawImage(rn, P - t * .02, P - t * .2, t, t); tx = P + t * .9 + 28; }
-  const titulo = r.nome ? `${$("epNome").textContent} “${r.nome}” · ${$("epSub").textContent}` : [$("epNome").textContent, $("epNum").textContent].filter(Boolean).join(" - ");
+  const titulo = r.nome ? `${$("epNome").textContent} “${r.nome}” - ${$("epSub").textContent}` : [$("epNome").textContent, $("epNum").textContent].filter(Boolean).join(" - ");
   txt(titulo, tx, meio + 12, "700 34px Inter", "#ededed");
   if (!V) txt("ordemtracker.site", W - P, meio + 10, "500 26px Inter", "#8a8a8a", 0, "right");
   const topo = P + LH + 48;
@@ -1128,7 +1181,7 @@ async function gerarImagem() {
   const L = V ? { lbl: 8, rec: 150, bar: 182, p1: 300, p2: 300, div: 352, med: 440 } : { lbl: 20, rec: 130, bar: 158, p1: 262, p2: 366, div: 422, med: 512 };
   const fimL = r.fimLive || r.ultimaLeitura;
   const quando = r.quando ? new Date(r.quando).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
-  txt("RECORDE DO EPISÓDIO" + (quando ? " · " + quando : ""), X, y0 + L.lbl, "600 22px Inter", "#8a8a8a", 4);
+  txt("RECORDE DO EPISÓDIO" + (quando ? " ÀS " + quando : ""), X, y0 + L.lbl, "600 22px Inter", "#8a8a8a", 4);
   // o recorde encolhe se não couber na coluna
   let fr = V ? 148 : 112;
   c.letterSpacing = "-4px";
@@ -1202,9 +1255,9 @@ function listaEps() {
     const quando = new Date(e.inicioLive || e.inicio);
     const vivo = d.aoVivo && id === d.atual.episodio;
     return `<div class="ep${id === d.ver ? " atual" : ""}">
-      ${yt ? `<a href="${id === Object.keys(d.records).find(k => d.aoVivo && k === d.atual.episodio) ? "/" : "/ep/" + (e.slug || id)}" data-dica="Ver painel" aria-label="Ver painel do episódio"><img src="/capa/${id}.jpg" alt="" loading="lazy"></a>` : `<div></div>`}
+      ${yt ? `<a href="/ep/${e.slug || id}" data-dica="Ver painel" aria-label="Ver painel do episódio"><img src="/capa/${id}.jpg" alt="" loading="lazy"></a>` : `<div></div>`}
       <div>
-        <h4>${esc(e.titulo.replace(/\s*\|.*$/, ""))}${e.nome ? ` <span class="mut">· ${esc(e.nome)}</span>` : ""}</h4>
+        <h4>${esc(e.titulo.replace(/\s*\|.*$/, ""))}${e.nome ? `<span class="mut">: ${esc(e.nome)}</span>` : ""}</h4>
         <div class="data">${vivo ? `<span class="vivo">AO VIVO</span> ` : ""}${quando.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })} às ${hm(quando)}</div>
         <div class="nums">
           <span>Pico<b>${f(e.recorde)}</b></span>
@@ -1213,7 +1266,7 @@ function listaEps() {
         </div>
       </div>
       <div class="acoes">
-        <a href="${id === Object.keys(d.records).find(k => d.aoVivo && k === d.atual.episodio) ? "/" : "/ep/" + (e.slug || id)}">Ver painel</a>
+        <a href="/ep/${e.slug || id}">Ver painel</a>
         ${yt ? `<a href="https://www.youtube.com/watch?v=${e.video || id}" target="_blank" rel="noopener">Assistir no YouTube</a>` : ""}
         <a href="https://www.twitch.tv/cellbit/videos?filter=archives" target="_blank" rel="noopener">VODs na Twitch</a>
       </div>
@@ -1253,7 +1306,7 @@ function abreFb(momento) {
   $("fbTit").textContent = momento ? "Sugerir correção" : "Feedback e bugs";
   document.querySelector(".fb-tipo").hidden = !!momento;
   $("fbRef").hidden = !momento;
-  if (momento) { $("fbRef").innerHTML = `<b>${hm(momento.t)} · ${momento.titulo.replace(/[<>&]/g, "")}</b><br>Escreva como deveria ser a descrição deste momento.`; $("fbTexto").value = momento.contexto; }
+  if (momento) { $("fbRef").innerHTML = `<b>${hm(momento.t)} - ${momento.titulo.replace(/[<>&]/g, "")}</b><br>Escreva como deveria ser a descrição deste momento.`; $("fbTexto").value = momento.contexto; }
   $("fbMsg").textContent = ""; $("fb").classList.add("on"); setTimeout(() => $("fbTexto").focus(), 50);
 }
 $("fbBtn").onclick = () => abreFb(null);
@@ -1276,6 +1329,32 @@ $("fbForm").onsubmit = async e => {
   } catch (err) { $("fbMsg").textContent = err.message; }
   $("fbEnviar").disabled = false;
 };
+// ---------- clipes mais vistos da Twitch do episódio ----------
+let clipesEp = null, clipesLista = [];
+async function carregaClipes(ver) {
+  if (clipesEp === ver) return;
+  clipesEp = ver;
+  try { clipesLista = (await (await fetch("/api/clipes?ep=" + encodeURIComponent(ver))).json()).lista || []; } catch { clipesLista = []; }
+  $("clipesBtn").hidden = !clipesLista.length;
+}
+function tocaClipe(c) {
+  $("clipeFrame").src = `https://clips.twitch.tv/embed?clip=${encodeURIComponent(c.id)}&parent=${location.hostname}&autoplay=true`;
+  $("clipeInfo").textContent = `${c.titulo}: ${f(c.views)} views, clipado por ${c.criador}`;
+  // o player toma o lugar da grade; "Voltar aos clipes" desfaz
+  $("clipePlayer").hidden = false; $("clipesLista").hidden = true;
+  $("clipePlayer").parentNode.scrollTop = 0;
+}
+const voltaClipes = () => { $("clipeFrame").src = "about:blank"; $("clipePlayer").hidden = true; $("clipesLista").hidden = false; };
+$("clipeVolta").onclick = voltaClipes;
+$("clipesBtn").onclick = () => {
+  $("clipesLista").innerHTML = clipesLista.map((c, i) => `<button type="button" data-i="${i}"><div class="cap"><img src="${esc(c.capa)}" alt="" loading="lazy"><span class="v">${f(c.views)} views</span><span class="d">${c.duracao}s</span></div><b>${esc(c.titulo)}</b><small>por ${esc(c.criador)}</small></button>`).join("");
+  voltaClipes();
+  $("clipes").classList.add("on");
+};
+$("clipesLista").onclick = e => { const b = e.target.closest("button[data-i]"); if (b) tocaClipe(clipesLista[+b.dataset.i]); };
+const fechaClipes = () => { $("clipes").classList.remove("on"); voltaClipes(); };
+$("clipesFecha").onclick = fechaClipes;
+$("clipes").onclick = e => { if (e.target.id === "clipes") fechaClipes(); };
 $("epsBtn").onclick = () => { listaEps(); $("eps").classList.add("on"); };
 $("epsFecha").onclick = () => $("eps").classList.remove("on");
 $("eps").onclick = e => { if (e.target.id === "eps") $("eps").classList.remove("on"); };
