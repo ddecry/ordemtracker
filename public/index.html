@@ -294,7 +294,7 @@ body.encerrado .clockw .dot{display:none}
 .sl,.sr{display:flex;min-width:0}
 .sr{border-left:1px solid var(--line);padding-left:1.6vw}
 .sr .st:first-child{border-left:0;padding-left:0}
-@media (max-width:800px),(max-aspect-ratio:1/1){.main,.strip{grid-template-columns:1fr}.strip{gap:12px}.sl,.sr{flex-wrap:wrap;row-gap:12px}.sr{border-left:0;padding-left:0}}
+@media (max-width:800px),(max-aspect-ratio:1/1){html,body{overflow-x:clip}.main,.strip{grid-template-columns:minmax(0,1fr)}.main>*,.col{min-width:0}.strip{gap:12px}.sl,.sr{flex-wrap:wrap;row-gap:12px}.sr{border-left:0;padding-left:0}}
 .onde{gap:2.2vh}
 .onde-t{font:600 11px Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.7)}
 .onde-l{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;width:min(88%,460px)}
@@ -405,6 +405,21 @@ button.ep-titulo:hover .seta{color:var(--tx)}
   #cenaThumbs button{height:auto;width:calc((100% - 16px) / 3);align-self:start;scroll-snap-align:start;opacity:1}
   .cena-slot{height:auto;min-height:7.6em}
   .cena-faixa{position:static}
+  /* popups: cabem na área visível do Safari e rolam por dentro se precisar */
+  .modal{padding:12px}
+  .modal-box,.eps-box{max-height:calc(100dvh - 24px);overflow:auto;-webkit-overflow-scrolling:touch}
+  .modal-box{width:100%;padding:16px;gap:14px}
+  .modal-box img{max-height:38dvh;max-width:100%;margin:0 auto}
+  .modal-side .rn-logo{display:none}
+  /* campos com 16px: abaixo disso o iPhone dá zoom na página ao tocar */
+  input,textarea,select{font-size:16px!important}
+  /* alvos de toque do tamanho de um dedo */
+  .tbtn{min-width:38px;min-height:40px;margin:0 -6px;display:inline-grid;place-items:center}
+  .fechar,.prox{padding:10px 4px;margin:-10px -4px}
+  /* faixa e cartão no mesmo lugar: o espaço fica com a altura do maior, nada vaza por cima */
+  .cena-slot:not([hidden]){display:grid}
+  .cena-slot>*{grid-area:1/1;min-width:0}
+  .cena-slot .cena{position:relative;inset:auto}
   /* números de baixo: cartõezinhos em 2 colunas; o último ocupa a linha toda */
   .strip{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:16px}
   .sl,.sr{display:contents}
@@ -416,6 +431,10 @@ button.ep-titulo:hover .seta{color:var(--tx)}
   /* picos: 2 por linha, mesma grade dos números das plataformas */
   .lado .picos{gap:.5em 1em;font-size:14px}
   .rec-top b{font-size:clamp(34px,11vw,48px)}
+}
+@media (max-width:360px){
+  .prox{font-size:12px;letter-spacing:-.01em}
+  .tbtn{min-width:34px}
 }
 </style>
 </head>
@@ -747,7 +766,8 @@ const barDica = document.body.appendChild(Object.assign(document.createElement("
 const dicaBarra = e => {
   const s = e.target.closest(".seg"), d = s && barra[s.id]; if (!d) return barDica.classList.remove("on");
   barDica.innerHTML = `<i style="background:${getComputedStyle(s).backgroundColor}"></i>${d[0]} <b>${pc(d[1])}</b> · ${f(d[2])}`;
-  barDica.style.left = e.clientX + "px"; barDica.style.top = s.getBoundingClientRect().top + "px";
+  const meia = barDica.offsetWidth / 2 + 8; // não deixa o balão sair pela lateral da tela
+  barDica.style.left = Math.min(Math.max(e.clientX, meia), innerWidth - meia) + "px"; barDica.style.top = s.getBoundingClientRect().top + "px";
   barDica.classList.add("on");
 };
 // no celular: tocar na barra mostra; rolar a página esconde
@@ -1059,66 +1079,74 @@ async function gerarImagem() {
   const d = ultimo, a = d.atual, r = d.records[d.ver];
   if (!r) throw new Error("sem episódio ao vivo");
   await document.fonts.ready;
-  // horizontal 1600x840 (serve também de prévia do link); vertical 4:5 pro Instagram
-  const W = V ? 1080 : 1600, H = V ? 1350 : 840, P = 64, cv = document.createElement("canvas");
-  cv.width = W; cv.height = H;
+  // horizontal 16:9 (1600x900, o X mostra sem cortar); vertical 4:5 pro Instagram
+  // desenha em dobro (S) pra imagem sair nítida: 3200x1800 / 2160x2700
+  const W = V ? 1080 : 1600, H = V ? 1350 : 900, P = V ? 72 : 104, S = 2, cv = document.createElement("canvas");
+  cv.width = W * S; cv.height = H * S;
   const c = cv.getContext("2d");
+  c.scale(S, S); c.imageSmoothingQuality = "high"; c.textBaseline = "alphabetic";
   c.fillStyle = "#121212"; c.fillRect(0, 0, W, H);
+  const txt = (s, x, y, fonte, cor, esp = 0, alinha = "left") => { c.font = fonte; c.fillStyle = cor; c.letterSpacing = esp + "px"; c.textAlign = alinha; c.fillText(s, x, y); c.letterSpacing = "0px"; c.textAlign = "left"; };
 
-  // capa inteira em 16:9, sem cortar; vertical: em cima na largura toda; horizontal: à esquerda
-  const capa = await carrega(`/capa/${d.ver}.jpg`).catch(() => null);
-  const cw = V ? W - P * 2 : 860, chh = cw * 9 / 16, cy = V ? 110 : (H - chh) / 2;
-  c.save(); arred(c, P, cy, cw, chh, 28); c.clip();
+  // cabeçalho: logo, nome do episódio e o site na direita, tudo na mesma linha
+  const [rn, capa] = await Promise.all([carrega("/rn-branco.png").catch(() => null), carrega(`/capa/${d.ver}.jpg`).catch(() => null)]);
+  const LH = 60, meio = P + LH / 2 + 4;
+  // a logo tem margem transparente: parte visível em 2–92% da largura e 20–83% da altura
+  let tx = P;
+  if (rn) { const t = LH / .63; c.drawImage(rn, P - t * .02, P - t * .2, t, t); tx = P + t * .9 + 28; }
+  const titulo = [$("epNome").textContent, $("epNum").textContent].filter(Boolean).join(" - ");
+  txt(titulo, tx, meio + 12, "700 34px Inter", "#ededed");
+  if (!V) txt("ordemtracker.site", W - P, meio + 10, "500 26px Inter", "#8a8a8a", 0, "right");
+  const topo = P + LH + 48;
+
+  // capa inteira em 16:9, sem cortar; vertical: em cima na largura toda; horizontal: à esquerda, centrada no espaço
+  const cw = V ? W - P * 2 : 920, chh = cw * 9 / 16, cy = V ? topo : topo + (H - P - topo - chh) / 2;
+  c.save(); arred(c, P, cy, cw, chh, 24); c.clip();
   c.fillStyle = "#242424"; c.fillRect(P, cy, cw, chh);
   if (capa) c.drawImage(capa, P, cy, cw, chh);
   c.restore();
 
-  // coluna de números
-  const X = V ? P : P + cw + 64, CW = W - X - P;
-  let y = V ? cy + chh + 96 : cy + 34;
-  c.textBaseline = "alphabetic";
-  c.fillStyle = "#8a8a8a"; c.font = "600 24px Inter"; c.letterSpacing = "4px";
-  c.fillText("RECORDE DO EPISÓDIO", X, y); c.letterSpacing = "0px";
+  // números: na horizontal a coluna vai do topo ao pé da capa; na vertical, logo abaixo dela
+  const X = V ? P : P + cw + 64, CW = W - X - P, y0 = V ? cy + chh + 72 : cy;
+  // posição de cada linha (baseline) a partir do topo do bloco
+  const L = V ? { lbl: 8, rec: 150, bar: 182, p1: 300, p2: 300, div: 352, med: 440 } : { lbl: 20, rec: 130, bar: 158, p1: 262, p2: 366, div: 422, med: 512 };
+  const fimL = r.fimLive || r.ultimaLeitura;
+  const quando = r.quando ? new Date(r.quando).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
+  txt("RECORDE DO EPISÓDIO" + (quando ? " · " + quando : ""), X, y0 + L.lbl, "600 22px Inter", "#8a8a8a", 4);
+  // o recorde encolhe se não couber na coluna
+  let fr = V ? 148 : 112;
+  c.letterSpacing = "-4px";
+  while (fr > 60 && (c.font = `800 ${fr}px Inter`, c.measureText(f(r.recorde)).width > CW)) fr -= 2;
+  txt(f(r.recorde), X - 4, y0 + L.rec, `800 ${fr}px Inter`, "#ededed", -4);
 
-  y += V ? 150 : 122;
-  c.fillStyle = "#ededed"; c.font = `800 ${V ? 150 : 118}px Inter`; c.letterSpacing = "-5px";
-  c.fillText(f(r.recorde), X - 4, y); c.letterSpacing = "0px";
   // barra das plataformas no pico
-  y += 48;
   const pk = [["YouTube", r.youtube, "#ff2b2b"], ["Twitch", r.twitch, "#9146ff"], ["Kick", r.kick, "#53fc18"], ["TikTok", r.tiktok, "#25f4ee"]];
   const tot = pk.reduce((s, p) => s + (p[1] || 0), 0) || 1;
   let bx = X;
-  c.save(); arred(c, X, y, CW, 22, 11); c.clip();
-  for (const [, v, cor] of pk) { const w = (v || 0) / tot * CW; c.fillStyle = cor; c.fillRect(bx, y, w, 22); bx += w; }
+  c.save(); arred(c, X, y0 + L.bar, CW, 20, 10); c.clip();
+  c.fillStyle = "#242424"; c.fillRect(X, y0 + L.bar, CW, 20);
+  for (const [, v, cor] of pk) { const w = (v || 0) / tot * CW; c.fillStyle = cor; c.fillRect(bx, y0 + L.bar, w, 20); bx += w; }
   c.restore();
 
-  // número de cada plataforma: 4 colunas na vertical, 2x2 na horizontal
-  y += 90;
+  // cada plataforma: 4 colunas na vertical, 2x2 na horizontal
   const col = V ? CW / 4 : CW / 2;
   pk.forEach(([n, v, cor], i) => {
-    const px = X + col * (V ? i : i % 2), py = y + (V ? 0 : Math.floor(i / 2) * 96);
-    c.fillStyle = cor; c.beginPath(); c.arc(px + 8, py - 26, 8, 0, 7); c.fill();
-    c.fillStyle = "#8a8a8a"; c.font = "500 24px Inter"; c.fillText(n, px + 24, py - 18);
-    c.fillStyle = "#ededed"; c.font = "700 34px Inter"; c.fillText(f(v), px, py + 26);
+    const px = X + col * (V ? i : i % 2), py = y0 + (V || i < 2 ? L.p1 : L.p2);
+    c.fillStyle = cor; c.beginPath(); c.arc(px + 7, py - 51, 7, 0, 7); c.fill();
+    txt(n, px + 22, py - 43, "500 23px Inter", "#8a8a8a");
+    txt(v ? f(v) : "-", px, py, "700 36px Inter", "#ededed");
   });
 
-  // média, duração
-  y += V ? 76 : 172;
-  c.fillStyle = "#2a2a2a"; c.fillRect(X, y, CW, 2);
-  y += 54;
-  const fimL = r.fimLive || r.ultimaLeitura;
+  // média e duração
+  c.fillStyle = "#2a2a2a"; c.fillRect(X, y0 + L.div, CW, 2);
   const dur = r.inicioLive && fimL ? (m => Math.floor(m / 60) + "h" + String(m % 60).padStart(2, "0"))(Math.round((new Date(fimL) - new Date(r.inicioLive)) / 60000)) : "-";
   [["Média", f(r.media)], ["Duração", dur]].forEach(([n, v], i) => {
-    const px = X + col * i;
-    c.fillStyle = "#8a8a8a"; c.font = "500 22px Inter"; c.fillText(n, px, y);
-    c.fillStyle = "#ededed"; c.font = "700 36px Inter"; c.fillText(v, px, y + 46);
+    const px = X + col * (V ? i * 2 : i);
+    txt(n, px, y0 + L.med - 46, "500 23px Inter", "#8a8a8a");
+    txt(v, px, y0 + L.med, "700 36px Inter", "#ededed");
   });
-
-  // assinatura Realitas News no canto de baixo
-  const rn = await carrega("/rn-branco.png").catch(() => null);
-  // a logo tem margem transparente; alinha o desenho dela com a margem da imagem
-  // parte visível da logo: 2–92% na largura e 20–83% na altura; encosta na margem direita e centraliza na linha de média/duração
-  if (rn) { const t = V ? 210 : 170; c.drawImage(rn, W - P - t * .918, y + 14 - t * .515, t, t); }
+  // vertical: o site no pé, alinhado à direita da linha de média/duração
+  if (V) txt("ordemtracker.site", W - P, H - P, "500 26px Inter", "#8a8a8a", 0, "right");
   return new Promise(ok => cv.toBlob(ok, "image/png"));
 }
 
