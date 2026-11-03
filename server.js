@@ -728,8 +728,51 @@ function corrigeNomes(texto) {
   });
 }
 const salvaMomentos = (id, lista) => { fs.mkdirSync(path.join(MOMENTOS, id), { recursive: true }); fs.writeFileSync(path.join(MOMENTOS, id, "momentos.json"), JSON.stringify(lista, null, 2)); };
-const momentosPublicos = id => leMomentos(id).filter(m => m.aprovado)
-  .map(m => ({ quando: m.quando, titulo: m.titulo, contexto: m.contexto, tipo: m.tipo, captura: m.captura ? `/momento/${id}/${m.captura}` : null }));
+const momentosPublicos = id => { const reac = reacoesChat(id); return leMomentos(id).filter(m => m.aprovado)
+  .map(m => ({ quando: m.quando, titulo: m.titulo, contexto: m.contexto, tipo: m.tipo, captura: m.captura ? `/momento/${id}/${m.captura}` : null, chat: reac?.(m.quando) || null })); };
+
+// ---------- reação do chat em cada momento (episódios com o chat gravado inteiro) ----------
+// janela de 2 min a partir de 30 s antes do momento: quanto o chat agitou em relação à média da live
+// e as palavras/emotes que mais gente usou (cada pessoa conta uma vez por palavra, pra spam não pesar)
+const PARADAS = new Set("a o e é de da do das dos em no na nos nas um uma uns umas que se pra para por com sem ele ela eles elas eu tu vc voce você vcs isso esse essa este esta aqui ai aí la lá ja já nao não sim mas mais muito so só tá ta to tô foi vai era ser ter tem como quando onde qual quem me te lhe meu minha seu sua nosso nossa the and of to is it in".split(" "));
+const RISADA = /k{3,}|(?:ha){2,}|(?:rs){2,}|(?:ks){2,}/i;
+const chatCache = new Map(); // id -> { tam, q, msgs: [[t, u, palavras]], media }
+function reacoesChat(id) {
+  const arq = path.join(CHATLOG, id.replace(/[^\w-]/g, "_") + ".jsonl");
+  let tam; try { tam = fs.statSync(arq).size; } catch { return null; }
+  let c = chatCache.get(id);
+  // durante a live o arquivo cresce: relê no máximo a cada 30 s
+  if (!c || (c.tam !== tam && Date.now() - c.q > 30_000)) {
+    const msgs = [];
+    for (const l of fs.readFileSync(arq, "utf8").split("\n")) {
+      if (!l) continue;
+      let m; try { m = JSON.parse(l); } catch { continue; }
+      const palavras = new Set();
+      for (let w of String(m.t).split(/\s+/)) {
+        w = w.replace(/^:|:$/g, "").replace(/[!?.,;"'()]+/g, "");
+        if (!w || w.length < 2 || /^https?:/i.test(w) || /^\d+$/.test(w)) continue;
+        if (RISADA.test(w)) { palavras.add("KKKK"); continue; }
+        if (PARADAS.has(w.toLowerCase())) continue;
+        // emote (tem maiúscula no meio, ex.: cellbitHype) fica como está; palavra comum vira maiúscula
+        palavras.add(/[a-z][A-Z]/.test(w) ? w : w.toUpperCase());
+      }
+      msgs.push([new Date(m.q).getTime(), m.u, [...palavras]]);
+    }
+    const dur = msgs.length > 1 ? (msgs.at(-1)[0] - msgs[0][0]) / 60000 : 0;
+    c = { tam, q: Date.now(), msgs, media: dur > 0 ? msgs.length / dur : 0 };
+    chatCache.set(id, c);
+  }
+  if (c.msgs.length < 100 || !c.media) return null;
+  return quando => {
+    const t = new Date(quando).getTime(), ini = t - 30_000, fim = t + 90_000;
+    const trecho = c.msgs.filter(([q]) => q >= ini && q < fim);
+    if (!trecho.length) return null;
+    const conta = new Map();
+    for (const [, u, ps] of trecho) for (const p of ps) { const s = conta.get(p) || new Set(); s.add(u); conta.set(p, s); }
+    const top = [...conta].map(([p, s]) => [p, s.size]).filter(([, n]) => n >= 3).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([p, n]) => ({ p, n }));
+    return { porMin: Math.round(trecho.length / 2), ritmo: Math.round(trecho.length / 2 / c.media * 10) / 10, top };
+  };
+}
 
 // ---------- gravação durante a live (público, sem login) ----------
 // áudio em partes de 30 min e uma captura a cada 30 s; cada parte pronta vai pro Gemini, que devolve os momentos como rascunho
@@ -846,8 +889,11 @@ async function analisaPartes() {
     }
   } catch (e) {
     // cota gratuita acabou: as partes ficam guardadas e a análise tenta de novo de hora em hora até a cota renovar
+    // Gemini sobrecarregado (503/500): cada tentativa gasta da cota do dia, então espera 15 min em vez de tentar a cada 2 min
+    const sobrecarga = e.codigo === 503 || e.codigo === 500 || /high demand|overloaded|unavailable/i.test(e.message);
     if (e.codigo === 429) pausaAte = Date.now() + 3600e3;
-    marca("Gemini", false, e.codigo === 429 ? "cota gratuita do dia esgotada; tenta de novo de hora em hora" : e.message);
+    else if (sobrecarga) pausaAte = Date.now() + 15 * 60e3;
+    marca("Gemini", false, e.codigo === 429 ? "cota gratuita do dia esgotada; tenta de novo de hora em hora" : sobrecarga ? "Gemini sobrecarregado; tenta de novo em 15 min" : e.message);
     console.warn(e.message);
   }
   analisando = false;

@@ -127,6 +127,11 @@ body.encerrado .clockw .dot{display:none}
 .cena img{width:clamp(128px,13vw,210px);aspect-ratio:16/9;object-fit:cover;border-radius:8px;background:var(--panel2)}
 .cena img[hidden]{display:none}
 .cena small{color:var(--mut);font-size:.8em;margin-right:.5em}
+.cena .cena-chat{margin:0 0 .4em;font-size:.85em;color:var(--mut);display:flex;flex-wrap:wrap;gap:.2em .6em;align-items:baseline}
+.cena .cena-chat[hidden]{display:none}
+.cena-chat b{color:var(--tx);font-weight:600}
+.cena-chat b.quente{color:var(--red)}
+.cena-chat span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 .cena b{font-size:1.05em}
 .cena p{margin:.25em 0 .4em;color:var(--mut);font-size:.92em;line-height:1.4}
 .cena a,.cena-corr{color:var(--tx);font-size:.8em;font-weight:600}
@@ -515,7 +520,7 @@ button.ep-titulo:hover .seta{color:var(--tx)}
   <div class="col">
     <div class="box chartbox"><div class="lbl">Viewers ao vivo</div><div class="cw"><canvas id="g"></canvas><div class="futuro-aviso" id="futAviso" hidden><span class="cap">Ainda não começou, começa em</span><b class="num" id="futCont"></b><small class="mut" id="futData"></small><p class="mut">Pode deixar esta página aberta: quando a live começar, os números começam a mudar aqui sozinhos.</p></div></div>
       <div class="cena-slot" id="cenaSlot" hidden><div class="cena-faixa" id="cenaDica"><small>Momentos do episódio</small><div id="cenaThumbs"></div></div><p class="cena-aviso" id="cenaAviso" hidden>O resto do episódio ainda está sendo resumido. Os próximos momentos aparecem aqui assim que forem revisados.</p>
-      <div class="cena" id="cena" hidden><img id="cenaImg" alt=""><div><small class="num" id="cenaH"></small><b id="cenaT"></b><p id="cenaC"></p><a id="cenaYT" target="_blank" rel="noopener">Ver no YouTube</a><button class="cena-corr" id="cenaCorr" type="button">Sugerir correção</button><button class="cena-corr" id="cenaTodas" type="button">Todas as cenas</button></div></div></div>
+      <div class="cena" id="cena" hidden><img id="cenaImg" alt=""><div><small class="num" id="cenaH"></small><b id="cenaT"></b><p id="cenaC"></p><p class="cena-chat" id="cenaChat" hidden></p><a id="cenaYT" target="_blank" rel="noopener">Ver no YouTube</a><button class="cena-corr" id="cenaCorr" type="button">Sugerir correção</button><button class="cena-corr" id="cenaTodas" type="button">Todas as cenas</button></div></div></div>
       <div class="linha-t" id="linhaT" hidden><span class="num mut ponta" id="linhaI"></span><input type="range" id="linhaR" min="0" max="0" value="0" step="any" aria-label="Ver os números em outro momento da live"><span class="num mut ponta" id="linhaF"></span><span class="num mut" id="linhaH"></span><button id="linhaV" hidden>Ao vivo</button><span class="bolha num" id="linhaB"></span></div>
     </div>
       <div class="recs lado">
@@ -745,6 +750,10 @@ function mostraCena(t) {
   if (!c) return;
   $("cenaCorr").dataset.t = c.t;
   $("cenaH").textContent = hm(c.t); $("cenaT").textContent = c.titulo; $("cenaC").textContent = c.contexto;
+  // reação do chat naquele trecho: quanto agitou em relação à média da live e o que mais gente escreveu
+  const ch = c.chat;
+  $("cenaChat").hidden = !ch;
+  if (ch) $("cenaChat").innerHTML = `<b class="${ch.ritmo >= 1.5 ? "quente" : ""}">Chat: ${ch.ritmo >= 1.1 ? ch.ritmo.toLocaleString("pt-BR") + "x mais agitado" : ch.ritmo <= 0.9 ? "mais calmo que a média" : "na média"}</b>${ch.top.length ? `<span>${ch.top.map(t => esc(t.p)).join(", ")}</span>` : ""}`;
   $("cenaImg").hidden = !c.captura; if (c.captura) $("cenaImg").src = c.captura;
   // link pro mesmo ponto no vídeo do YouTube, pelo horário real do momento
   const r = ultimo?.records[ultimo.ver], ini = r?.inicioLive && new Date(r.inicioLive).getTime();
