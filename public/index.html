@@ -937,8 +937,9 @@ async function up() {
     if (simulando == null) mostra(v);
 
     // recorde batido durante a live: do episódio, ou o maior da temporada
-    if (vivo && recVisto != null && r.recorde > recVisto) {
-      const outros = Object.entries(d.records).filter(([id, o]) => id !== d.ver && (o.temporada || "") === (r.temporada || "")).map(([, o]) => o.recorde || 0);
+    // primeiro episódio acompanhado da temporada não tem com o que comparar: sem animação nem aviso
+    const outros = Object.entries(d.records).filter(([id, o]) => id !== d.ver && (o.temporada || "") === (r.temporada || "")).map(([, o]) => o.recorde || 0);
+    if (vivo && recVisto != null && r.recorde > recVisto && outros.length) {
       avisaRecorde(outros.length && r.recorde > Math.max(...outros) && recVisto <= Math.max(...outros) ? "Maior audiência da temporada!" : "Novo recorde do episódio!");
     }
     recVisto = r.recorde;
