@@ -132,6 +132,8 @@ body.encerrado .clockw .dot{display:none}
 .cena-chat b{color:var(--tx);font-weight:600}
 .cena-chat b.quente{color:var(--red)}
 .cena-chat span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+/* celular: a reação numa linha só; as palavras que não couberem terminam em "…" */
+@media (max-width:800px),(max-aspect-ratio:1/1){.cena .cena-chat{flex-wrap:nowrap}.cena-chat b{flex:none}.cena-chat span{flex:1;min-width:0}}
 .cena b{font-size:1.05em}
 .cena p{margin:.25em 0 .4em;color:var(--mut);font-size:.92em;line-height:1.4}
 .cena a,.cena-corr{color:var(--tx);font-size:.8em;font-weight:600}
@@ -722,7 +724,7 @@ const novoGrafico = (el, sets, extra) => new Chart(el, {
     plugins: { legend: legenda, tooltip: dica }, scales: eixos() },
   plugins: extra,
 });
-const ch = novoGrafico($("g"), [linha("Total", css("--tx"), 2.5, true), linha("YouTube", "#ff2b2b", 1.6), linha("Twitch", "#9146ff", 1.6), linha("Kick", "#53fc18", 1.6), linha("TikTok", "#25f4ee", 1.6), { ...linha("Chat por minuto", "#8a8a8a", 1, true), borderColor: "#8a8a8a88", backgroundColor: "#8a8a8a30", pointStyle: "rect", yAxisID: "y2", order: 9 }], [recordeLinha, marcaLinha, cenasMarcas]);
+const ch = novoGrafico($("g"), [linha("Total", css("--tx"), 2.5, true), linha("YouTube", "#ff2b2b", 1.6), linha("Twitch", "#9146ff", 1.6), linha("Kick", "#53fc18", 1.6), linha("TikTok", "#25f4ee", 1.6), { ...linha(celular ? "Mensagens/min" : "Mensagens por minuto", "#8a8a8a", 1, true), borderColor: "#8a8a8a88", backgroundColor: "#8a8a8a30", pointStyle: "rect", yAxisID: "y2", order: 9 }], [recordeLinha, marcaLinha, cenasMarcas]);
 // momentos aprovados no painel: o que acontecia na história em cada parte da live
 let cenaAtual = null;
 // depois do último momento aprovado (com 15 min de folga) a parte ainda não foi resumida: mostra só um aviso
