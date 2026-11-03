@@ -892,6 +892,7 @@ async function up() {
   try {
     // primeira chamada avisa que é uma visita nova e de onde a pessoa veio (só o domínio)
     const q = new URLSearchParams(epPedido ? { ep: epPedido } : {});
+    const chave = new URLSearchParams(location.search).get("teste"); if (chave) q.set("teste", chave);
     if (!avisou) { avisou = true; q.set("nova", "1"); try { const o = document.referrer && new URL(document.referrer).hostname; if (o && o !== location.hostname) q.set("de", o); } catch {} }
     const d = await (await fetch("/api" + (q.size ? "?" + q : ""))).json();
     const a = d.atual, x = a.extras || {}, r = d.records[d.ver], vivo = d.aoVivo;

@@ -331,11 +331,12 @@ function mediaSemFim(id, r) {
   medias.set(id, { chave: r.ultimaLeitura, media });
   return media;
 }
-function publicos() {
+// teste = id de um episódio escondido que o link de teste (com a chave certa) pode ver
+function publicos(teste) {
   const out = {};
   for (const [id, r] of Object.entries(records)) {
     const e = episodios.lista.find(x => x.id === id);
-    if (e?.oculto) continue;
+    if (e?.oculto && id !== teste) continue;
     out[id] = { ...so({ ...r, titulo: e?.titulo || r.titulo, temporada: e?.temporada || null, media: mediaSemFim(id, r) }, CAMPOS), slug: slug(r.titulo, id),
       // vídeo completo (sem membros), nome do episódio e trechos cortados da live, pra os momentos abrirem no ponto certo
       video: e?.video || null, nome: e?.nome || null, cortes: e?.video ? e.cortes || null : null,
@@ -483,7 +484,7 @@ async function admin(req, res) {
     const ids = new Set([...episodios.lista.map(e => e.id), ...Object.keys(records)]);
     const lista = [...ids].map(id => {
       const e = episodios.lista.find(x => x.id === id) || {}, r = records[id];
-      return { id, titulo: e.titulo || "", tituloYT: r?.titulo || "", video: e.video || "", nome: e.nome || "", temporada: e.temporada || "", data: e.data || r?.inicioLive || "", oculto: !!e.oculto, recorde: r?.recorde ?? null };
+      return { id, titulo: e.titulo || "", tituloYT: r?.titulo || "", video: e.video || "", nome: e.nome || "", teste: e.oculto && e.teste ? "/ep/" + id + "?teste=" + e.teste : "", temporada: e.temporada || "", data: e.data || r?.inicioLive || "", oculto: !!e.oculto, recorde: r?.recorde ?? null };
     }).sort((a, b) => (b.data || "").localeCompare(a.data || ""));
     if (url.searchParams.get("acessos")) return json(res, 200, relatorio());
     // correções vêm com o texto atual do momento, pra comparar
@@ -566,7 +567,7 @@ async function admin(req, res) {
       const antes = i >= 0 ? episodios.lista[i] : {}, video = idDoLink(b.video) || null;
       const ytVideo = video && video !== antes.video && env.YOUTUBE_API_KEY ? (await ytApi([video]).catch(() => []))[0] : null;
       const nomeYT = (ytVideo?.snippet?.title || yt?.snippet?.title || "").match(/["“]([^"”]+)["”]/)?.[1] || "";
-      const e = { id, titulo: String(b.titulo || ytTitulo).slice(0, 200), temporada: String(b.temporada || "").slice(0, 100), data: b.data ? new Date(b.data).toISOString() : ytData, oculto: !!b.oculto,
+      const e = { id, titulo: String(b.titulo || ytTitulo).slice(0, 200), temporada: String(b.temporada || "").slice(0, 100), data: b.data ? new Date(b.data).toISOString() : ytData, oculto: !!b.oculto, teste: b.oculto ? antes.teste || crypto.randomBytes(9).toString("hex") : undefined,
         video, nome: String(b.nome || nomeYT || "").slice(0, 100) || null, cortes: video && video === antes.video ? antes.cortes || null : null };
       if (i >= 0) episodios.lista[i] = e; else episodios.lista.push(e);
       ytUltimaBusca = 0; // procura a live de novo no próximo ciclo
@@ -877,7 +878,10 @@ http.createServer(async (req, res) => {
   if (url.pathname === "/api") {
     registraAcesso(req, url);
     // episódio exibido: o pedido (?ep=), o ao vivo, ou o último que foi ao ar
-    const pub = publicos();
+    // link de teste de episódio escondido: /ep/<id>?teste=<chave>; sem a chave ele não aparece pra ninguém
+    const ch = url.searchParams.get("teste");
+    const teste = ch && episodios.lista.find(e => e.oculto && e.teste && e.teste === ch)?.id;
+    const pub = publicos(teste);
     const ultimoEp = Object.entries(pub).sort((p, q) => (q[1].ultimaLeitura || "").localeCompare(p[1].ultimaLeitura || ""))[0]?.[0];
     const p = url.searchParams.get("ep");
     const pedido = p && (pub[p] ? p : Object.keys(pub).find(id => pub[id].slug === p));
@@ -887,7 +891,9 @@ http.createServer(async (req, res) => {
     const aoVivo = !!atual.episodio && ver === atual.episodio && atual.total > 0;
     const linhas = fs.readFileSync(HIST, "utf8").trim().split("\n").slice(1);
     const hist = linhas.map(l => l.split(",")).filter(c => c[1] === ver).map(c => [c[0], ...c.slice(2, 6).map(v => (v === "" ? null : +v)), c[7] ? +c[7] : null, c[8] ? +c[8] : null]);
-    const at = { ...so(atual, ["twitch", "kick", "youtube", "tiktok", "total", "hora", "episodio"]), extras: so(atual.extras || {}, ["inicio", "ytLikes", "msgsMin", "chatMsgs", "chatPessoas", "twitchSeguidores", "tiktokSeguidores"]) };
+    // live de episódio escondido: o público não recebe nem os números de agora
+    const at = atual.episodio && !pub[atual.episodio] ? { total: 0, hora: atual.hora, episodio: null, extras: {} }
+      : { ...so(atual, ["twitch", "kick", "youtube", "tiktok", "total", "hora", "episodio"]), extras: so(atual.extras || {}, ["inicio", "ytLikes", "msgsMin", "chatMsgs", "chatPessoas", "twitchSeguidores", "tiktokSeguidores"]) };
     if (futuro) return json(res, 200, { atual: at, records: pub, hist: [], ver, aoVivo: false, futuro, proximos: proximos(), config: config(), momentos: [] });
     return json(res, 200, { atual: at, records: pub, hist, ver, aoVivo, proximos: proximos(), config: config(), momentos: ver ? momentosPublicos(ver) : [] });
   }
