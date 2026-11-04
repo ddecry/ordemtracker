@@ -38,6 +38,9 @@ h3{font-size:13px;font-weight:600;margin:24px 0 10px;color:var(--mut);letter-spa
 p{color:var(--mut);margin:0 0 16px}
 label{display:block;font-size:13px;color:var(--mut);margin-bottom:4px}
 input,select,textarea{width:100%;background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit}
+/* seletor com a mesma altura dos campos e seta discreta no lugar da do navegador */
+select{appearance:none;-webkit-appearance:none;height:calc(1.5em + 22px);padding-right:34px;cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a8a8a' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:16px}
 textarea{resize:vertical}
 button{background:var(--tx);color:var(--bg);border:1px solid var(--tx);border-radius:10px;line-height:1.2;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;font:500 14px Inter,sans-serif;cursor:pointer}
 button.sec{background:none;color:var(--tx);border:1px solid var(--line)}
@@ -72,7 +75,7 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
 .ep{display:grid;grid-template-columns:120px 1fr auto;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
 .ep:last-child{border-bottom:0}
 .ep img{width:120px;aspect-ratio:16/9;object-fit:cover;border-radius:6px;background:var(--panel2)}
-.ep img.borrada{filter:blur(2.5px) brightness(.9)}
+.ep img.borrada{filter:blur(1.2px) brightness(.85)}
 .ep b{font-weight:600}.ep small{color:var(--mut);display:block}
 .ep .a{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 
@@ -132,6 +135,15 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
 .item-txt{margin:0;color:var(--tx);white-space:pre-wrap;line-height:1.5}
 .item-acoes{display:flex;gap:8px;margin-top:12px}
 .meta{color:var(--mut);font-size:12px;margin-left:auto}
+/* reação real do chat embaixo do resumo: agito e o que mais gente mandou, com a imagem do emote */
+.reac-chat{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-top:8px;font-size:12px;color:var(--mut)}
+.rc-ritmo{font-weight:600}
+.rc-ritmo.medio{color:var(--tx)}
+.rc-ritmo.forte{color:var(--red)}
+.rc-item{display:inline-flex;align-items:center;gap:4px}
+.rc-item img{width:22px;height:22px;object-fit:contain}
+.rc-item b{color:var(--tx);font-weight:600}
+.rc-item small{font-variant-numeric:tabular-nums}
 .chip{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.02em;padding:3px 9px;border-radius:99px;background:var(--panel2);color:var(--mut);border:1px solid var(--line)}
 .chip.azul{background:#3b82f61f;color:#7fb0ff;border-color:#3b82f640}
 .chip.verm{background:#ef44441f;color:#ff8a8a;border-color:#ef444440}
@@ -292,7 +304,7 @@ button.icone svg{width:16px;height:16px}
       <div><label for="link">Link da live no YouTube <span class="mut">(opcional)</span></label><input id="link" autocomplete="off" placeholder="https://www.youtube.com/watch?v=...">
         <small class="ajuda">Com o link, título, data e capa vêm sozinhos. Sem link, preencha a data e cole o link quando o canal agendar a live.</small></div>
       <div class="g"><div><label for="data">Data e hora</label><input id="data" type="datetime-local"></div>
-        <div><label for="temporada">Temporada</label><input id="temporada" maxlength="100" placeholder="A Vigília"></div></div>
+        <div><label for="temporada">Temporada</label><select id="tempSel" aria-label="Temporada"></select><input id="temporada" maxlength="100" placeholder="Nome da nova temporada" autocomplete="off" hidden style="margin-top:8px"></div></div>
       <div><label for="titulo">Título no site <span class="mut">(opcional)</span></label><input id="titulo" maxlength="200" placeholder="A Vigília - Episódio 2">
         <small class="ajuda">Vazio usa o título do YouTube.</small></div>
       <div class="g"><div><label for="video">Vídeo completo no YouTube <span class="mut">(opcional)</span></label><input id="video" autocomplete="off" placeholder="https://www.youtube.com/watch?v=...">
@@ -384,9 +396,21 @@ function abre(nome) {
 }
 document.querySelectorAll("nav button[data-aba]").forEach(b => b.onclick = () => abre(b.dataset.aba));
 
+let temporadas = [];
+// mostra a temporada no seletor; uma que ainda não existe fica no campo de texto
+function poeTemporada(t) {
+  const nova = t && !temporadas.includes(t);
+  $("tempSel").innerHTML = `<option value="">Sem temporada</option>` + temporadas.map(x => `<option>${esc(x)}</option>`).join("") + `<option value="*">Nova temporada…</option>`;
+  $("tempSel").value = nova ? "*" : t || (temporadas[0] || "");
+  $("temporada").hidden = !nova; $("temporada").value = t || $("tempSel").value;
+}
+$("tempSel").onchange = () => { const v = $("tempSel").value, nova = v === "*"; $("temporada").hidden = !nova; $("temporada").value = nova ? "" : v; if (nova) $("temporada").focus(); };
 async function carrega() {
   const j = await api("GET");
   dados = j.lista;
+  // temporadas já usadas viram opções do seletor; "Nova temporada" abre o campo pra digitar
+  temporadas = [...new Set(dados.map(e => e.temporada).filter(Boolean))];
+  poeTemporada($("temporada").value);
   const opc = document.querySelector(`input[name=tela][value="${j.config.telaInicial}"]`); if (opc) opc.checked = true;
   $("semProx").value = j.config.semProximo || ""; apelidos = j.config.apelidos || {}; mostraApelidos();
   mostraWiki(j.wiki);
@@ -394,8 +418,11 @@ async function carrega() {
   const vivo = dados.find(e => e.id === j.aoVivo);
   $("navPulso").classList.toggle("off", !vivo); $("navVivo").textContent = vivo ? "Ao vivo: " + titulo(vivo) : "Sem live agora";
   // próximos (ainda sem números) e os que já foram ao ar
+  // sem link ainda: capa do último episódio da mesma temporada, borrada; sem nenhum, a arte da temporada
+  const anterior = e => dados.filter(x => !x.id.startsWith("ag-") && x.id !== e.id && (x.temporada || "") === (e.temporada || "") && (!e.data || !x.data || x.data < e.data))
+    .sort((p, q) => (q.data || "").localeCompare(p.data || ""))[0];
   const item = (e, i) => `<div class="ep">
-    ${e.id.startsWith("ag-") ? `<img class="borrada" src="/temporadas/${kebab(e.temporada || titulo(e))}.jpg" alt="" onerror="this.removeAttribute('src')">` : `<img src="/capa/${e.id}.jpg" alt="" loading="lazy">`}
+    ${e.id.startsWith("ag-") ? (anterior(e) ? `<img class="borrada" src="/capa/${anterior(e).id}.jpg" alt="" loading="lazy">` : `<img class="borrada" src="/temporadas/${kebab(e.temporada || titulo(e))}.jpg" alt="" onerror="this.removeAttribute('src')">`) : `<img src="/capa/${e.id}.jpg" alt="" loading="lazy">`}
     <div><b>${esc(titulo(e))}</b>${e.id === j.aoVivo ? '<span class="selo2 vivo">AO VIVO</span>' : ""}${e.oculto ? '<span class="selo2">escondido</span>' : ""}${e.recorde == null ? (e.id.startsWith("ag-") ? '<span class="selo2">sem link ainda</span>' : '<span class="selo2">live agendada</span>') : ""}
       <small>${e.temporada ? esc(e.temporada) + ", " : ""}${e.data ? new Date(e.data).toLocaleString("pt-BR", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "sem data"}${e.recorde != null ? " - pico " + e.recorde.toLocaleString("pt-BR") : ""}</small></div>
     <div class="a">${e.teste ? `<a class="sec peq" href="${esc(e.teste)}" target="_blank" rel="noopener">Abrir teste</a>` : ""}<button type="button" class="sec peq" data-ed="${i}">Editar</button>${e.recorde != null ? `<button type="button" class="sec peq" data-pv="${esc(e.id)}">Prévia do link</button>` : `<button type="button" class="sec peq" data-rm="${i}">Remover</button>`}</div>
@@ -420,7 +447,7 @@ $("senha").onkeydown = e => { if (e.key === "Enter") $("entrar").click(); };
 const idDe = s => (s.match(/(?:v=|youtu\.be\/|live\/|^)([\w-]{11})(?:[?&#/]|$)/) || [])[1];
 $("link").oninput = () => { const id = idDe($("link").value.trim()); $("previa").hidden = !id; if (id) $("previa").src = "/capa/" + id + ".jpg"; };
 $("limpa").onclick = () => { $("previa").hidden = true; editando = null; $("form").reset(); $("formT").textContent = "Novo episódio"; $("form").hidden = true; };
-$("novoEp").onclick = () => { $("limpa").click(); aviso(""); $("form").hidden = false; $("link").focus(); };
+$("novoEp").onclick = () => { $("limpa").click(); aviso(""); poeTemporada(temporadas[0] || ""); $("form").hidden = false; $("link").focus(); };
 $("form").onsubmit = async ev => {
   ev.preventDefault();
   try {
@@ -440,7 +467,7 @@ $("lista").onclick = async ev => {
   }
   if (ed != null) {
     const e = dados[ed];
-    editando = e.id; $("link").value = e.id.startsWith("ag-") ? "" : "https://www.youtube.com/watch?v=" + e.id; $("titulo").value = e.titulo; $("temporada").value = e.temporada; $("video").value = e.video ? "https://www.youtube.com/watch?v=" + e.video : ""; $("nome").value = e.nome || "";
+    editando = e.id; $("link").value = e.id.startsWith("ag-") ? "" : "https://www.youtube.com/watch?v=" + e.id; $("titulo").value = e.titulo; poeTemporada(e.temporada || ""); $("video").value = e.video ? "https://www.youtube.com/watch?v=" + e.video : ""; $("nome").value = e.nome || "";
     $("data").value = local(e.data); $("oculto").checked = e.oculto; $("link").oninput(); $("formT").textContent = "Editando " + titulo(e); $("form").hidden = false; aviso(""); scrollTo(0, 0);
   }
   if (rm != null && confirm("Remover este cadastro?")) {
@@ -572,10 +599,18 @@ async function contaMomentos() {
 async function momentos() {
   const id = $("moEp").value; if (!id) { $("moLista").innerHTML = '<p class="vazio">Nenhum episódio gravado ainda.</p>'; return; }
   let j; try { j = await api("GET", null, "momentos=" + encodeURIComponent(id)); } catch (e) { $("moLista").innerHTML = `<p>${esc(e.message)}</p>`; return; }
-  mo = j.lista;
+  mo = j.lista; emotesImg = j.emotes || {};
   desenhaMomentos();
 }
 const resumoMo = () => { const ok = mo.filter(m => m.aprovado).length; $("moResumo").textContent = mo.length ? `${mo.length} momentos, ${ok} no site, ${mo.length - ok} esperando` : ""; };
+// o que o chat mandou de verdade logo depois do momento (do log do chat, não da IA): pra conferir o resumo
+let emotesImg = {};
+function reacaoChat(r) {
+  if (!r) return "";
+  const forte = r.ritmo >= 1.5 ? " forte" : r.ritmo >= 1.3 ? " medio" : "";
+  const itens = r.top.map(({ p, n }) => `<span class="rc-item" title="${n} pessoas">${emotesImg[p] ? `<img src="${esc(emotesImg[p])}" alt="${esc(p)}">` : `<b>${esc(p === "KKKK" ? "kkkk" : p.toLowerCase())}</b>`}<small>${n}</small></span>`).join("");
+  return `<div class="reac-chat"><span class="rc-ritmo${forte}">Chat ${String(r.ritmo).replace(".", ",")}x ${r.ritmo >= 1 ? "mais" : "menos"} agitado</span>${itens}</div>`;
+}
 function desenhaMomentos() {
   const id = $("moEp").value;
   resumoMo();
@@ -591,6 +626,7 @@ function desenhaMomentos() {
       <input class="campo tit" data-i="${i}" data-c="titulo" value="${esc(m.titulo)}" maxlength="80" aria-label="Título">
       <textarea class="campo" data-i="${i}" data-c="contexto" maxlength="240" rows="3" aria-label="Descrição">${esc(m.contexto)}</textarea>
       <input class="campo" data-i="${i}" data-c="chatResumo" value="${esc(m.chatResumo || "")}" maxlength="160" placeholder="O que o chat falava (vazio: não mostra)" aria-label="Reação do chat">
+      ${reacaoChat(m.reac)}
     </div>
   </article>`).join("") : '<p class="vazio">Ainda não tem momentos para este episódio. Eles aparecem aqui depois da análise da live.</p>';
   // capturas de rascunho só com a senha: busca com o cabeçalho e mostra como blob

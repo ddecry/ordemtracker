@@ -536,7 +536,8 @@ async function admin(req, res) {
     if (url.searchParams.get("status")) return json(res, 200, status());
     if (url.searchParams.get("feedbacks")) return json(res, 200, feedbacks.map(f => f.tipo === "correcao" ? { ...f, atual: leMomentos(f.ep).find(m => m.quando === f.momento) || null } : f));
     const mid = url.searchParams.get("momentos");
-    if (mid && records[mid]) return json(res, 200, { lista: leMomentos(mid) });
+    // rascunhos com a reação real do chat (agito e o que mais gente mandou) e as imagens dos emotes, pra conferir o resumo da IA
+    if (mid && records[mid]) { const reac = reacoesChat(mid); return json(res, 200, { lista: leMomentos(mid).map(m => ({ ...m, reac: reac?.(m.quando) || null })), emotes: await emotesCanal() }); }
     if (url.searchParams.get("pendentes")) return json(res, 200, { pendentes: Object.keys(records).reduce((t, id) => t + leMomentos(id).filter(m => !m.aprovado).length, 0) });
     // trecho de áudio do momento (só no painel)
     const au = url.searchParams.get("audio")?.match(/^([\w-]+)\/([\w-]+\.ogg)$/);
@@ -729,8 +730,36 @@ function corrigeNomes(texto) {
   });
 }
 const salvaMomentos = (id, lista) => { fs.mkdirSync(path.join(MOMENTOS, id), { recursive: true }); fs.writeFileSync(path.join(MOMENTOS, id, "momentos.json"), JSON.stringify(lista, null, 2)); };
+// cada item da reação do chat leva a imagem oficial do emote, quando é um emote do canal (a lista se atualiza sozinha, 1 vez por dia)
+const comImagens = r => { if (!r) return null; emotesCanal(); const mapa = emotesCache.mapa; return { ...r, top: r.top.map(x => mapa[x.p] ? { ...x, img: mapa[x.p] } : x) }; };
 const momentosPublicos = id => { const reac = reacoesChat(id); return leMomentos(id).filter(m => m.aprovado)
-  .map(m => ({ quando: m.quando, titulo: m.titulo, contexto: m.contexto, tipo: m.tipo, captura: m.captura ? `/momento/${id}/${m.captura}` : null, chat: reac?.(m.quando) || null, chatResumo: m.chatResumo || null })); };
+  .map(m => ({ quando: m.quando, titulo: m.titulo, contexto: m.contexto, tipo: m.tipo, captura: m.captura ? `/momento/${id}/${m.captura}` : null, chat: comImagens(reac?.(m.quando)), chatResumo: m.chatResumo || null })); };
+
+// imagens dos emotes do canal (nome -> endereço), pela API da Twitch; guarda 1 dia
+let emotesCache = { q: 0, mapa: {} };
+async function emotesCanal() {
+  if (Date.now() - emotesCache.q < 86400e3 || !env.TWITCH_CLIENT_ID) return emotesCache.mapa;
+  try {
+    const tk = await token("twitch", "https://id.twitch.tv/oauth2/token", env.TWITCH_CLIENT_ID, env.TWITCH_CLIENT_SECRET);
+    const h = { "Client-Id": env.TWITCH_CLIENT_ID, Authorization: "Bearer " + tk };
+    if (!twitchId) twitchId = (await (await fetch(`https://api.twitch.tv/helix/users?login=${TWITCH}`, { headers: h })).json())?.data?.[0]?.id;
+    const j = await (await fetch(`https://api.twitch.tv/helix/chat/emotes?broadcaster_id=${twitchId}`, { headers: h })).json();
+    // endereço oficial da Twitch; a versão animada quando o emote tem animação (tema escuro, tamanho 2x)
+    const tpl = j.template || "https://static-cdn.jtvnw.net/emoticons/v2/{{id}}/{{format}}/{{theme_mode}}/{{scale}}";
+    const mapa = Object.fromEntries((j.data || []).map(e => [e.name,
+      tpl.replace("{{id}}", e.id).replace("{{format}}", e.format?.includes("animated") ? "animated" : "static").replace("{{theme_mode}}", "dark").replace("{{scale}}", "2.0")]));
+    // emotes das extensões que o chat usa (7TV, BTTV, FFZ), do canal e os globais; APIs públicas, sem login. Os da Twitch têm preferência
+    const pega = u => fetch(u, { signal: AbortSignal.timeout(10_000) }).then(r => r.ok ? r.json() : null).catch(() => null);
+    const [s7, s7g, bt, btg, fz] = await Promise.all([pega(`https://7tv.io/v3/users/twitch/${twitchId}`), pega("https://7tv.io/v3/emote-sets/global"),
+      pega(`https://api.betterttv.net/3/cached/users/twitch/${twitchId}`), pega("https://api.betterttv.net/3/cached/emotes/global"), pega(`https://api.betterttv.net/3/cached/frankerfacez/users/twitch/${twitchId}`)]);
+    for (const e of [...(s7?.emote_set?.emotes || []), ...(s7g?.emotes || [])]) if (e.data?.host?.url) mapa[e.name] ??= `https:${e.data.host.url}/2x.webp`;
+    for (const e of [...(bt?.channelEmotes || []), ...(bt?.sharedEmotes || []), ...(btg || [])]) mapa[e.code] ??= `https://cdn.betterttv.net/emote/${e.id}/2x`;
+    for (const e of fz || []) if (e.images) mapa[e.code] ??= e.images["2x"] || e.images["1x"];
+    emotesCache = { q: Date.now(), mapa };
+  } catch (e) { console.warn("emotes:", e.message); emotesCache.q = Date.now() - 86400e3 + 600e3; }
+  return emotesCache.mapa;
+}
+setTimeout(emotesCanal, 5000);
 
 // ---------- reação do chat em cada momento (episódios com o chat gravado inteiro) ----------
 // janela de 2 min a partir de 30 s antes do momento: quanto o chat agitou em relação à média da live
@@ -750,6 +779,8 @@ function reacoesChat(id) {
       let m; try { m = JSON.parse(l); } catch { continue; }
       const palavras = new Set();
       for (let w of String(m.t).split(/\s+/)) {
+        // emote conhecido (Twitch, 7TV, BTTV, FFZ) entra com o nome exato, mesmo sem maiúscula no meio (ex.: "D:", "catjam")
+        if (emotesCache.mapa[w]) { palavras.add(w); continue; }
         w = w.replace(/^:|:$/g, "").replace(/[!?.,;"'()]+/g, "");
         if (!w || w.length < 2 || /^https?:/i.test(w) || /^\d+$/.test(w)) continue;
         if (RISADA.test(w)) { palavras.add("KKKK"); continue; }
@@ -786,6 +817,10 @@ function foraDaLive(f) {
   const b = miniatura(f);
   if (!b) return true;
   if (Math.max(...b) - Math.min(...b) < 16) return true; // preto ou liso
+  // a tela de comercial da Twitch é um degradê roxo/azul, às vezes claro, às vezes escuro: conta os pontos com azul bem acima do verde.
+  // no Transcendendo: cenas da live de 0% a 14%, telas de comercial de 53% a 100%
+  let azul = 0; for (let i = 0; i < b.length; i += 3) if (b[i + 2] > b[i + 1] + 35) azul++;
+  if (azul / (b.length / 3) >= .4) return true;
   refIntervalo ??= miniatura(path.join(__dirname, "ref", "twitch-intervalo.jpg"));
   if (!refIntervalo || refIntervalo.length !== b.length) return false;
   let d = 0; for (let i = 0; i < b.length; i++) d += Math.abs(b[i] - refIntervalo[i]);
@@ -802,28 +837,50 @@ function gravacao() {
   if (!id || gravando || env.GRAVACAO !== "1") return;
   const dir = path.join(GRAVACAO, id);
   fs.mkdirSync(path.join(dir, "capturas"), { recursive: true });
-  // pega o endereço da transmissão pública da Twitch, que é a mesma live (o YouTube pede login para servidores de nuvem);
+  // pega o endereço da transmissão pública da mesma live (o YouTube pede login para servidores de nuvem):
+  // primeiro a Kick, que não põe comercial no meio pra quem assiste; se ela não abrir, a Twitch (que para quem não tem conta troca a live por comercial)
   // o endereço expira em algumas horas: quando cai, a próxima volta do tick recomeça
-  execFile("yt-dlp", ["-g", "-f", "best[height<=480]/worst", "https://www.twitch.tv/" + TWITCH], { timeout: 60_000 }, (erro, saida) => {
-    const url = String(saida || "").trim().split("\n")[0];
-    if (erro || !url.startsWith("http")) { marca("Gravação", false, "não abriu a live da Twitch: " + (erro?.message || "sem endereço")); console.warn("gravação: sem endereço da live", erro?.message || ""); gravando = null; return; }
+  const endereco = (pagina, ok) => execFile("yt-dlp", ["-g", "-f", "best[height<=480]/worst", pagina], { timeout: 60_000 }, (erro, saida) => {
+    const url = String(saida || "").trim().split("\n")[0]; ok(!erro && url.startsWith("http") ? url : null, erro);
+  });
+  const grava = (url, fonte) => {
     const proc = spawn("ffmpeg", ["-v", "error", "-i", url,
       "-map", "0:a", "-ac", "1", "-ar", "16000", "-c:a", "libopus", "-b:a", "24k", "-f", "segment", "-segment_time", String(PARTE_MIN * 60), "-reset_timestamps", "1", "-strftime", "1", path.join(dir, "audio-%Y%m%dT%H%M%S.ogg"),
       "-map", "0:v", "-vf", "fps=1/30,scale=854:-2", "-q:v", "4", "-f", "image2", "-strftime", "1", path.join(dir, "capturas", "%Y%m%dT%H%M%S.jpg")], { stdio: ["ignore", "ignore", "pipe"] });
     proc.stderr.on("data", d => console.warn("ffmpeg:", String(d).trim().slice(0, 200)));
     proc.on("exit", () => { if (gravando?.proc === proc) gravando = null; });
     gravando = { id, proc };
-    marca("Gravação", true, "gravando áudio e capturas da Twitch");
-    console.log("gravação: começou", id);
-  });
+    marca("Gravação", true, "gravando áudio e capturas da " + fonte);
+    console.log("gravação: começou", id, "pela", fonte);
+  };
+  endereco("https://kick.com/" + KICK, urlKick => urlKick ? grava(urlKick, "Kick") : endereco("https://www.twitch.tv/" + TWITCH, (url, erro) => {
+    if (!url) { marca("Gravação", false, "não abriu a live nem na Kick nem na Twitch: " + (erro?.message || "sem endereço")); console.warn("gravação: sem endereço da live", erro?.message || ""); gravando = null; return; }
+    grava(url, "Twitch");
+  }));
   gravando = { id, proc: { kill() {} } }; // reserva enquanto o yt-dlp responde
 }
 
 const GEMINI = "https://generativelanguage.googleapis.com";
-const PEDIDO_MOMENTOS = `Este é um trecho de áudio de uma live de RPG de mesa da série Ordem Paranormal, narrada pelo Cellbit com jogadores convidados.
-Liste os principais acontecimentos deste trecho: momentos da história (revelações, combates, mortes, decisões, cenas marcantes) e momentos da mesa (piadas que todos riram, pausas, intervalo, abertura e encerramento).
-Para cada um, informe o segundo deste trecho em que começa, um título curto (até 8 palavras) e uma frase de contexto (até 25 palavras), em português.
-Seja factual: use só nomes de personagens e lugares que foram ditos claramente. Não invente. Prefira 1 momento a cada 3 a 8 minutos.`;
+// o tipo de live muda pela temporada; o título da live diz quem está nela (ex.: "Transcendendo com LJoga: Grifo, Leo Santi e Nayu")
+const tipoLive = (ep = {}) => {
+  const titulo = String(ep.titulo || "").replace(/\s*\|.*$/, "");
+  if (/transcend/i.test(ep.temporada || titulo)) return `um episódio do Transcendendo, o podcast oficial de Ordem Paranormal.
+Como é o programa: é uma conversa, não uma sessão de RPG; ninguém está jogando nem narrando. Quem apresenta é o LJoga, que conduz o papo e lê perguntas do chat. Os convidados mudam a cada episódio e geralmente estão no título da live. Eles falam dos bastidores, dos personagens que interpretam, do episódio de RPG que foi ao ar, respondem perguntas e às vezes jogam quizzes ou brincadeiras.
+O Cellbit é o criador de Ordem Paranormal e mestre das campanhas de RPG, mas nem sempre está no Transcendendo; só diga que ele falou se a fala for claramente dele.
+Título desta live: "${titulo}". Trate os nomes do título como os participantes e os personagens citados como personagens da campanha, não como pessoas presentes`;
+  return `uma live de RPG de mesa da série Ordem Paranormal, narrada pelo Cellbit (o mestre) com jogadores convidados que interpretam personagens${titulo ? `. Título desta live: "${titulo}"` : ""}`;
+};
+const PEDIDO_MOMENTOS = `Este é um trecho de áudio de TIPO_LIVE.
+Liste os principais acontecimentos deste trecho: momentos da história ou da conversa (revelações, combates, mortes, decisões, assuntos marcantes, perguntas respondidas) e momentos da mesa (piadas que todos riram, pausas, intervalo, abertura e encerramento).
+Para cada um, informe o segundo deste trecho em que começa, um título curto (até 8 palavras, sem ponto final) e uma frase de contexto (até 25 palavras), em português padrão, com acentos, vírgulas e ponto final.
+Seja factual: use só nomes de pessoas, personagens e lugares que foram ditos claramente. Não invente.
+Quase toda live começa com uma contagem regressiva (timer) de alguns minutos, às vezes mais de uma seguida, só com música e sem ninguém falando; a conversa ou a sessão só começa depois.
+Trechos só com música, vinheta, timer ou contagem regressiva viram no máximo um momento ("Contagem para o início", "Abertura" ou "Intervalo"); ignore letras de música e não trate o que toca na música como fala de alguém.
+Cada momento resume um BLOCO de 5 a 10 minutos: o assunto principal daquele bloco e o que aconteceu de mais marcante nele, como um capítulo. Não crie um momento para cada fala ou frase; junte as falas do mesmo assunto num só.
+O "segundo" é onde o bloco começa. O contexto conta o que rolou no bloco todo, não só a primeira frase. Não repita momentos parecidos.
+Num trecho de 30 minutos, gere de 3 a 6 momentos.
+Exceção: marcos e anúncios (recorde de espectadores, número de inscritos ou seguidores alcançado, novidade anunciada, convidado surpresa, data do próximo episódio) SEMPRE viram um momento próprio, mesmo curto e no meio de outro assunto.
+Use o chat como pista: quando muita gente manda a mesma coisa ao mesmo tempo (ex.: "(30 pessoas)"), algo aconteceu ali; procure na fala o que foi e, se for um marco ou algo marcante, crie o momento.`;
 const ESQUEMA_MOMENTOS = { type: "ARRAY", items: { type: "OBJECT", properties: {
   segundo: { type: "INTEGER" }, titulo: { type: "STRING" }, contexto: { type: "STRING" }, tipo: { type: "STRING", enum: ["historia", "mesa"] }, chat: { type: "STRING" } },
   required: ["segundo", "titulo", "contexto", "tipo"] } };
@@ -832,21 +889,34 @@ const ESQUEMA_MOMENTOS = { type: "ARRAY", items: { type: "OBJECT", properties: {
 function chatDoTrecho(id, inicio, segundos) {
   let linhas; try { linhas = fs.readFileSync(path.join(CHATLOG, id.replace(/[^\w-]/g, "_") + ".jsonl"), "utf8").split("\n"); } catch { return ""; }
   const t0 = inicio.getTime(), t1 = t0 + segundos * 1000, l = [];
+  // limpa o chat: emote repetido vira "cellClap x5", "kkkkkkk" vira "kkk", e a mesma mensagem dentro de 10 s entra uma vez só com quantas vezes apareceu
+  const vistos = new Map();
   for (const s of linhas) {
     if (!s) continue;
     let m; try { m = JSON.parse(s); } catch { continue; }
     const t = new Date(m.q).getTime();
-    if (t >= t0 && t < t1) l.push(Math.round((t - t0) / 1000) + " " + String(m.t).replace(/\s+/g, " ").slice(0, 120));
+    if (t < t0 || t >= t1) continue;
+    const txt = String(m.t).replace(/\s+/g, " ").replace(/\b([kK]{3})[kK]+\b/g, "$1").replace(/(\S+)( \1)+/g, (a, e) => e + " x" + a.split(" ").length).slice(0, 120).trim();
+    if (!txt) continue;
+    const seg = Math.round((t - t0) / 1000), chave = Math.floor(seg / 10) + "|" + txt.toLowerCase();
+    if (vistos.has(chave)) { vistos.get(chave).n++; continue; }
+    const item = { seg, txt, n: 1 }; vistos.set(chave, item); l.push(item);
   }
   const passo = Math.max(1, l.length / 3000);
-  return Array.from({ length: Math.min(l.length, 3000) }, (_, i) => l[Math.floor(i * passo)]).join("\n");
+  return Array.from({ length: Math.min(l.length, 3000) }, (_, i) => l[Math.floor(i * passo)]).map(x => x.seg + " " + x.txt + (x.n > 1 ? ` (${x.n} pessoas)` : "")).join("\n");
 }
+// o que cada emote do canal mostra (ref/emotes.json, feito olhando as imagens), só dos que aparecem no trecho
+let EMOTES; try { EMOTES = JSON.parse(fs.readFileSync(path.join(__dirname, "ref", "emotes.json"), "utf8")); } catch { EMOTES = {}; }
+const emotesDoChat = chat => { const usados = Object.keys(EMOTES).filter(e => chat.includes(e)); return usados.length ? "Significado dos emotes (o chat se expressa muito por eles):\n" + usados.map(e => e + " = " + EMOTES[e]).join("\n") + "\n" : ""; };
 const PEDIDO_CHAT = `
-Abaixo estão mensagens do chat da live neste mesmo trecho (cada linha: segundo do trecho e o texto).
-Para cada momento, preencha "chat" com um resumo de até 15 palavras do que o chat estava falando ou como reagiu logo depois do momento (ex.: "rindo da piada do Grifo e pedindo replay"). Em português, sem citar nomes de quem escreveu. Se o chat não reagiu ao momento, deixe "chat" vazio.
+Abaixo estão mensagens do chat da live neste mesmo trecho (cada linha: segundo do trecho e o texto; "x5" é o emote repetido 5 vezes e "(12 pessoas)" é a mesma mensagem mandada por 12 pessoas).
+Para cada momento, preencha "chat" com uma frase de 8 a 18 palavras que COMEÇA com "O chat" e diz como ele reagiu durante aquele bloco: a emoção principal (rindo, aplaudindo, com medo, revoltado, emocionado, surpreso, especulando teorias, fazendo perguntas) MAIS do que estavam falando, tirado das mensagens daquele bloco (um nome, uma piada, uma pergunta que se repetiu).
+Escreva com as suas palavras a partir das mensagens reais; não use frases prontas nem invente pedidos ou piadas que não aparecem nas mensagens. Uma palavra solta (como "carinho") não serve.
+Use os significados dos emotes para entender a emoção, mas não escreva o nome dos emotes. Não cite quem escreveu. Deixe "chat" vazio só se quase não houver mensagens no bloco.
+EMOTES_DO_TRECHO
 Mensagens do chat:
 `;
-async function geminiAudio(arq, chat = "") {
+async function geminiAudio(arq, chat = "", ep = {}) {
   const k = { "x-goog-api-key": env.GEMINI_API_KEY };
   const tam = fs.statSync(arq).size;
   const ini = await fetch(`${GEMINI}/upload/v1beta/files`, { method: "POST", headers: { ...k, "X-Goog-Upload-Protocol": "resumable", "X-Goog-Upload-Command": "start",
@@ -855,7 +925,7 @@ async function geminiAudio(arq, chat = "") {
   let f = (await up.json()).file;
   while (f?.state === "PROCESSING") { await new Promise(r => setTimeout(r, 5000)); f = await (await fetch(`${GEMINI}/v1beta/${f.name}`, { headers: k })).json(); }
   if (f?.state !== "ACTIVE") throw new Error("gemini: arquivo não ficou pronto");
-  const corpo = JSON.stringify({ contents: [{ parts: [{ fileData: { fileUri: f.uri, mimeType: f.mimeType } }, { text: PEDIDO_MOMENTOS + (glossario() ? "\nUse exatamente a grafia oficial destes nomes (o áudio pode soar diferente):\n" + glossario() : "") + (chat ? PEDIDO_CHAT + chat : "") }] }], generationConfig: { responseMimeType: "application/json", responseSchema: ESQUEMA_MOMENTOS } });
+  const corpo = JSON.stringify({ contents: [{ parts: [{ fileData: { fileUri: f.uri, mimeType: f.mimeType } }, { text: PEDIDO_MOMENTOS.replace("TIPO_LIVE", tipoLive(ep)) + (glossario() ? "\nUse exatamente a grafia oficial destes nomes (o áudio pode soar diferente):\n" + glossario() : "") + (chat ? PEDIDO_CHAT.replace("EMOTES_DO_TRECHO", emotesDoChat(chat)) + chat : "") }] }], generationConfig: { responseMimeType: "application/json", responseSchema: ESQUEMA_MOMENTOS } });
   // só o modelo principal; um reserva (GEMINI_RESERVA) entra só se for definido no .env, porque os resumos dele são piores
   let j;
   for (const modelo of [env.GEMINI_MODELO || "gemini-3.8-flash", env.GEMINI_RESERVA].filter(Boolean)) {
@@ -873,6 +943,70 @@ async function geminiAudio(arq, chat = "") {
   if (j.error) throw Object.assign(new Error("gemini: " + j.error.message), { codigo: j.error.code });
   return JSON.parse(j.candidates[0].content.parts[0].text);
 }
+// reserva do Gemini pelo Groq (plano grátis): o Whisper transcreve com o segundo de cada fala e o GPT-OSS 120B tira os momentos do texto
+// https://console.groq.com/docs — limites do grátis: ~8 h de áudio e ~100 mil tokens por dia, por isso o chat vai numa amostra menor
+const GROQ = "https://api.groq.com/openai/v1";
+async function groqAudio(arq, chat = "", ep = {}) {
+  const h = { Authorization: "Bearer " + env.GROQ_API_KEY };
+  // a transcrição fica guardada do lado do áudio: se o resumo falhar, a nova tentativa não gasta de novo o limite de áudio por hora
+  const guardada = arq.replace(/\.ogg$/, ".transcricao.json");
+  let tr; try { tr = JSON.parse(fs.readFileSync(guardada, "utf8")); } catch {}
+  if (!tr) {
+  const form = new FormData();
+  form.append("file", new Blob([fs.readFileSync(arq)], { type: "audio/ogg" }), path.basename(arq));
+  form.append("model", env.GROQ_TRANSCRICAO || "whisper-large-v3");
+  form.append("language", "pt"); form.append("response_format", "verbose_json");
+  tr = await fetch(`${GROQ}/audio/transcriptions`, { method: "POST", headers: h, body: form }).then(r => r.json()).catch(e => ({ error: { code: 503, message: e.message } }));
+  if (tr.error) throw Object.assign(new Error("groq: " + (tr.error.message || tr.error)), { codigo: tr.error.code === "rate_limit_exceeded" ? 429 : tr.error.code });
+  fs.writeFileSync(guardada, JSON.stringify({ segments: (tr.segments || []).map(s => ({ start: s.start, text: s.text })) }));
+  }
+  const falas = (tr.segments || []).map(s => [Math.round(s.start), s.text.trim()]).filter(f => f[1]);
+  if (!falas.length) return [];
+  // o grátis aceita ~8 mil tokens por minuto (pedido + resposta): a transcrição vai em pedaços de ~8 mil letras, cada um com o chat do mesmo trecho, e 65 s entre eles
+  const chatL = (chat ? chat.split("\n") : []).map(l => [+l.split(" ")[0], l]);
+  const pedacos = []; let atual = [], tam = 0;
+  for (const f of falas) { if (tam > 8000) { pedacos.push(atual); atual = []; tam = 0; } atual.push(f); tam += f[1].length + 6; }
+  if (atual.length) pedacos.push(atual);
+  const glos = glossario();
+  const todos = [];
+  for (const [i, p] of pedacos.entries()) {
+    if (i) await new Promise(r => setTimeout(r, 65_000));
+    const de = p[0][0], ate = pedacos[i + 1]?.[0][0] ?? Infinity;
+    const doTrecho = chatL.filter(([s]) => s >= de && s < ate), passo = Math.max(1, doTrecho.length / 60);
+    const amostra = Array.from({ length: Math.min(doTrecho.length, 60) }, (_, k) => doTrecho[Math.floor(k * passo)][1]).join("\n");
+    const pedido = PEDIDO_MOMENTOS.replace("TIPO_LIVE", tipoLive(ep)).replace("Este é um trecho de áudio", "Esta é a transcrição de um trecho de áudio (cada linha: segundo do trecho e a fala)")
+      + (glos ? "\nUse exatamente a grafia oficial destes nomes (a transcrição pode ter errado):\n" + glos : "")
+      + (amostra ? PEDIDO_CHAT.replace("EMOTES_DO_TRECHO", emotesDoChat(amostra)) + amostra : "")
+      + `\nEste pedaço da transcrição tem cerca de ${Math.max(1, Math.round(((pedacos[i + 1]?.[0][0] ?? p.at(-1)[0]) - de) / 60))} minutos: gere no máximo ${Math.max(1, Math.round(((pedacos[i + 1]?.[0][0] ?? p.at(-1)[0]) - de) / 60 / 6))} momento(s), cada um resumindo um bloco de 5 a 10 minutos.`
+      + `\nResponda só com JSON no formato {"momentos":[{"segundo":0,"titulo":"","contexto":"","tipo":"historia ou mesa","chat":""}]}.\nTranscrição:\n` + p.map(f => f[0] + " " + f[1]).join("\n");
+    // se o modelo devolver um JSON quebrado, tenta mais uma vez sem o modo JSON e tira o objeto do texto
+    let lista = null;
+    for (const modoJson of [true, false]) {
+      if (!modoJson) await new Promise(r => setTimeout(r, 65_000));
+      const j = await fetch(`${GROQ}/chat/completions`, { method: "POST", headers: { ...h, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: env.GROQ_MODELO || "openai/gpt-oss-120b", temperature: .3, reasoning_effort: "low", max_completion_tokens: 2500, ...(modoJson ? { response_format: { type: "json_object" } } : {}), messages: [{ role: "user", content: pedido }] }) })
+        .then(r => r.json()).catch(e => ({ error: { code: 503, message: e.message } }));
+      if (j.error && !/json/i.test(j.error.message || "")) throw Object.assign(new Error("groq: " + (j.error.message || j.error)), { codigo: j.error.code === "rate_limit_exceeded" ? 429 : j.error.code });
+      try { const t = j.choices[0].message.content; lista = JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1)).momentos || []; break; } catch { console.warn("groq: JSON quebrado no pedaço " + (i + 1) + (modoJson ? ", tentando de novo" : ", pulando")); }
+    }
+    todos.push(...(lista || []));
+  }
+  return todos;
+}
+// Gemini primeiro (ouve o áudio direto); se estiver sobrecarregado ou sem cota e houver GROQ_API_KEY, o Groq faz a mesma parte
+async function analisaAudio(arq, chat, ep) {
+  // ANALISE=groq no .env pula o Gemini (pra comparar a qualidade no computador)
+  if (env.ANALISE === "groq" && env.GROQ_API_KEY) return { lista: await groqAudio(arq, chat, ep), ia: "Groq" };
+  try { return { lista: await geminiAudio(arq, chat, ep), ia: "Gemini" }; }
+  catch (e) {
+    const passa = e.codigo === 429 || e.codigo === 503 || e.codigo === 500 || /high demand|overloaded|unavailable/i.test(e.message);
+    if (!env.GROQ_API_KEY || !passa) throw e;
+    console.warn(e.message, "; usando o Groq");
+    return { lista: await groqAudio(arq, chat, ep), ia: "Groq" };
+  }
+}
+// frase de resumo no português padrão: maiúscula no começo e ponto no fim (a IA às vezes esquece)
+const ponto = s => { s = String(s || "").trim().replace(/\s+/g, " "); if (!s) return s; s = s[0].toUpperCase() + s.slice(1); return /[.!?…]$/.test(s) ? s : s.replace(/[,;:]$/, "") + "."; };
 // a cada 2 min: partes de áudio completas viram momentos (rascunho) com a captura mais próxima
 let analisando = false, pausaAte = 0;
 async function analisaPartes() {
@@ -886,16 +1020,16 @@ async function analisaPartes() {
       const prontas = gravando?.id === id ? partes.slice(0, -1) : partes;
       for (const p of prontas) {
         const inicio = deHora14(p.slice(6, 21));
-        const lista = await geminiAudio(path.join(dir, p), chatDoTrecho(id, inicio, PARTE_MIN * 60));
+        const { lista, ia } = await analisaAudio(path.join(dir, p), chatDoTrecho(id, inicio, PARTE_MIN * 60), { temporada: records[id]?.temporada || episodios.lista.find(e => e.id === id)?.temporada, titulo: records[id]?.titulo });
         const caps = fs.readdirSync(path.join(dir, "capturas")).filter(f => f.endsWith(".jpg")).map(f => ({ f, t: deHora14(f.slice(0, 15)).getTime() }));
         const novos = lista.map(m => {
-          const t = inicio.getTime() + Math.max(0, Math.min(PARTE_MIN * 60, m.segundo)) * 1000;
+          const t = inicio.getTime() + Math.max(0, Math.min(PARTE_MIN * 60, Number(m.segundo) || 0)) * 1000;
           // a captura de live mais perto do momento (primeiro as de depois, depois as de antes), pulando intervalo comercial e tela preta
           const depois = caps.filter(c => c.t >= t).sort((a, b) => a.t - b.t), antes = caps.filter(c => c.t < t).sort((a, b) => b.t - a.t);
           const cap = [...depois.slice(0, 20), ...antes.slice(0, 20)].find(c => !foraDaLive(path.join(dir, "capturas", c.f)));
           let captura = null;
           if (cap) { captura = cap.f; fs.mkdirSync(path.join(MOMENTOS, id, "capturas"), { recursive: true }); fs.copyFileSync(path.join(dir, "capturas", cap.f), path.join(MOMENTOS, id, "capturas", cap.f)); }
-          return { quando: new Date(t).toISOString(), titulo: String(m.titulo).slice(0, 80), contexto: String(m.contexto).slice(0, 240), tipo: m.tipo === "mesa" ? "mesa" : "historia", captura, chatResumo: m.chat ? String(m.chat).slice(0, 160) : undefined, aprovado: false, seg: (t - inicio.getTime()) / 1000 };
+          return { quando: new Date(t).toISOString(), titulo: String(m.titulo).replace(/\.$/, "").slice(0, 80), contexto: ponto(m.contexto).slice(0, 240), tipo: m.tipo === "mesa" ? "mesa" : "historia", captura, chatResumo: m.chat ? ponto(m.chat).slice(0, 160) : undefined, ia, aprovado: false, seg: (t - inicio.getTime()) / 1000 };
         });
         // trecho de 1 min do áudio de cada momento (5 s antes até 55 s depois), pra ouvir no painel e conferir o resumo
         fs.mkdirSync(path.join(MOMENTOS, id, "audio"), { recursive: true });
@@ -906,9 +1040,9 @@ async function analisaPartes() {
           delete m.seg;
         }
         salvaMomentos(id, [...leMomentos(id), ...novos].sort((a, b) => a.quando.localeCompare(b.quando)));
-        fs.unlinkSync(path.join(dir, p));
+        fs.unlinkSync(path.join(dir, p)); fs.rmSync(path.join(dir, p.replace(/\.ogg$/, ".transcricao.json")), { force: true });
         console.log("momentos:", id, p, novos.length);
-        marca("Gemini", true, novos.length + " momentos novos em rascunho");
+        marca("Gemini", true, novos.length + " momentos novos em rascunho" + (ia !== "Gemini" ? ", feitos pelo " + ia : ""));
       }
       // live acabou e tudo analisado: apaga o que sobrou da gravação
       if (gravando?.id !== id && !fs.readdirSync(dir).some(f => f.endsWith(".ogg"))) fs.rmSync(dir, { recursive: true, force: true });
@@ -917,7 +1051,9 @@ async function analisaPartes() {
     // cota gratuita acabou: as partes ficam guardadas e a análise tenta de novo de hora em hora até a cota renovar
     // Gemini sobrecarregado (503/500): cada tentativa gasta da cota do dia, então espera 15 min em vez de tentar a cada 2 min
     const sobrecarga = e.codigo === 503 || e.codigo === 500 || /high demand|overloaded|unavailable/i.test(e.message);
-    if (e.codigo === 429) pausaAte = Date.now() + 3600e3;
+    // o Groq diz quanto esperar ("try again in 8m3s"); sem isso, espera 1 h como no Gemini
+    const espera = String(e.message).match(/try again in (?:(\d+)h)?(?:(\d+)m)?([\d.]+)s/i);
+    if (e.codigo === 429) pausaAte = Date.now() + (espera ? ((+espera[1] || 0) * 3600 + (+espera[2] || 0) * 60 + +espera[3] + 20) * 1000 : 3600e3);
     else if (sobrecarga) pausaAte = Date.now() + 15 * 60e3;
     marca("Gemini", false, e.codigo === 429 ? "cota gratuita do dia esgotada; tenta de novo de hora em hora" : sobrecarga ? "Gemini sobrecarregado; tenta de novo em 15 min" : e.message);
     console.warn(e.message);
@@ -1002,7 +1138,7 @@ const SEGURANCA = {
   "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "strict-origin-when-cross-origin",
   "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
   // clipes: player oficial da Twitch num quadro e as miniaturas dos clipes
-  "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://static-cdn.jtvnw.net https://clips-media-assets2.twitch.tv; media-src 'self' blob:; connect-src 'self'; frame-src https://clips.twitch.tv; frame-ancestors 'none'",
+  "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://static-cdn.jtvnw.net https://clips-media-assets2.twitch.tv https://cdn.7tv.app https://cdn.betterttv.net https://cdn.frankerfacez.com; media-src 'self' blob:; connect-src 'self'; frame-src https://clips.twitch.tv; frame-ancestors 'none'",
 };
 
 http.createServer(async (req, res) => {

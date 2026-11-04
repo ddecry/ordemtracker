@@ -128,18 +128,35 @@ body.encerrado .clockw .dot{display:none}
 /* letra maior no cartão do momento pra aproveitar o espaço; no celular volta pro tamanho normal */
 .cena-slot{font-size:clamp(12.5px,.9vw,15px);height:max(calc(clamp(140px,12.5vw,250px) * .5625), 7.2em)}
 .cena-slot .cena{gap:14px}
-.cena-slot .cena img{width:clamp(140px,12.5vw,250px);border-radius:9px}
+.cena-slot .cena #cenaImg{width:clamp(140px,12.5vw,250px);border-radius:9px}
 .cena-slot .cena b{font-size:1.12em}
 .cena-slot .cena p{font-size:1em}
-@media (max-width:800px),(max-aspect-ratio:1/1){.cena-slot{font-size:1em;height:max(calc(128px * .5625), 7.6em)}.cena-slot .cena img{width:128px}.cena p{-webkit-line-clamp:2}}
-.cena img{width:clamp(128px,13vw,210px);aspect-ratio:16/9;object-fit:cover;border-radius:8px;background:var(--panel2)}
-.cena img[hidden]{display:none}
+@media (max-width:800px),(max-aspect-ratio:1/1){.cena-slot{font-size:1em;height:max(calc(128px * .5625), 7.6em)}.cena-slot .cena #cenaImg{width:128px}.cena p{-webkit-line-clamp:2}}
+#cenaImg{width:clamp(128px,13vw,210px);aspect-ratio:16/9;object-fit:cover;border-radius:8px;background:var(--panel2)}
+#cenaImg[hidden]{display:none}
 .cena small{color:var(--mut);font-size:.8em;margin-right:.5em}
-.cena .cena-chat{margin:0 0 .4em;font-size:.85em;line-height:1.4;color:var(--mut);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+/* texto do momento: título numa linha, descrição e chat cortados com "...", rodapé com os links e, à direita, a agitação e os emotes;
+   a coluna de texto pode encolher (minmax 0), assim nada passa da linha nem muda o tamanho do cartão */
+.cena{grid-template-columns:auto minmax(0,1fr)}
+.cena-txt{display:flex;flex-direction:column;min-width:0;height:100%}
+.cena-topo{display:flex;align-items:baseline;min-width:0}
+.cena-topo b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+/* o resumo do chat aparece inteiro; se não couber, o texto do cartão diminui um pouco (ajustaCena), sem mudar o tamanho do cartão */
+.cena .cena-txt p#cenaC{-webkit-line-clamp:3;margin:.15em 0 .2em;line-height:1.3}
+.cena .cena-txt .cena-chat{line-height:1.3;margin:0 0 .15em;display:block;-webkit-line-clamp:unset}
+.cena-txt{overflow:hidden}
+.cena-txt>*{flex-shrink:0}
+.cena .cena-chat{margin:0 0 .3em;font-size:.88em;line-height:1.4;color:var(--tx);opacity:.85;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden}
 .cena .cena-chat[hidden]{display:none}
-.cena-chat b{color:var(--tx);font-weight:600}
-.cena-chat b.quente{color:var(--red)}
-.cena-chat span{margin-left:.35em}
+.cena-pe{display:flex;align-items:center;gap:0 1em;margin-top:auto;white-space:nowrap;min-width:0}
+.cena-pe .cena-corr{margin-left:0}
+.cena-reac{margin-left:auto;display:inline-flex;align-items:center;gap:4px;color:var(--mut);font-size:.8em;font-weight:600}
+.cena-reac[hidden]{display:none}
+.cena-reac.quente{color:var(--red)}
+.cena-reac img{width:1.9em;height:1.9em;object-fit:contain}
+.cena-pe .curto{display:none}
+/* celular: rótulos curtos e só os emotes no rodapé, pra caber na largura do texto */
+@media (max-width:800px),(max-aspect-ratio:1/1){.cena-pe{gap:0 .65em}.cena-pe .longo{display:none}.cena-pe .curto{display:inline}.cena-reac{font-size:0;gap:2px}.cena-reac img{width:22px;height:22px}.cena-reac img:nth-of-type(n+3){display:none}}
 .cena b{font-size:1.05em}
 .cena p{margin:.25em 0 .4em;color:var(--mut);font-size:.92em;line-height:1.4}
 .cena a,.cena-corr{color:var(--tx);font-size:.8em;font-weight:600}
@@ -383,7 +400,7 @@ body.espera-vivo .espera .cap{color:var(--red)}
 .esp-acoes .sbtn[hidden]{display:none}
 .esp-capa{position:relative;overflow:hidden;display:grid;place-items:center}
 .esp-capa::before{content:"";position:absolute;inset:0;background:var(--fundo) center/cover no-repeat;transition:filter .4s}
-.esp-capa.previa::before{filter:blur(2.5px) brightness(.9);transform:scale(1.03)}
+.esp-capa.previa::before{filter:blur(1.2px) brightness(.9);transform:scale(1.01)}
 .esp-logo{position:relative;width:62%;max-height:70%;object-fit:contain;filter:drop-shadow(0 4px 24px rgba(0,0,0,.6))}
 .espera{grid-template-columns:minmax(0,min(40vw,660px)) auto;justify-content:center;align-content:center}
 @media (max-width:800px),(max-aspect-ratio:1/1){.espera{grid-template-columns:1fr;gap:20px}.esp-cont{gap:14px}.esp-acoes{flex-wrap:wrap}}
@@ -483,7 +500,7 @@ body.carregando .main,body.carregando .strip,body.carregando .espera{visibility:
 body.carregando .top>:not(.marcas),body.carregando #inicioMais{opacity:0;visibility:hidden}
 /* as animações de entrada esperam a página ser revelada, senão terminam escondidas */
 body.carregando .col,body.carregando .strip,body.carregando .espera{animation:none}
-.ep img.borrada{filter:blur(3px) brightness(.8)}
+.ep img.borrada{filter:blur(1.2px) brightness(.85)}
 .ep .sem-capa{width:168px;aspect-ratio:16/9;border-radius:8px;background:var(--panel2)}
 .seletor{position:relative}
 /* menu aberto: a coluna dele fica por cima das outras (senão o gráfico aparece por cima do menu) */
@@ -534,7 +551,10 @@ button.ep-titulo:hover .seta{color:var(--tx)}
   .strip .sl .st,.strip .sr .st{padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;gap:2px}
   .strip .sr .st:last-child{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;align-items:baseline;column-gap:12px}
   .strip .sr .st:last-child .lbl{flex-basis:100%}
-  .cena-slot{min-height:0}
+  /* cartão do momento com a mesma altura em todos os momentos: cabe título, 2 linhas de descrição, o chat e o rodapé */
+  .cena-slot{min-height:0;height:136px}
+  .cena-slot:not([hidden]){grid-template-rows:136px}
+  .cena-slot .cena{height:136px}
   .strip .st b{font-size:18px}
   /* picos: 2 por linha, mesma grade dos números das plataformas */
   .lado .picos{gap:.5em 1em;font-size:14px}
@@ -602,7 +622,8 @@ button.ep-titulo:hover .seta{color:var(--tx)}
   <div class="col">
     <div class="box chartbox"><div class="lbl">Viewers ao vivo</div><div class="cw"><canvas id="g"></canvas><div class="futuro-aviso" id="futAviso" hidden><span class="cap">Ainda não começou, começa em</span><b class="num" id="futCont"></b><small class="mut" id="futData"></small><p class="mut">Pode deixar esta página aberta: quando a live começar, os números começam a mudar aqui sozinhos.</p></div></div>
       <div class="cena-slot" id="cenaSlot" hidden><div class="cena-faixa" id="cenaDica"><small>Momentos do episódio</small><div id="cenaThumbs"></div></div><p class="cena-aviso" id="cenaAviso" hidden>O resto do episódio ainda está sendo resumido. Os próximos momentos aparecem aqui assim que forem revisados.</p>
-      <div class="cena" id="cena" hidden><img id="cenaImg" alt=""><div><small class="num" id="cenaH"></small><b id="cenaT"></b><p id="cenaC"></p><p class="cena-chat" id="cenaChat" hidden></p><a id="cenaYT" target="_blank" rel="noopener">Ver no YouTube</a><button class="cena-corr" id="cenaCorr" type="button">Sugerir correção</button><button class="cena-corr" id="cenaTodas" type="button">Todas as cenas</button></div></div></div>
+      <div class="cena" id="cena" hidden><img id="cenaImg" alt=""><div class="cena-txt"><div class="cena-topo"><small class="num" id="cenaH"></small><b id="cenaT"></b></div><p id="cenaC"></p><p class="cena-chat" id="cenaChat" hidden></p>
+        <div class="cena-pe"><a id="cenaYT" target="_blank" rel="noopener"><span class="longo">Ver no </span>YouTube</a><button class="cena-corr" id="cenaCorr" type="button"><span class="longo">Sugerir correção</span><span class="curto">Corrigir</span></button><button class="cena-corr" id="cenaTodas" type="button">Todas<span class="longo"> as cenas</span></button><span class="cena-reac" id="cenaReac" hidden></span></div></div></div></div>
       <div class="linha-t" id="linhaT" hidden><span class="num mut ponta" id="linhaI"></span><input type="range" id="linhaR" min="0" max="0" value="0" step="any" aria-label="Ver os números em outro momento da live"><span class="num mut ponta" id="linhaF"></span><span class="num mut" id="linhaH"></span><button id="linhaV" hidden>Ao vivo</button><span class="bolha num" id="linhaB"></span></div>
     </div>
       <div class="recs lado">
@@ -826,6 +847,20 @@ function noVideo(r, id, seg) {
   const desc = r.cortes.filter(([de]) => de <= seg).at(-1)?.[1] || 0;
   return [r.video, Math.max(0, Math.round(seg - desc))];
 }
+// cartão do momento: começa no tamanho normal e, se o texto passar da altura, diminui a letra aos poucos (até 72%);
+// se ainda assim não couber, a descrição fica com menos linhas, mas o resumo do chat continua inteiro
+function ajustaCena() {
+  const t = document.querySelector(".cena-txt"); if (!t) return;
+  t.style.fontSize = ""; $("cenaC").style.webkitLineClamp = "";
+  const passa = () => t.scrollHeight > t.clientHeight + 1;
+  for (let f = 96; passa() && f >= 72; f -= 4) t.style.fontSize = f + "%";
+  for (let l = 2; passa() && l >= 1; l--) $("cenaC").style.webkitLineClamp = l;
+}
+addEventListener("resize", () => { if (!$("cena").hidden) ajustaCena(); });
+// a fonte do site chega depois do primeiro desenho e muda a largura do texto: mede de novo quando ela carregar
+document.fonts?.ready.then(() => { if (!$("cena").hidden) ajustaCena(); });
+// frase de resumo no português padrão: começa com maiúscula e termina com ponto
+const ponto = s => { s = String(s || "").trim().replace(/\s+/g, " "); if (!s) return s; s = s[0].toUpperCase() + s.slice(1); return /[.!?…]$/.test(s) ? s : s.replace(/[,;:]$/, "") + "."; };
 function mostraCena(t) {
   let c = t == null ? null : cenaEm(t);
   // mesmo momento de antes: nada pra trocar (evita recarregar a imagem a cada quadro)
@@ -837,13 +872,18 @@ function mostraCena(t) {
   $("cena").hidden = !c;
   if (!c) return;
   $("cenaCorr").dataset.t = c.t;
-  $("cenaH").textContent = hm(c.t); $("cenaT").textContent = c.titulo; $("cenaC").textContent = c.contexto;
+  $("cenaH").textContent = hm(c.t); $("cenaT").textContent = c.titulo; $("cenaC").textContent = ponto(c.contexto);
   // reação do chat naquele trecho: quanto agitou em relação à média da live e o que mais gente escreveu
   // reação do chat: o resumo do que o chat falava (feito pelo Gemini junto com o momento);
   // "mais agitado" só quando o chat ficou bem acima do normal
   const ch = c.chat, agitado = ch && ch.ritmo >= 1.3, resumo = c.chatResumo;
-  $("cenaChat").hidden = !resumo && !agitado;
-  $("cenaChat").innerHTML = `<b class="${ch?.ritmo >= 1.5 ? "quente" : ""}">${agitado ? `Chat ${ch.ritmo.toLocaleString("pt-BR")}x mais agitado` : "Chat"}${resumo ? ":" : ""}</b>${resumo ? `<span>${esc(resumo)}</span>` : ""}`;
+  // linha do chat: só o resumo ("O chat comemorou..."); no rodapé, à direita, quanto agitou e os emotes que mais gente mandou (imagem oficial, animada quando é)
+  $("cenaChat").hidden = !resumo; $("cenaChat").textContent = resumo ? ponto(resumo) : "";
+  const emts = (ch?.top || []).filter(x => x.img).slice(0, 3).map(x => `<img src="${esc(x.img)}" alt="${esc(x.p)}" title="${esc(x.p)}: ${x.n} pessoas" loading="lazy">`).join("");
+  $("cenaReac").hidden = !agitado && !emts;
+  $("cenaReac").className = "cena-reac" + (ch?.ritmo >= 1.5 ? " quente" : "");
+  $("cenaReac").innerHTML = (agitado ? `${ch.ritmo.toLocaleString("pt-BR")}x mais agitado` : "") + emts;
+  ajustaCena();
   $("cenaImg").hidden = !c.captura; if (c.captura) $("cenaImg").src = c.captura;
   // link pro mesmo ponto no vídeo do YouTube, pelo horário real do momento
   const r = ultimo?.records[ultimo.ver], ini = r?.inicioLive && new Date(r.inicioLive).getTime();
@@ -1457,7 +1497,7 @@ function montaInicio(d) {
         const vivo = d.aoVivo && id === d.ver;
         return `<a class="cartao" href="/ep/${e.slug || id}"><img src="/capa/${id}.jpg" alt="" loading="lazy"><span class="selo${vivo ? " vivo" : ""}">${vivo ? "AO VIVO, " + f(d.atual?.total) : "Pico " + f(e.recorde)}</span>
           <span class="c-info"><b>${esc(nomeEp(id, e).replace(t + " - ", ""))}${e.nome ? ": “" + esc(e.nome) + "”" : ""}</b><small>${dia(e)}${e.media ? ", média de " + f(e.media) : ""}</small></span></a>`; });
-      const prox = (d.proximos || []).filter(p => p.temporada === t).map(p => `<a class="cartao" href="/ep/${esc(p.slug || p.id)}"><img src="${p.id.startsWith("ag-") ? `/capa/${lista[0][0]}.jpg` : `/capa/${p.id}.jpg`}" alt="" loading="lazy" style="filter:blur(3px) brightness(.6)"><span class="selo">Em breve</span>
+      const prox = (d.proximos || []).filter(p => p.temporada === t).map(p => `<a class="cartao" href="/ep/${esc(p.slug || p.id)}"><img src="${p.id.startsWith("ag-") ? `/capa/${lista[0][0]}.jpg` : `/capa/${p.id}.jpg`}" alt="" loading="lazy" style="filter:blur(1.2px) brightness(.7)"><span class="selo">Em breve</span>
           <span class="c-info"><b>${esc((p.titulo || "Próximo episódio").replace(new RegExp("^" + t + "\\s*-\\s*", "i"), ""))}</b><small>${new Date(p.data).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })} às ${hm(new Date(p.data))}</small></span></a>`);
       return `<div class="fileira"><div class="f-top"><h2>${esc(t)}</h2><small>${lista.length} ${lista.length > 1 ? "episódios" : "episódio"}</small>${setas}</div><div class="f-trilho">${cartoes.join("") + prox.join("")}</div></div>`;
     }).join("");
