@@ -355,7 +355,7 @@ body.encerrado .clockw .dot{display:none}
 .strip.poucos{display:flex;justify-content:center;gap:0}.strip.poucos .sl,.strip.poucos .sr{display:contents}.strip.poucos .st{flex:0 1 240px;align-items:center;text-align:center;border-left:1px solid var(--line);padding:0 2vw}.strip.poucos .st:not([hidden]){border-left:1px solid var(--line)}.strip.poucos>.sl>.st:first-child{border-left:0}
 .plats.poucos{justify-content:center;gap:.3em 2.4em}
 .plats>[hidden],.strip .st[hidden],.sr:not(:has(.st:not([hidden]))){display:none!important}
-@media (max-width:800px),(max-aspect-ratio:1/1){html,body{overflow-x:clip}.main,.strip{grid-template-columns:minmax(0,1fr)}.main>*,.col{min-width:0}.strip{gap:12px}.sl,.sr{flex-wrap:wrap;row-gap:12px}.sr{border-left:0;padding-left:0}}
+@media (max-width:800px),(max-aspect-ratio:1/1){html,body{overflow-x:hidden;overflow-x:clip}.main,.strip{grid-template-columns:minmax(0,1fr)}.main>*,.col{min-width:0}.strip{gap:12px}.sl,.sr{flex-wrap:wrap;row-gap:12px}.sr{border-left:0;padding-left:0}}
 .onde{gap:2.2vh}
 .onde-t{font:600 11px Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.7)}
 .onde-l{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;width:min(88%,460px)}
@@ -402,7 +402,7 @@ body.espera-vivo .espera .cap{color:var(--red)}
 .esp-sobre{grid-column:1/-1;justify-self:center;text-align:center;margin:0 0 1vh;max-width:40em;font:500 clamp(16px,2.4vh,22px)/1.45;align-self:start "Inter Tight",Inter,sans-serif;letter-spacing:-.01em;color:var(--mut)}
 .esp-sobre b{display:block;color:var(--tx);font:700 clamp(22px,3.4vh,34px)/1.2 "Inter Tight",Inter,sans-serif;letter-spacing:-.02em;margin-bottom:.35em}
 /* fila de episódios andando sem parar no fim da primeira tela; ao rolar, ela some e os episódios se espalham nas temporadas */
-.esp-fila{--cw:clamp(190px,15vw,260px);display:none;position:relative;overflow:hidden;height:calc(var(--cw) * .5625 * .45);margin:0 -2vw;padding-top:6px;opacity:calc(.6 * (1 - var(--rola,0)));transform:translateY(calc(var(--rola,0) * 40px)) scale(calc(1 + var(--rola,0) * .05));
+.esp-fila{--cw:clamp(190px,15vw,260px);display:none;position:relative;overflow:hidden;contain:paint;height:calc(var(--cw) * .5625 * .45);margin:0 -2vw;padding-top:6px;opacity:calc(.6 * (1 - var(--rola,0)));transform:translateY(calc(var(--rola,0) * 40px)) scale(calc(1 + var(--rola,0) * .05));
   -webkit-mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);pointer-events:none}
 body.modo-espera .esp-fila{display:block}
 .ef-trilho{display:flex;gap:14px;width:max-content;animation:anda var(--tempo,60s) linear infinite}
@@ -453,8 +453,8 @@ body.modo-espera .esp-fila{display:block}
   .st{padding:0 12px 0 0;border-left:0}
 }
 /* página inicial: embaixo do destaque, rolando, os recordes, os episódios e os clipes */
-body.modo-espera{height:auto;min-height:100%;overflow:auto}
-html:has(body.modo-espera){height:auto;overflow:auto}
+body.modo-espera{height:auto;min-height:100%;overflow-y:auto;overflow-x:hidden;overflow-x:clip}
+html:has(body.modo-espera){height:auto;overflow-y:auto;overflow-x:hidden;overflow-x:clip}
 /* na página inicial não tem episódio aberto: some o compartilhar */
 body.modo-espera #shareBtn{display:none!important}
 /* seta no pé da primeira tela chamando pra rolar; some depois que a pessoa rola */
@@ -521,7 +521,7 @@ body.carregando .col,body.carregando .strip,body.carregando .espera{animation:no
 .seletor{position:relative}
 /* menu aberto: a coluna dele fica por cima das outras (senão o gráfico aparece por cima do menu) */
 .col:has(.menu-eps.on),.box:has(.menu-eps.on){position:relative;z-index:45}
-@media (max-width:800px),(max-aspect-ratio:1/1){.menu-eps{min-width:0;width:calc(100vw - 32px);max-height:60vh}}
+@media (max-width:800px),(max-aspect-ratio:1/1){.menu-eps{min-width:0;width:calc(100vw - 32px - var(--sb,0px));max-height:60vh}}
 button.ep-titulo{display:inline-flex;align-items:center;gap:.3em;max-width:100%;background:none;border:0;padding:0;color:var(--tx);cursor:pointer;text-align:left}
 #epNome{flex:none}#epNum{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ep-titulo .seta{width:.7em;height:.7em;flex:none;color:var(--mut);transition:transform .2s}
@@ -1549,6 +1549,9 @@ function montaInicio(d) {
     $("efTrilho").style.setProperty("--tempo", Math.max(40, (volta.split("<img").length - 1) * 5) + "s");
   }
 }
+// largura da barra de rolagem (0 no celular), pra nada usar 100vw e passar da tela
+const marcaSb = () => document.documentElement.style.setProperty("--sb", Math.max(0, innerWidth - document.documentElement.clientWidth) + "px");
+addEventListener("resize", marcaSb); marcaSb();
 // ao rolar, a fila da primeira tela some aos poucos enquanto as temporadas aparecem
 addEventListener("scroll", () => document.body.style.setProperty("--rola", Math.min(1, (document.scrollingElement.scrollTop || 0) / (innerHeight * .35)).toFixed(3)), { passive: true });
 // seta da primeira tela: leva até as fileiras e some quando a pessoa já rolou
