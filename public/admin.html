@@ -15,6 +15,13 @@
 :root{--bg:#121212;--panel:#181818;--panel2:#242424;--line:#2a2a2a;--tx:#ededed;--mut:#8a8a8a;--red:#ef4444;--verde:#22c55e;--rn:url(/rn-branco.png)}
 :root[data-tema="claro"]{--bg:#f3f3f3;--panel:#fff;--panel2:#e7e7e7;--line:#ddd;--tx:#151515;--mut:#6e6e6e;--rn:url(/rn-preto.png)}
 /* cabeçalho igual ao do site: logo do Realitas, nome da página e atalhos */
+/* barras de rolagem finas nas cores do tema, em todas as áreas que rolam */
+*{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--mut) 45%,transparent) transparent}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--mut) 45%,transparent);border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background-color:var(--mut)}
+::-webkit-scrollbar-corner{background:transparent}
 .top{display:flex;align-items:center;gap:18px;height:60px;padding:0 24px;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;background:var(--bg)}
 .top .rn-logo{display:block;width:46px;height:46px;background:var(--rn) center/contain no-repeat;margin:0 -6px}
 .top .nome{font-weight:600;color:var(--mut)}

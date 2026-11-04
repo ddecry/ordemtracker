@@ -78,7 +78,7 @@ async function clipes(id) {
   if (!twitchId) return [];
   const ini = new Date(new Date(r.inicioLive || r.inicio).getTime() - 10 * 60e3).toISOString();
   const fim = new Date(r.fimLive ? new Date(r.fimLive).getTime() + 3600e3 : Date.now()).toISOString();
-  const j = await (await fetch(`https://api.twitch.tv/helix/clips?broadcaster_id=${twitchId}&started_at=${ini}&ended_at=${fim}&first=24`, { headers: h })).json();
+  const j = await (await fetch(`https://api.twitch.tv/helix/clips?broadcaster_id=${twitchId}&started_at=${ini}&ended_at=${fim}&first=50`, { headers: h })).json();
   const lista = (j.data || []).sort((a, b) => b.view_count - a.view_count).map(x => ({
     id: x.id, titulo: x.title, views: x.view_count, criador: x.creator_name, duracao: Math.round(x.duration), capa: x.thumbnail_url, quando: x.created_at,
   }));
@@ -859,8 +859,14 @@ async function geminiAudio(arq, chat = "") {
   // só o modelo principal; um reserva (GEMINI_RESERVA) entra só se for definido no .env, porque os resumos dele são piores
   let j;
   for (const modelo of [env.GEMINI_MODELO || "gemini-3.8-flash", env.GEMINI_RESERVA].filter(Boolean)) {
-    j = await fetch(`${GEMINI}/v1beta/models/${modelo}:generateContent`, { method: "POST", headers: { ...k, "Content-Type": "application/json" }, body: corpo })
-      .then(r => r.json()).catch(e => ({ error: { code: 503, message: e.cause?.code || e.message } }));
+    // sobrecarga costuma passar em segundos: tenta de novo com o mesmo arquivo já enviado (30 s, 1 min, 2 min) antes de desistir por 15 min
+    for (const espera of [30, 60, 120, 0]) {
+      j = await fetch(`${GEMINI}/v1beta/models/${modelo}:generateContent`, { method: "POST", headers: { ...k, "Content-Type": "application/json" }, body: corpo })
+        .then(r => r.json()).catch(e => ({ error: { code: 503, message: e.cause?.code || e.message } }));
+      const sobrecarga = j.error && (j.error.code === 503 || j.error.code === 500 || /high demand|overloaded|unavailable/i.test(j.error.message));
+      if (!sobrecarga || !espera) break;
+      await new Promise(r => setTimeout(r, espera * 1000));
+    }
     if (j.error?.code !== 429) break;
   }
   fetch(`${GEMINI}/v1beta/${f.name}`, { method: "DELETE", headers: k }).catch(() => {});
@@ -1005,8 +1011,14 @@ http.createServer(async (req, res) => {
   // clipes mais vistos da Twitch feitos durante o episódio
   if (url.pathname === "/api/clipes") {
     const p = url.searchParams.get("ep") || "", pub = publicos();
+    const doEp = id => clipes(id).catch(e => { console.warn("clipes: " + e.message); return []; });
+    // página inicial: clipes de todos os episódios do site juntos, cada um com o nome do episódio
+    if (p === "todos") {
+      const listas = await Promise.all(Object.keys(pub).map(async id => (await doEp(id)).map(c => ({ ...c, ep: id }))));
+      return json(res, 200, { lista: listas.flat().sort((a, b) => b.views - a.views) });
+    }
     const id = achaEp(pub, p);
-    return json(res, 200, { lista: id ? await clipes(id).catch(e => { console.warn("clipes: " + e.message); return []; }) : [] });
+    return json(res, 200, { lista: id ? await doEp(id) : [] });
   }
   // relatório do laboratório (só no computador): /api/lab?ep=<id>
   if (LAB && url.pathname === "/api/lab") return json(res, 200, LAB.relatorio(url.searchParams.get("ep") || epAtual || ""));

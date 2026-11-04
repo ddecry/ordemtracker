@@ -20,6 +20,13 @@
 html,body{height:100%;margin:0;overflow:hidden}
 body{display:grid;grid-template-rows:auto 1fr auto auto;grid-template-columns:minmax(0,1fr);gap:1.4vh;padding:1.8vh 2vw .8vh;
   background:var(--bg);color:var(--tx);font-family:Inter,system-ui,sans-serif;font-size:clamp(11px,1.5vh,15px);transition:background-color .3s,color .3s}
+/* barras de rolagem finas nas cores do tema, em todas as áreas que rolam */
+*{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--mut) 45%,transparent) transparent}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--mut) 45%,transparent);border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background-color:var(--mut)}
+::-webkit-scrollbar-corner{background:transparent}
 .num{font-variant-numeric:tabular-nums}
 .mut{color:var(--mut)}
 .lbl{color:var(--mut);font-size:.9em}
@@ -30,7 +37,9 @@ body{display:grid;grid-template-rows:auto 1fr auto auto;grid-template-columns:mi
 .rn-logo{flex:none;display:inline-block;background:var(--rn) center/contain no-repeat}
 .marcas .rn-logo{aspect-ratio:1;height:170%;margin:0 -.4em}
 .sp{flex:1}
-.tbtn{display:inline-flex;align-items:center;gap:.5em;background:none;border:0;padding:.4em 0;color:var(--mut);font:inherit;cursor:pointer;transition:color .2s}
+.top{position:relative;z-index:5}
+/* área de clique maior que o ícone (36 px), sem mudar o espaço entre eles */
+.tbtn{display:inline-flex;align-items:center;justify-content:center;gap:.5em;background:none;border:0;padding:.6em .55em;margin:0 -.8em;min-width:36px;min-height:36px;color:var(--mut);font:inherit;cursor:pointer;transition:color .2s}
 .tbtn:hover,.tbtn:focus-visible{color:var(--tx)}
 .tbtn svg{width:1.15em;height:1.15em;flex:none}
 :root[data-tema="claro"] .i-lua,:root:not([data-tema="claro"]) .i-sol{display:none}
@@ -77,8 +86,7 @@ body.encerrado .clockw .dot{display:none}
 .picos b{color:var(--tx);font-weight:600}
 
 .chartbox{flex:1;display:flex;flex-direction:column;min-height:0}
-.chartbox .cw{position:relative;flex:1;min-height:0}
-.dica-g{display:none}
+.chartbox .cw{position:relative;flex:1;min-height:0}.dica-g{display:none}
 /* a linha do tempo ocupa exatamente a largura da área do gráfico (o JS acerta o recuo); horários embaixo */
 .linha-t{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:.3em .8em;padding-top:.8vh}
 .linha-t input{order:0;flex:0 0 calc(100% + 14px)!important;margin:0 -7px!important}
@@ -193,6 +201,18 @@ body.encerrado .clockw .dot{display:none}
 .clipes .cap .v{left:6px}.clipes .cap .d{right:6px}
 .clipes b{font-size:14px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .clipes small{color:var(--mut);font-size:12px}
+/* filtros dos clipes: busca por palavra e ordem (mais vistos ou mais recentes) */
+.clipes-filtro{display:flex;gap:16px;align-items:center;padding:0 0 12px}
+.clipes-filtro[hidden]{display:none}
+.clipes-filtro input{flex:1;min-width:0;background:var(--panel2);color:var(--tx);border:1px solid transparent;border-radius:10px;padding:.6em .9em;font:inherit;font-size:16px;outline:0;transition:border-color .2s}
+.clipes-filtro input:focus{border-color:var(--line)}
+.clipes-filtro input::placeholder{color:var(--mut)}
+.clipes-ordem{display:flex;gap:12px}
+.clipes-ordem button{border:0;background:none;color:var(--mut);font:500 13px Inter,sans-serif;padding:.4em 0;cursor:pointer;transition:color .15s}
+.clipes-ordem button:hover,.clipes-ordem button.on{color:var(--tx)}
+.clipes-vazio{color:var(--mut);padding:20px 0}
+@media (max-width:560px){.clipes-filtro{flex-wrap:wrap;gap:8px}.clipes-filtro input{flex-basis:100%}}
+.clipes .ep-tag{color:var(--mut);font-size:12px}
 .clipe-player{margin:6px 0 14px}
 .clipe-player iframe{width:100%;aspect-ratio:16/9;border:0;border-radius:12px;background:#000;display:block}
 .clipe-player p{margin:8px 0 0;color:var(--mut);font-size:13px}
@@ -223,7 +243,7 @@ body.encerrado .clockw .dot{display:none}
 @keyframes brilho{50%{text-shadow:0 0 28px rgba(255,255,255,.45)}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:700px){.modal-box{grid-template-columns:1fr}.modal-box img{max-width:100%;max-height:55vh}}
-@media (max-width:640px){.ep{grid-template-columns:110px 1fr}.ep img{width:110px}.ep .acoes{grid-column:1/-1;flex-direction:row;align-items:center}}
+@media (max-width:640px){.ep{grid-template-columns:110px minmax(0,1fr);gap:14px}.ep img,.ep .sem-capa{width:110px}.ep .nums{gap:6px 16px}.ep .acoes{grid-column:1/-1;flex-direction:row;align-items:center}}
 @media (max-width:800px),(max-aspect-ratio:1/1){
   html,body{height:auto;overflow:auto}
   body{padding:16px;gap:16px;font-size:14px}
@@ -399,14 +419,76 @@ body.espera-vivo .espera .cap{color:var(--red)}
   .sr{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:12px}
   .st{padding:0 12px 0 0;border-left:0}
 }
+/* página inicial: embaixo do destaque, rolando, os recordes, os episódios e os clipes */
+body.modo-espera{height:auto;min-height:100%;overflow:auto}
+html:has(body.modo-espera){height:auto;overflow:auto}
+/* na página inicial não tem episódio aberto: some o compartilhar */
+body.modo-espera #shareBtn{display:none!important}
+/* seta no pé da primeira tela chamando pra rolar; some depois que a pessoa rola */
+.espera{position:relative}
+.rola-dica{position:absolute;left:50%;bottom:0;transform:translateX(-50%);display:grid;place-items:center;border:0;background:none;color:var(--mut);opacity:.55;cursor:pointer;padding:6px 14px;transition:opacity .4s,color .2s}
+.rola-dica:hover{color:var(--tx);opacity:1}
+.rola-dica svg{width:22px;height:22px;animation:quica 1.8s ease-in-out infinite}
+@keyframes quica{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
+.rola-dica.some{opacity:0;pointer-events:none}
+body:not(.modo-espera) .rola-dica{display:none}
+@media (prefers-reduced-motion:reduce){.rola-dica svg{animation:none}}
+@media (max-width:800px),(max-aspect-ratio:1/1){.rola-dica{position:static;transform:none;margin:4px auto 0;grid-column:1/-1;order:99}}
+/* o destaque ocupa a primeira tela inteira, com a contagem no meio; as fileiras ficam pra quem rolar */
+body.modo-espera .espera{min-height:calc(100dvh - 3.6vh - clamp(28px,4.4vh,44px) - 4vh);margin-top:0}
+/* no celular a capa e a contagem já enchem a tela: altura natural, sem vão até as fileiras */
+@media (max-width:800px),(max-aspect-ratio:1/1){body.modo-espera .espera{min-height:0}}
+/* fileiras no estilo de streaming: trilho horizontal com rolagem suave, cartões que crescem ao passar o mouse */
+.inicio-mais{display:flex;flex-direction:column;gap:38px;width:100%;margin:5vh 0 4vh}
+.inicio-mais[hidden]{display:none}
+#imFileiras{display:flex;flex-direction:column;gap:38px}
+.fileira{min-width:0;opacity:0;transform:translateY(24px);transition:opacity .6s,transform .6s cubic-bezier(.2,.8,.2,1)}
+.fileira.visivel{opacity:1;transform:none}
+.f-top{display:flex;align-items:baseline;gap:12px;margin-bottom:12px}
+.f-top h2{margin:0;font:700 clamp(18px,2.5vh,24px) "Inter Tight",Inter,sans-serif;letter-spacing:-.01em}
+.f-top small{color:var(--mut);font-size:.85em}
+.f-setas{margin-left:auto;display:flex;gap:6px}
+.f-setas button{width:34px;height:34px;border:0;border-radius:50%;background:var(--panel2);color:var(--tx);font-size:20px;line-height:1;cursor:pointer;transition:background .15s,opacity .15s}
+.f-setas button:hover{background:var(--line)}
+.f-setas button:disabled{opacity:.3;cursor:default}
+.f-trilho{display:grid;grid-auto-flow:column;grid-auto-columns:clamp(220px,22vw,320px);gap:14px;overflow-x:auto;overflow-y:visible;scroll-snap-type:x mandatory;scroll-behavior:smooth;scrollbar-width:none;padding:10px 4px 18px;margin:-10px -4px -18px}
+.f-trilho::-webkit-scrollbar{display:none}
+.f-trilho>*{scroll-snap-align:start}
+.cartao{position:relative;display:block;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:var(--panel2);color:#fff;text-decoration:none;border:0;padding:0;font:inherit;text-align:left;cursor:pointer;
+  transition:transform .3s cubic-bezier(.2,.8,.2,1),box-shadow .3s;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+.cartao img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+.cartao::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 35%,rgba(0,0,0,.88));transition:opacity .3s}
+.cartao .c-info{position:absolute;left:12px;right:12px;bottom:10px;z-index:1;display:flex;flex-direction:column;gap:2px}
+.cartao b{font-size:15px;font-weight:700;line-height:1.25;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+.cartao small{font-size:12.5px;color:rgba(255,255,255,.8);max-height:0;opacity:0;overflow:hidden;transition:max-height .3s,opacity .3s}
+.cartao .selo{position:absolute;top:10px;left:10px;z-index:1;font:700 12px Inter,sans-serif;background:rgba(0,0,0,.65);backdrop-filter:blur(6px);padding:4px 8px;border-radius:6px;font-variant-numeric:tabular-nums}
+.cartao .selo.vivo{background:var(--red)}
+@media (hover:hover){
+  .cartao:hover,.cartao:focus-visible{transform:scale(1.06);box-shadow:0 12px 32px rgba(0,0,0,.45);z-index:2}
+  .cartao:hover img{transform:scale(1.05)}
+  .cartao:hover small,.cartao:focus-visible small{max-height:3em;opacity:1}
+}
+@media (hover:none){.cartao small{max-height:3em;opacity:1}}
+@media (max-width:800px){
+  .inicio-mais,#imFileiras{gap:28px}.inicio-mais{margin-top:26px}
+  .f-setas{display:none}
+  .f-trilho{grid-auto-columns:72vw;gap:10px;margin-right:-16px;padding-right:16px}
+
+}
 #proxC,#clock{font-variant-numeric:tabular-nums}
 /* até a primeira resposta não mostra nada, pra não piscar o episódio antes da contagem */
 body.carregando .main,body.carregando .strip,body.carregando .espera{visibility:hidden}
+/* no F5, botões da header, relógio com a bola do ao vivo e as fileiras só aparecem quando se sabe o que mostrar, surgindo suave */
+.top>*,#inicioMais{transition:opacity .35s}
+body.carregando .top>:not(.marcas),body.carregando #inicioMais{opacity:0;visibility:hidden}
 /* as animações de entrada esperam a página ser revelada, senão terminam escondidas */
 body.carregando .col,body.carregando .strip,body.carregando .espera{animation:none}
 .ep img.borrada{filter:blur(3px) brightness(.8)}
 .ep .sem-capa{width:168px;aspect-ratio:16/9;border-radius:8px;background:var(--panel2)}
 .seletor{position:relative}
+/* menu aberto: a coluna dele fica por cima das outras (senão o gráfico aparece por cima do menu) */
+.col:has(.menu-eps.on),.box:has(.menu-eps.on){position:relative;z-index:45}
+@media (max-width:800px),(max-aspect-ratio:1/1){.menu-eps{min-width:0;width:calc(100vw - 32px);max-height:60vh}}
 button.ep-titulo{display:inline-flex;align-items:center;gap:.3em;max-width:100%;background:none;border:0;padding:0;color:var(--tx);cursor:pointer;text-align:left}
 .ep-titulo .seta{width:.7em;height:.7em;flex:none;color:var(--mut);transition:transform .2s}
 button.ep-titulo:hover .seta{color:var(--tx)}
@@ -472,7 +554,7 @@ button.ep-titulo:hover .seta{color:var(--tx)}
 <div class="top">
   <a class="marcas" href="/" data-dica="Início" aria-label="Início"><span class="rn-logo" role="img" aria-label="Realitas News"></span></a>
   <div class="sp"></div>
-  <a class="prox" id="prox" target="_blank" rel="noopener" data-dica="Próximo episódio" aria-label="Próximo episódio" hidden><span class="mut">Próximo episódio em</span> <b class="num" id="proxC"></b><span id="proxT" hidden></span></a>
+  <a class="prox" id="prox"data-dica="Próximo episódio" aria-label="Próximo episódio" hidden><span class="mut">Próximo episódio em</span> <b class="num" id="proxC"></b><span id="proxT" hidden></span></a>
   <button class="tbtn" id="temaBtn" data-dica="Tema claro ou escuro" aria-label="Alternar tema"><svg class="i-lua" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><svg class="i-sol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></button>
   <button class="tbtn" id="fbBtn" data-dica="Feedback e bugs" aria-label="Feedback e bugs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg></button>
   <button class="tbtn" id="epsBtn" data-dica="Episódios" aria-label="Episódios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="m17 2-5 5-5-5"/></svg><span>Episódios</span></button>
@@ -533,6 +615,7 @@ button.ep-titulo:hover .seta{color:var(--tx)}
 </div>
 
 <section class="espera" id="espera" hidden>
+  <button type="button" class="rola-dica" id="rolaDica" aria-label="Ver episódios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 6 5 5 5-5"/><path d="m7 13 5 5 5-5"/></svg></button>
   <div class="esp-capa" id="espCapa"></div>
   <div class="esp-info">
     <span class="cap" id="espRot">Próximo episódio</span>
@@ -541,6 +624,9 @@ button.ep-titulo:hover .seta{color:var(--tx)}
     <div class="mut esp-data" id="espData"></div>
     <div class="esp-acoes"><a class="sbtn pri" id="espLembrete" target="_blank" rel="noopener">Lembrete no YouTube</a><a class="sbtn" id="espUltimo">Ver o último episódio</a><a class="sbtn" href="https://cellbit.live/" target="_blank" rel="noopener">Agenda de lives</a></div>
   </div>
+</section>
+<section class="inicio-mais" id="inicioMais" hidden>
+  <div id="imFileiras"></div>
 </section>
 <div class="strip">
   <div class="sl"><div class="st"><span class="lbl">Média de viewers</span><b class="num" id="med">-</b></div>
@@ -573,8 +659,10 @@ button.ep-titulo:hover .seta{color:var(--tx)}
   </form>
 </div></div>
 <div class="modal" id="clipes"><div class="eps-box">
-  <div class="eps-top"><h3>Clipes mais vistos na Twitch</h3><button class="fechar" id="clipesFecha">Fechar</button></div>
+  <div class="eps-top"><h3>Clipes da Twitch</h3><button class="fechar" id="clipesFecha">Fechar</button></div>
   <div class="eps-lista">
+    <div class="clipes-filtro" id="clipesFiltro"><input type="search" id="clipesBusca" placeholder="Pesquisar..." aria-label="Buscar clipes">
+      <div class="clipes-ordem" role="group" aria-label="Ordem"><button type="button" data-o="views" class="on">Mais vistos</button><button type="button" data-o="quando">Mais recentes</button></div></div>
     <div class="clipe-player" id="clipePlayer" hidden><button type="button" class="voltar" id="clipeVolta">← Voltar aos clipes</button><iframe id="clipeFrame" title="Clipe da Twitch" allowfullscreen></iframe><p id="clipeInfo"></p></div>
     <div class="clipes" id="clipesLista"></div>
   </div>
@@ -973,6 +1061,8 @@ async function up() {
       : !vivo && !epPedido && cfg.telaInicial !== "ultimo" && (proximo || cfg.semProximo) ? { texto: cfg.semProximo, ultimo: d.ver } : null;
     document.body.classList.toggle("modo-espera", !!espera);
     $("espera").hidden = !espera;
+    $("inicioMais").hidden = !espera;
+    if (espera) montaInicio(d);
     contagem();
     document.body.classList.toggle("encerrado", !vivo);
 
@@ -992,7 +1082,8 @@ async function up() {
       avisaRecorde(outros.length && r.recorde > Math.max(...outros) && recVisto <= Math.max(...outros) ? "Maior audiência da temporada!" : "Novo recorde do episódio!");
     }
     recVisto = r.recorde;
-    carregaClipes(d.ver);
+    // na página inicial, os clipes de todos os episódios juntos
+    carregaClipes(espera ? "todos" : d.ver);
     tituloVivo = vivo ? `${f(v.total)} | Ordem Tracker` : null;
     tituloAba();
     conta("rec", r.recorde);
@@ -1094,7 +1185,11 @@ function contagem() {
     $("futCont").textContent = s ? (d ? d + (d > 1 ? " dias e " : " dia e ") : "") + [Math.floor(s / 3600) % 24, Math.floor(s / 60) % 60, s % 60].map(dois).join(":") : "a qualquer momento";
   }
   if (espera) {
-    $("espUltimo").href = "/ep/" + (ultimo.records[espera.ultimo]?.slug || espera.ultimo);
+    // "Ver o último episódio" leva ao último da mesma temporada do próximo (A Vigília ou Transcendendo); sem próximo, ao último de todos
+    const daTemp = proximo?.temporada && Object.entries(ultimo.records).filter(([, e]) => e.temporada === proximo.temporada && e.fimLive)
+      .sort((p, q) => (q[1].inicioLive || "").localeCompare(p[1].inicioLive || ""))[0]?.[0];
+    const ultId = daTemp || espera.ultimo;
+    $("espUltimo").href = "/ep/" + (ultimo.records[ultId]?.slug || ultId);
     $("espLembrete").hidden = !proximo;
     $("espLembrete").textContent = "Lembrete no YouTube"; $("espLembrete").target = "_blank";
     document.body.classList.toggle("espera-vivo", !!espera.aoVivo);
@@ -1268,7 +1363,7 @@ function listaEps() {
     return `<div class="ep${id === d.ver ? " atual" : ""}">
       ${yt ? `<a href="/ep/${e.slug || id}" data-dica="Ver painel" aria-label="Ver painel do episódio"><img src="/capa/${id}.jpg" alt="" loading="lazy"></a>` : `<div></div>`}
       <div>
-        <h4>${esc(e.titulo.replace(/\s*\|.*$/, ""))}${e.nome ? `<span class="mut">: ${esc(e.nome)}</span>` : ""}</h4>
+        <h4>${esc(e.titulo.match(/EPIS[ÓO]DIO\s*\d+/i) && e.temporada ? `${e.temporada} - Episódio ${e.titulo.match(/EPIS[ÓO]DIO\s*(\d+)/i)[1]}` : e.titulo.replace(/\s*\|.*$/, ""))}${e.nome ? `<span class="mut">: “${esc(e.nome)}”</span>` : ""}</h4>
         <div class="data">${vivo ? `<span class="vivo">AO VIVO</span> ` : ""}${quando.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })} às ${hm(quando)}</div>
         <div class="nums">
           <span>Pico<b>${f(e.recorde)}</b></span>
@@ -1301,9 +1396,10 @@ function listaEps() {
 function montaMenu() {
   const d = ultimo; if (!d) return;
   const eps = Object.entries(d.records).sort((p, q) => (q[1].inicioLive || q[1].inicio).localeCompare(p[1].inicioLive || p[1].inicio));
-  const nomeEp = t => t.replace(/\s*\|.*$/, "").toLowerCase().replace(/(^|\s)\p{L}/gu, c => c.toUpperCase());
+  // "A Vigília - Episódio 1"; sem número de episódio, o título da live como veio (ex.: "Transcendendo com LJoga: Grifo, Leo Santi e Nayu")
+  const nomeEp = (t, temp) => { const n = t.match(/EPIS[ÓO]DIO\s*(\d+)/i)?.[1]; return n && temp ? `${temp} - Episódio ${n}` : t.replace(/\s*\|.*$/, ""); };
   $("menuEps").innerHTML = eps.map(([id, e]) => `<a href="/ep/${e.slug || id}" role="option"${id === d.ver ? ` class="atual"` : ""}>
-      <img src="/capa/${id}.jpg" alt=""><span>${esc(nomeEp(e.titulo))}<small>${new Date(e.inicioLive || e.inicio).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}, pico ${f(e.recorde)}</small></span></a>`).join("")
+      <img src="/capa/${id}.jpg" alt=""><span>${esc(nomeEp(e.titulo, e.temporada))}<small>${new Date(e.inicioLive || e.inicio).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}, pico ${f(e.recorde)}</small></span></a>`).join("")
     + (d.proximos || []).map(e => `<a href="/ep/${esc(e.slug || e.id)}" role="option" class="prox-op${d.futuro?.id === e.id ? " atual" : ""}"><span>${esc(nomeEp(e.titulo || "Próximo episódio"))}<small>${new Date(e.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}, ainda vai ao ar</small></span></a>`).join("");
 }
 $("epSel").onclick = e => { e.stopPropagation(); montaMenu(); $("menuEps").classList.toggle("on"); };
@@ -1340,6 +1436,53 @@ $("fbForm").onsubmit = async e => {
   } catch (err) { $("fbMsg").textContent = err.message; }
   $("fbEnviar").disabled = false;
 };
+// ---------- página inicial: uma fileira de episódios por temporada ----------
+let inicioFx = "";
+function montaInicio(d) {
+  const eps = Object.entries(d.records).filter(([, e]) => e.inicioLive || e.inicio)
+    .sort((p, q) => (q[1].inicioLive || q[1].inicio).localeCompare(p[1].inicioLive || p[1].inicio));
+  const fx = eps.map(([id, e]) => id + e.recorde).join() + (d.aoVivo ? d.atual?.total : "");
+  if (fx !== inicioFx && eps.length) {
+    inicioFx = fx;
+    const nomeEp = (id, e) => { const n = e.titulo.match(/EPIS[ÓO]DIO\s*(\d+)/i)?.[1]; return n ? `${e.temporada || "Ordem Paranormal"} - Episódio ${n}` : e.titulo.replace(/\s*\|.*$/, ""); };
+    const dia = e => new Date(e.inicioLive || e.inicio).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+    // uma fileira por temporada; os próximos episódios entram no fim da fileira
+    const temps = new Map();
+    for (const [id, e] of eps) { const t = e.temporada || "Outros"; if (!temps.has(t)) temps.set(t, []); temps.get(t).push([id, e]); }
+    const setas = `<div class="f-setas"><button type="button" data-d="-1" aria-label="Voltar">‹</button><button type="button" data-d="1" aria-label="Avançar">›</button></div>`;
+    // a temporada principal (A Vigília) fica sempre em cima; as outras seguem pela mais recente
+    const PRIMEIRA = "A Vigília";
+    $("imFileiras").innerHTML = [...temps].sort((p, q) => (q[0] === PRIMEIRA) - (p[0] === PRIMEIRA)).map(([t, lista]) => {
+      const cartoes = [...lista].reverse().map(([id, e]) => {
+        const vivo = d.aoVivo && id === d.ver;
+        return `<a class="cartao" href="/ep/${e.slug || id}"><img src="/capa/${id}.jpg" alt="" loading="lazy"><span class="selo${vivo ? " vivo" : ""}">${vivo ? "AO VIVO, " + f(d.atual?.total) : "Pico " + f(e.recorde)}</span>
+          <span class="c-info"><b>${esc(nomeEp(id, e).replace(t + " - ", ""))}${e.nome ? ": “" + esc(e.nome) + "”" : ""}</b><small>${dia(e)}${e.media ? ", média de " + f(e.media) : ""}</small></span></a>`; });
+      const prox = (d.proximos || []).filter(p => p.temporada === t).map(p => `<a class="cartao" href="/ep/${esc(p.slug || p.id)}"><img src="${p.id.startsWith("ag-") ? `/capa/${lista[0][0]}.jpg` : `/capa/${p.id}.jpg`}" alt="" loading="lazy" style="filter:blur(3px) brightness(.6)"><span class="selo">Em breve</span>
+          <span class="c-info"><b>${esc((p.titulo || "Próximo episódio").replace(new RegExp("^" + t + "\\s*-\\s*", "i"), ""))}</b><small>${new Date(p.data).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })} às ${hm(new Date(p.data))}</small></span></a>`);
+      return `<div class="fileira"><div class="f-top"><h2>${esc(t)}</h2><small>${lista.length} ${lista.length > 1 ? "episódios" : "episódio"}</small>${setas}</div><div class="f-trilho">${cartoes.join("") + prox.join("")}</div></div>`;
+    }).join("");
+    ligaFileiras();
+  }
+}
+// seta da primeira tela: leva até as fileiras e some quando a pessoa já rolou
+$("rolaDica").onclick = () => $("inicioMais").scrollIntoView({ behavior: "smooth", block: "start" });
+addEventListener("scroll", () => $("rolaDica").classList.toggle("some", (document.scrollingElement.scrollTop || 0) > 60), { passive: true });
+// setas das fileiras rolam uma tela do trilho; somem nas pontas. Cada fileira aparece subindo quando entra na tela
+const aparece = "IntersectionObserver" in window ? new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add("visivel"); aparece.unobserve(e.target); } }), { threshold: .15 }) : null;
+function ligaFileiras() {
+  for (const fl of document.querySelectorAll(".inicio-mais .fileira")) {
+    if (aparece) aparece.observe(fl); else fl.classList.add("visivel");
+    // garantia: se o observador não disparar (aba em segundo plano, navegador antigo), aparece do mesmo jeito
+    setTimeout(() => fl.classList.add("visivel"), 2500);
+    const tr = fl.querySelector(".f-trilho"), bs = fl.querySelectorAll(".f-setas button");
+    if (!tr || fl.dataset.ligada) continue;
+    fl.dataset.ligada = "1";
+    const pontas = () => { if (!bs.length) return; bs[0].disabled = tr.scrollLeft < 4; bs[1].disabled = tr.scrollLeft + tr.clientWidth > tr.scrollWidth - 4; };
+    bs.forEach(b => b.onclick = () => tr.scrollBy({ left: +b.dataset.d * tr.clientWidth * .85 }));
+    tr.addEventListener("scroll", pontas, { passive: true }); requestAnimationFrame(pontas);
+  }
+}
+
 // ---------- clipes mais vistos da Twitch do episódio ----------
 let clipesEp = null, clipesLista = [];
 async function carregaClipes(ver) {
@@ -1352,17 +1495,32 @@ function tocaClipe(c) {
   $("clipeFrame").src = `https://clips.twitch.tv/embed?clip=${encodeURIComponent(c.id)}&parent=${location.hostname}&autoplay=true`;
   $("clipeInfo").textContent = `${c.titulo}: ${f(c.views)} views, clipado por ${c.criador}`;
   // o player toma o lugar da grade; "Voltar aos clipes" desfaz
-  $("clipePlayer").hidden = false; $("clipesLista").hidden = true;
+  $("clipePlayer").hidden = false; $("clipesLista").hidden = true; $("clipesFiltro").hidden = true;
   $("clipePlayer").parentNode.scrollTop = 0;
 }
-const voltaClipes = () => { $("clipeFrame").src = "about:blank"; $("clipePlayer").hidden = true; $("clipesLista").hidden = false; };
+const voltaClipes = () => { $("clipeFrame").src = "about:blank"; $("clipePlayer").hidden = true; $("clipesLista").hidden = false; $("clipesFiltro").hidden = false; };
 $("clipeVolta").onclick = voltaClipes;
+// filtros: palavra no título ou em quem clipou, e ordem por views ou pelos mais novos
+let clipesOrdem = "views", clipesVisiveis = [];
+const semAcento = s => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+function mostraClipes() {
+  const q = semAcento($("clipesBusca").value.trim());
+  clipesVisiveis = clipesLista.filter(c => !q || semAcento(c.titulo + " " + c.criador).includes(q))
+    .sort((a, b) => clipesOrdem === "quando" ? b.quando.localeCompare(a.quando) : b.views - a.views);
+  const nomeEp = id => { const r = ultimo?.records[id]; if (!r) return ""; const n = r.titulo.match(/EPIS[ÓO]DIO\s*(\d+)/i)?.[1]; return (r.temporada || "") + (n ? " - Episódio " + n : ""); };
+  const dia = s => new Date(s).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+  $("clipesLista").innerHTML = clipesVisiveis.map((c, i) => `<button type="button" data-i="${i}"><div class="cap"><img src="${esc(c.capa)}" alt="" loading="lazy"><span class="v">${f(c.views)} views</span><span class="d">${c.duracao}s</span></div><b>${esc(c.titulo)}</b><small>por ${esc(c.criador)}, ${dia(c.quando)}</small>${c.ep ? `<span class="ep-tag">${esc(nomeEp(c.ep))}</span>` : ""}</button>`).join("")
+    || `<p class="clipes-vazio">Nenhum clipe com “${esc($("clipesBusca").value.trim())}”.</p>`;
+}
+$("clipesBusca").oninput = mostraClipes;
+document.querySelector(".clipes-ordem").onclick = e => { const b = e.target.closest("button[data-o]"); if (!b) return;
+  clipesOrdem = b.dataset.o; document.querySelectorAll(".clipes-ordem button").forEach(x => x.classList.toggle("on", x === b)); mostraClipes(); };
 $("clipesBtn").onclick = () => {
-  $("clipesLista").innerHTML = clipesLista.map((c, i) => `<button type="button" data-i="${i}"><div class="cap"><img src="${esc(c.capa)}" alt="" loading="lazy"><span class="v">${f(c.views)} views</span><span class="d">${c.duracao}s</span></div><b>${esc(c.titulo)}</b><small>por ${esc(c.criador)}</small></button>`).join("");
+  $("clipesBusca").value = ""; mostraClipes();
   voltaClipes();
   $("clipes").classList.add("on");
 };
-$("clipesLista").onclick = e => { const b = e.target.closest("button[data-i]"); if (b) tocaClipe(clipesLista[+b.dataset.i]); };
+$("clipesLista").onclick = e => { const b = e.target.closest("button[data-i]"); if (b) tocaClipe(clipesVisiveis[+b.dataset.i]); };
 const fechaClipes = () => { $("clipes").classList.remove("on"); voltaClipes(); };
 $("clipesFecha").onclick = fechaClipes;
 $("clipes").onclick = e => { if (e.target.id === "clipes") fechaClipes(); };
