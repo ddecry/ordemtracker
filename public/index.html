@@ -36,6 +36,8 @@ body{display:grid;grid-template-rows:auto 1fr auto auto;grid-template-columns:mi
 .marcas{display:flex;align-items:center;height:100%}
 .rn-logo{flex:none;display:inline-block;background:var(--rn) center/contain no-repeat}
 .marcas .rn-logo{aspect-ratio:1;height:170%;margin:0 -.4em}
+/* na página inicial a marca aparece maior */
+body.modo-espera .marcas .rn-logo{height:250%;margin:0 -.6em}
 .sp{flex:1}
 .top{position:relative;z-index:5}
 /* área de clique maior que o ícone (36 px), sem mudar o espaço entre eles */
@@ -276,6 +278,7 @@ body.encerrado .clockw .dot{display:none}
   .top{gap:10px}
   .marcas{flex:none}
   .marcas .rn-logo{height:150%;margin:0 -.2em}
+  body.modo-espera .marcas .rn-logo{height:195%;margin:0 -.4em}
   .top .tbtn span{display:none}
   .prox:not([hidden])~.clockw{display:none}
   .prox .mut{display:none}
