@@ -352,6 +352,9 @@ body.encerrado .clockw .dot{display:none}
 .sl,.sr{display:flex;min-width:0}
 .sr{border-left:1px solid var(--line);padding-left:1.6vw}
 .sr .st:first-child{border-left:0;padding-left:0}
+.strip.poucos{display:flex;justify-content:center;gap:0}.strip.poucos .sl,.strip.poucos .sr{display:contents}.strip.poucos .st{flex:0 1 240px;align-items:center;text-align:center;border-left:1px solid var(--line);padding:0 2vw}.strip.poucos .st:not([hidden]){border-left:1px solid var(--line)}.strip.poucos>.sl>.st:first-child{border-left:0}
+.plats.poucos{justify-content:center;gap:.3em 2.4em}
+.plats>[hidden],.strip .st[hidden],.sr:not(:has(.st:not([hidden]))){display:none!important}
 @media (max-width:800px),(max-aspect-ratio:1/1){html,body{overflow-x:clip}.main,.strip{grid-template-columns:minmax(0,1fr)}.main>*,.col{min-width:0}.strip{gap:12px}.sl,.sr{flex-wrap:wrap;row-gap:12px}.sr{border-left:0;padding-left:0}}
 .onde{gap:2.2vh}
 .onde-t{font:600 11px Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.7)}
@@ -382,11 +385,11 @@ body.modo-espera .main,body.modo-espera .strip,body.modo-espera .prox{display:no
 .espera{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:4vw;align-items:center;min-height:0;animation:sobe .7s cubic-bezier(.2,.8,.2,1) both}
 .espera[hidden]{display:none}
 .esp-capa{aspect-ratio:16/9;width:100%;max-height:70vh;border-radius:18px;background:var(--panel2) center/cover no-repeat;box-shadow:var(--sombra)}
-.esp-info{display:flex;flex-direction:column;gap:1.6vh}
-.esp-tit{margin:0;font:700 clamp(20px,3.9vh,38px)/1.1 "Inter Tight",Inter,sans-serif;letter-spacing:-.01em}
+.esp-info{display:flex;flex-direction:column;gap:1.4vh;align-items:center;justify-content:center;text-align:center;align-self:center}.esp-info .esp-acoes{align-self:stretch}
+.esp-tit{margin:0;font:700 clamp(19px,3.4vh,32px)/1.1 "Inter Tight",Inter,sans-serif;letter-spacing:-.01em}
 .esp-cont{display:flex;gap:1.4vw;margin:1vh 0}
 .esp-cont div{display:flex;flex-direction:column;align-items:center;min-width:2.2em}
-.esp-cont b{font:800 clamp(32px,7vh,72px)/1 "Inter Tight",Inter,sans-serif;letter-spacing:-.02em}
+.esp-cont b{font:800 clamp(20px,3.1vh,32px)/1 "Inter Tight",Inter,sans-serif;letter-spacing:-.02em}
 .esp-cont span{margin-top:.6vh;color:var(--mut);font-size:.8em;letter-spacing:.1em;text-transform:uppercase}
 /* live no ar na página inicial: número de agora no lugar da contagem, alinhado à esquerda */
 .esp-cont .esp-vivo{align-items:flex-start}
@@ -396,19 +399,32 @@ body.espera-vivo .espera .cap{color:var(--red)}
 .esp-data{font-size:.98em}
 .esp-data::first-letter{text-transform:uppercase}
 .esp-acoes{display:flex;gap:10px;margin-top:1vh}
+.esp-sobre{grid-column:1/-1;justify-self:center;text-align:center;margin:0 0 1vh;max-width:40em;font:500 clamp(16px,2.4vh,22px)/1.45;align-self:start "Inter Tight",Inter,sans-serif;letter-spacing:-.01em;color:var(--mut)}
+.esp-sobre b{display:block;color:var(--tx);font:700 clamp(22px,3.4vh,34px)/1.2 "Inter Tight",Inter,sans-serif;letter-spacing:-.02em;margin-bottom:.35em}
+/* fila de episódios andando sem parar no fim da primeira tela; ao rolar, ela some e os episódios se espalham nas temporadas */
+.esp-fila{--cw:clamp(190px,15vw,260px);display:none;position:relative;overflow:hidden;height:calc(var(--cw) * .5625 * .45);margin:0 -2vw;padding-top:6px;opacity:calc(.6 * (1 - var(--rola,0)));transform:translateY(calc(var(--rola,0) * 40px)) scale(calc(1 + var(--rola,0) * .05));
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);pointer-events:none}
+body.modo-espera .esp-fila{display:block}
+.ef-trilho{display:flex;gap:14px;width:max-content;animation:anda var(--tempo,60s) linear infinite}
+.ef-trilho{align-items:flex-start}.ef-trilho img{width:var(--cw);aspect-ratio:16/9;object-fit:cover;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.35)}
+@keyframes anda{to{transform:translateX(-50%)}}
+/* cartões das temporadas entram um depois do outro, subindo e crescendo */
+.fileira .cartao{animation:none}
+.fileira.visivel .cartao{animation:espalha .7s calc(var(--i,0) * 70ms + 80ms) cubic-bezier(.2,.8,.2,1) backwards}
+@keyframes espalha{from{opacity:0;transform:translateY(46px) scale(.82);filter:blur(4px)}}
 .esp-acoes .sbtn{padding:.75em 1.2em}
 .esp-acoes .sbtn[hidden]{display:none}
 .esp-capa{position:relative;overflow:hidden;display:grid;place-items:center}
 .esp-capa::before{content:"";position:absolute;inset:0;background:var(--fundo) center/cover no-repeat;transition:filter .4s}
 .esp-capa.previa::before{filter:blur(1.2px) brightness(.9);transform:scale(1.01)}
 .esp-logo{position:relative;width:62%;max-height:70%;object-fit:contain;filter:drop-shadow(0 4px 24px rgba(0,0,0,.6))}
-.espera{grid-template-columns:minmax(0,min(40vw,660px)) auto;justify-content:center;align-content:center}
+.espera{grid-template-columns:minmax(0,min(34vw,560px)) auto;grid-template-rows:auto 1fr;justify-content:center;align-content:stretch;align-items:center;padding-top:2vh}
 @media (max-width:800px),(max-aspect-ratio:1/1){.espera{grid-template-columns:1fr;gap:20px}.esp-cont{gap:14px}.esp-acoes{flex-wrap:wrap}}
 /* compensa a header ser mais alta que o rodapé, pra ficar no meio da tela; botões ocupam a largura da contagem */
-@media (min-aspect-ratio:1/1) and (min-width:801px){.espera{margin-top:-4vh}.esp-acoes{display:grid;grid-auto-flow:column;grid-auto-columns:1fr}}
+@media (min-aspect-ratio:1/1) and (min-width:801px){.espera{margin-top:-4vh}.espera{grid-template-rows:none;align-content:center;padding-top:0}.espera>.esp-sobre{position:absolute;top:1vh;left:0;right:0;margin:0 auto}.esp-acoes{display:grid;grid-auto-flow:column;grid-auto-columns:1fr}}
 .esp-cont b{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;display:inline-block;min-width:1.25em;text-align:center}
 @media (max-width:800px),(max-aspect-ratio:1/1){
-  .espera{grid-template-columns:1fr;justify-content:stretch;align-content:start;gap:22px;padding-top:1vh}
+  .espera{grid-template-rows:none;grid-template-columns:1fr;justify-content:stretch;align-content:start;gap:22px;padding-top:1vh}
   .esp-capa{max-height:none;border-radius:14px}
   .esp-info{gap:10px}
   .esp-tit{font-size:clamp(24px,7vw,34px)}
@@ -452,9 +468,9 @@ body:not(.modo-espera) .rola-dica{display:none}
 @media (prefers-reduced-motion:reduce){.rola-dica svg{animation:none}}
 @media (max-width:800px),(max-aspect-ratio:1/1){.rola-dica{position:static;transform:none;margin:4px auto 0;grid-column:1/-1;order:99}}
 /* o destaque ocupa a primeira tela inteira, com a contagem no meio; as fileiras ficam pra quem rolar */
-body.modo-espera .espera{min-height:calc(100dvh - 3.6vh - clamp(28px,4.4vh,44px) - 4vh);margin-top:0}
+body.modo-espera .espera{min-height:calc(100dvh - 3.6vh - clamp(28px,4.4vh,44px) - 4vh - clamp(190px,15vw,260px) * .5625 * .45 - 6px + 4vh);margin-top:0}
 /* no celular a capa e a contagem já enchem a tela: altura natural, sem vão até as fileiras */
-@media (max-width:800px),(max-aspect-ratio:1/1){body.modo-espera .espera{min-height:0}}
+@media (max-width:800px),(max-aspect-ratio:1/1){body.modo-espera .espera{min-height:0}.esp-fila{--cw:160px;margin:18px -16px 0}.esp-sobre{font-size:15px;line-height:1.45}.esp-sobre b{font-size:24px}.esp-info .esp-cont{align-self:stretch}.esp-cont b{font-size:clamp(28px,10vw,48px)!important}}
 /* fileiras no estilo de streaming: trilho horizontal com rolagem suave, cartões que crescem ao passar o mouse */
 .inicio-mais{display:flex;flex-direction:column;gap:38px;width:100%;margin:5vh 0 4vh}
 .inicio-mais[hidden]{display:none}
@@ -507,6 +523,7 @@ body.carregando .col,body.carregando .strip,body.carregando .espera{animation:no
 .col:has(.menu-eps.on),.box:has(.menu-eps.on){position:relative;z-index:45}
 @media (max-width:800px),(max-aspect-ratio:1/1){.menu-eps{min-width:0;width:calc(100vw - 32px);max-height:60vh}}
 button.ep-titulo{display:inline-flex;align-items:center;gap:.3em;max-width:100%;background:none;border:0;padding:0;color:var(--tx);cursor:pointer;text-align:left}
+#epNome{flex:none}#epNum{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ep-titulo .seta{width:.7em;height:.7em;flex:none;color:var(--mut);transition:transform .2s}
 button.ep-titulo:hover .seta{color:var(--tx)}
 .menu-eps{position:absolute;top:calc(100% + 6px);left:0;z-index:40;min-width:300px;max-height:50vh;overflow:auto;padding:6px;border-radius:14px;background:var(--panel);border:1px solid var(--line);box-shadow:0 16px 40px rgba(0,0,0,.35);
@@ -545,12 +562,15 @@ button.ep-titulo:hover .seta{color:var(--tx)}
   .cena-slot:not([hidden]){display:grid}
   .cena-slot>*{grid-area:1/1;min-width:0}
   .cena-slot .cena{position:relative;inset:auto}
-  /* números de baixo: cartõezinhos em 2 colunas; o último ocupa a linha toda */
-  .strip{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:16px}
+  /* números de baixo: sem cartão, em 2 colunas separadas por linhas finas; o último ocupa a linha toda */
+  .strip{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;padding-top:4px}
   .sl,.sr{display:contents}
-  .strip .sl .st,.strip .sr .st{padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;gap:2px}
+  .strip .sl .st,.strip .sr .st{padding:10px 0;background:none;border:0;border-top:1px solid var(--line);border-radius:0;gap:2px}
   .strip .sr .st:last-child{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;align-items:baseline;column-gap:12px}
   .strip .sr .st:last-child .lbl{flex-basis:100%}
+  .strip .st.cheio{grid-column:1/-1}
+  .strip.poucos{display:grid}.strip.poucos .st{align-items:center;text-align:center;padding:10px 0;border-left:0}
+  .plats.poucos .cheio{grid-column:1/-1;justify-self:center}
   /* cartão do momento com a mesma altura em todos os momentos: cabe título, 2 linhas de descrição, o chat e o rodapé */
   .cena-slot{min-height:0;height:136px}
   .cena-slot:not([hidden]){grid-template-rows:136px}
@@ -637,6 +657,7 @@ button.ep-titulo:hover .seta{color:var(--tx)}
 
 <section class="espera" id="espera" hidden>
   <button type="button" class="rola-dica" id="rolaDica" aria-label="Ver episódios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 6 5 5 5-5"/><path d="m7 13 5 5 5-5"/></svg></button>
+  <p class="esp-sobre"><b>Ordem Tracker</b>Acompanhe dados e análises das lives de Ordem&nbsp;Paranormal, com a audiência ao vivo no YouTube, na Twitch, na Kick e no TikTok.</p>
   <div class="esp-capa" id="espCapa"></div>
   <div class="esp-info">
     <span class="cap" id="espRot">Próximo episódio</span>
@@ -646,6 +667,7 @@ button.ep-titulo:hover .seta{color:var(--tx)}
     <div class="esp-acoes"><a class="sbtn pri" id="espLembrete" target="_blank" rel="noopener">Lembrete no YouTube</a><a class="sbtn" id="espUltimo">Ver o último episódio</a><a class="sbtn" href="https://cellbit.live/" target="_blank" rel="noopener">Agenda de lives</a></div>
   </div>
 </section>
+<div class="esp-fila" id="espFila" aria-hidden="true"><div class="ef-trilho" id="efTrilho"></div></div>
 <section class="inicio-mais" id="inicioMais" hidden>
   <div id="imFileiras"></div>
 </section>
@@ -765,7 +787,7 @@ const dica = { enabled: !dicaFora,backgroundColor: "#1c1c1ce0", borderColor: "#2
 // no celular a legenda fica à esquerda e mais compacta, pra caber numa linha
 const celular = matchMedia("(max-width:800px),(max-aspect-ratio:1/1)").matches;
 const legenda = { position: "top", align: celular ? "start" : "end", labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: celular ? 8 : 14, font: { size: celular ? 10 : 11 },
-  filter: (it, d) => !d.datasets[it.datasetIndex].semChat } };
+  filter: (it, d) => !d.datasets[it.datasetIndex].semChat && !d.datasets[it.datasetIndex].semDados } };
 // linha vertical no momento escolhido na linha do tempo
 const marcaLinha = {
   id: "marca",
@@ -1129,8 +1151,12 @@ async function up() {
     conta("rec", r.recorde);
     $("recq").textContent = "às " + hm(r.quando);
     const pp = r.picos || r;
-    $("picos").innerHTML = `<span class="mut">Picos</span>` + [["YouTube", pp.youtube, "yt"], ["Twitch", pp.twitch, "twitch"], ["Kick", pp.kick, "kick"], ["TikTok", pp.tiktok, "tiktok"]]
-      .map(([n, val, c]) => `<span class="cor" style="--c:var(--${c})">${n} <b>${f(val)}</b></span>`).join("");
+    // episódio encerrado: plataforma sem nenhum número (ex.: TikTok nas lives antigas) some do painel, da barra e da legenda
+    const temPlat = k => vivo || pp[k] > 0;
+    [["tN", "twitch"], ["kN", "kick"], ["yN", "youtube"], ["ttN", "tiktok"]].forEach(([el, k]) => $(el).parentNode.hidden = !temPlat(k));
+    ch.data.datasets.forEach(ds => { const k = { YouTube: "youtube", Twitch: "twitch", Kick: "kick", TikTok: "tiktok" }[ds.label]; if (k) ds.semDados = !temPlat(k); });
+    $("picos").innerHTML = `<span class="mut">Picos</span>` + [["YouTube", pp.youtube, "yt", "youtube"], ["Twitch", pp.twitch, "twitch", "twitch"], ["Kick", pp.kick, "kick", "kick"], ["TikTok", pp.tiktok, "tiktok", "tiktok"]]
+      .filter(p => temPlat(p[3])).map(([n, val, c]) => `<span class="cor" style="--c:var(--${c})">${n} <b>${f(val)}</b></span>`).join("");
     conta("med", r.media);
 
     const inicio = vivo ? x.inicio : r.inicioLive;
@@ -1152,6 +1178,16 @@ async function up() {
     ].filter(s => s[2] != null);
     conta("sg", segs.length ? segs.reduce((t, s) => t + s[2], 0) : null);
     $("sgI").innerHTML = segs.map(([n, c, v]) => `<span class="cor" style="--c:var(--${c})">${n} +${f(v)}</span>`).join("");
+    // encerrado sem o dado (ex.: likes e seguidores nas lives antigas): o quadro some e os outros ocupam o espaço
+    const quadros = [["lk", likes], ["cp", horas], ["sg", segs.length ? 1 : null]];
+    quadros.forEach(([id, val]) => $(id).closest(".st").hidden = !vivo && val == null);
+    const vis = [...document.querySelectorAll(".strip .st")].filter(e => !e.hidden);
+    vis.forEach((e, i) => e.classList.toggle("cheio", vis.length % 2 === 1 && i === vis.length - 1));
+    // com quadro ou plataforma a menos, o que sobra fica centralizado
+    document.querySelector(".strip").classList.toggle("poucos", vis.length < 5);
+    const pl = [...document.querySelectorAll(".plats>div")].filter(e => !e.hidden);
+    document.querySelector(".plats").classList.toggle("poucos", pl.length < 4);
+    pl.forEach((e, i) => e.classList.toggle("cheio", pl.length % 2 === 1 && i === pl.length - 1));
 
     // hist: [hora, twitch, kick, youtube, total]; encerrado não ganha pontos novos
     if (!carregou) { carregou = true; d.hist.forEach(h => pontoNovo(h[0], h[4], h[3], h[1], h[2], h[6], h[5])); redesenha(r.recorde); }
@@ -1435,12 +1471,15 @@ function listaEps() {
 // seletor de episódio no título: troca as métricas pelas do episódio escolhido
 function montaMenu() {
   const d = ultimo; if (!d) return;
-  const eps = Object.entries(d.records).sort((p, q) => (q[1].inicioLive || q[1].inicio).localeCompare(p[1].inicioLive || p[1].inicio));
+  // só a temporada do episódio aberto (sem temporada, mostra todos)
+  const temp = d.futuro?.temporada || d.records[d.ver]?.temporada || "";
+  const daTemp = e => !temp || (e.temporada || "") === temp;
+  const eps = Object.entries(d.records).filter(([, e]) => daTemp(e)).sort((p, q) => (q[1].inicioLive || q[1].inicio).localeCompare(p[1].inicioLive || p[1].inicio));
   // "A Vigília - Episódio 1"; sem número de episódio, o título da live como veio (ex.: "Transcendendo com LJoga: Grifo, Leo Santi e Nayu")
   const nomeEp = (t, temp) => { const n = t.match(/EPIS[ÓO]DIO\s*(\d+)/i)?.[1]; return n && temp ? `${temp} - Episódio ${n}` : t.replace(/\s*\|.*$/, ""); };
   $("menuEps").innerHTML = eps.map(([id, e]) => `<a href="/ep/${e.slug || id}" role="option"${id === d.ver ? ` class="atual"` : ""}>
       <img src="/capa/${id}.jpg" alt=""><span>${esc(nomeEp(e.titulo, e.temporada))}<small>${new Date(e.inicioLive || e.inicio).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}, pico ${f(e.recorde)}</small></span></a>`).join("")
-    + (d.proximos || []).map(e => `<a href="/ep/${esc(e.slug || e.id)}" role="option" class="prox-op${d.futuro?.id === e.id ? " atual" : ""}"><span>${esc(nomeEp(e.titulo || "Próximo episódio"))}<small>${new Date(e.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}, ainda vai ao ar</small></span></a>`).join("");
+    + (d.proximos || []).filter(daTemp).map(e => `<a href="/ep/${esc(e.slug || e.id)}" role="option" class="prox-op${d.futuro?.id === e.id ? " atual" : ""}"><span>${esc(nomeEp(e.titulo || "Próximo episódio"))}<small>${new Date(e.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}, ainda vai ao ar</small></span></a>`).join("");
 }
 $("epSel").onclick = e => { e.stopPropagation(); montaMenu(); $("menuEps").classList.toggle("on"); };
 document.addEventListener("click", e => { if (!e.target.closest(".seletor")) $("menuEps").classList.remove("on"); });
@@ -1490,20 +1529,28 @@ function montaInicio(d) {
     const temps = new Map();
     for (const [id, e] of eps) { const t = e.temporada || "Outros"; if (!temps.has(t)) temps.set(t, []); temps.get(t).push([id, e]); }
     const setas = `<div class="f-setas"><button type="button" data-d="-1" aria-label="Voltar">‹</button><button type="button" data-d="1" aria-label="Avançar">›</button></div>`;
-    // a temporada principal (A Vigília) fica sempre em cima; as outras seguem pela mais recente
-    const PRIMEIRA = "A Vigília";
-    $("imFileiras").innerHTML = [...temps].sort((p, q) => (q[0] === PRIMEIRA) - (p[0] === PRIMEIRA)).map(([t, lista]) => {
+    // a temporada principal (A Vigília) fica sempre em cima, o Transcendendo (podcast) sempre por último; as outras seguem pela mais recente
+    const peso = t => t === "A Vigília" ? 0 : /transcend/i.test(t) ? 2 : 1;
+    $("imFileiras").innerHTML = [...temps].sort((p, q) => peso(p[0]) - peso(q[0])).map(([t, lista]) => {
+      let ci = 0;
       const cartoes = [...lista].reverse().map(([id, e]) => {
         const vivo = d.aoVivo && id === d.ver;
-        return `<a class="cartao" href="/ep/${e.slug || id}"><img src="/capa/${id}.jpg" alt="" loading="lazy"><span class="selo${vivo ? " vivo" : ""}">${vivo ? "AO VIVO, " + f(d.atual?.total) : "Pico " + f(e.recorde)}</span>
+        return `<a class="cartao" style="--i:${ci++}" href="/ep/${e.slug || id}"><img src="/capa/${id}.jpg" alt="" loading="lazy"><span class="selo${vivo ? " vivo" : ""}">${vivo ? "AO VIVO, " + f(d.atual?.total) : "Pico " + f(e.recorde)}</span>
           <span class="c-info"><b>${esc(nomeEp(id, e).replace(t + " - ", ""))}${e.nome ? ": “" + esc(e.nome) + "”" : ""}</b><small>${dia(e)}${e.media ? ", média de " + f(e.media) : ""}</small></span></a>`; });
       const prox = (d.proximos || []).filter(p => p.temporada === t).map(p => `<a class="cartao" href="/ep/${esc(p.slug || p.id)}"><img src="${p.id.startsWith("ag-") ? `/capa/${lista[0][0]}.jpg` : `/capa/${p.id}.jpg`}" alt="" loading="lazy" style="filter:blur(1.2px) brightness(.7)"><span class="selo">Em breve</span>
           <span class="c-info"><b>${esc((p.titulo || "Próximo episódio").replace(new RegExp("^" + t + "\\s*-\\s*", "i"), ""))}</b><small>${new Date(p.data).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })} às ${hm(new Date(p.data))}</small></span></a>`);
       return `<div class="fileira"><div class="f-top"><h2>${esc(t)}</h2><small>${lista.length} ${lista.length > 1 ? "episódios" : "episódio"}</small>${setas}</div><div class="f-trilho">${cartoes.join("") + prox.join("")}</div></div>`;
     }).join("");
     ligaFileiras();
+    // fila do pé da primeira tela: as capas de todos os episódios, repetidas pra dar a volta sem emenda
+    const capas = eps.filter(([id]) => !id.startsWith("twitch:")).map(([id]) => `<img src="/capa/${id}.jpg" alt="" loading="lazy">`).join("");
+    let volta = capas; while (volta.split("<img").length - 1 < 14) volta += capas;
+    $("efTrilho").innerHTML = volta + volta;
+    $("efTrilho").style.setProperty("--tempo", Math.max(40, (volta.split("<img").length - 1) * 5) + "s");
   }
 }
+// ao rolar, a fila da primeira tela some aos poucos enquanto as temporadas aparecem
+addEventListener("scroll", () => document.body.style.setProperty("--rola", Math.min(1, (document.scrollingElement.scrollTop || 0) / (innerHeight * .35)).toFixed(3)), { passive: true });
 // seta da primeira tela: leva até as fileiras e some quando a pessoa já rolou
 $("rolaDica").onclick = () => $("inicioMais").scrollIntoView({ behavior: "smooth", block: "start" });
 addEventListener("scroll", () => $("rolaDica").classList.toggle("some", (document.scrollingElement.scrollTop || 0) > 60), { passive: true });
