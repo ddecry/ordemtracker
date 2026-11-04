@@ -1575,12 +1575,23 @@ if ("IntersectionObserver" in window) new IntersectionObserver(es => { filaVisiv
 document.addEventListener("visibilitychange", paraFila);
 addEventListener("scroll", () => requestAnimationFrame(paraFila), { passive: true });
 // sem placa de vídeo (o navegador desenha tudo no processador): liga o modo leve
+// (o Brave esconde o nome da placa, então também vale: WebGL que só funciona "no modo lento" e quadros demorando no começo)
+const ligaLeve = () => document.documentElement.classList.add("leve");
 try {
-  const gl = document.createElement("canvas").getContext("webgl");
+  const cv = document.createElement("canvas");
+  const rapido = cv.getContext("webgl", { failIfMajorPerformanceCaveat: true });
+  const gl = rapido || cv.getContext("webgl");
   const info = gl && gl.getExtension("WEBGL_debug_renderer_info");
   const r = info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : "";
-  if (!gl || /swiftshader|llvmpipe|softpipe|basic render|software/i.test(r)) document.documentElement.classList.add("leve");
-} catch { document.documentElement.classList.add("leve"); }
+  if (!rapido || /swiftshader|llvmpipe|softpipe|basic render|software/i.test(r)) ligaLeve();
+} catch { ligaLeve(); }
+// mede os quadros por 3 s depois de carregar: abaixo de ~35 por segundo, liga o modo leve
+addEventListener("load", () => {
+  if (document.documentElement.classList.contains("leve")) return;
+  let n = 0, t0 = 0;
+  const conta = t => { if (!t0) t0 = t; n++; if (t - t0 < 3000) return requestAnimationFrame(conta); if (!document.hidden && n / ((t - t0) / 1000) < 35) ligaLeve(); };
+  setTimeout(() => requestAnimationFrame(conta), 800);
+});
 // seta da primeira tela: leva até as fileiras e some quando a pessoa já rolou
 $("rolaDica").onclick = () => $("inicioMais").scrollIntoView({ behavior: "smooth", block: "start" });
 addEventListener("scroll", () => $("rolaDica").classList.toggle("some", (document.scrollingElement.scrollTop || 0) > 60), { passive: true });
