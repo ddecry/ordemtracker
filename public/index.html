@@ -1565,7 +1565,7 @@ const ajustaLogo = () => {
   l.style.translate = "";
   if (!document.body.classList.contains("modo-espera")) return;
   const r = l.getBoundingClientRect();
-  l.style.translate = `0 ${Math.max(0, Math.round(r.left - r.top))}px`;
+  l.style.translate = `0 ${Math.max(0, Math.round((r.left - r.top) * .5))}px`;
 };
 addEventListener("resize", ajustaLogo);
 // largura da barra de rolagem (0 no celular), pra nada usar 100vw e passar da tela
