@@ -1130,7 +1130,7 @@ async function up() {
     const anterior = Object.entries(d.records).filter(([id, o]) => id !== d.ver && o.fimLive).sort((p, q) => (q[1].inicioLive || "").localeCompare(p[1].inicioLive || ""))[0]?.[0];
     espera = vivo && !epPedido ? { aoVivo: true, ver: d.ver, ultimo: anterior || d.ver }
       : !vivo && !epPedido && cfg.telaInicial !== "ultimo" && (proximo || cfg.semProximo) ? { texto: cfg.semProximo, ultimo: d.ver } : null;
-    document.body.classList.toggle("modo-espera", !!espera);
+    document.body.classList.toggle("modo-espera", !!espera); requestAnimationFrame(ajustaLogo);
     $("espera").hidden = !espera;
     $("inicioMais").hidden = !espera;
     if (espera) montaInicio(d);
@@ -1551,6 +1551,7 @@ function montaInicio(d) {
       return `<div class="fileira"><div class="f-top"><h2>${esc(t)}</h2><small>${lista.length} ${lista.length > 1 ? "episódios" : "episódio"}</small>${setas}</div><div class="f-trilho">${cartoes.join("") + prox.join("")}</div></div>`;
     }).join("");
     ligaFileiras();
+    ajustaLogo();
     // fila do pé da primeira tela: as capas de todos os episódios, repetidas pra dar a volta sem emenda
     const capas = eps.filter(([id]) => !id.startsWith("twitch:")).map(([id]) => `<img src="/capa/${id}.jpg" alt="" loading="lazy">`).join("");
     const precisa = Math.ceil(innerWidth / 200) + 2; let volta = capas; while (volta.split("<img").length - 1 < precisa) volta += capas;
@@ -1558,6 +1559,15 @@ function montaInicio(d) {
     $("efTrilho").style.setProperty("--tempo", Math.max(40, (volta.split("<img").length - 1) * 5) + "s");
   }
 }
+// logo da página inicial com o mesmo espaço do topo e da lateral
+const ajustaLogo = () => {
+  const l = document.querySelector(".marcas .rn-logo"); if (!l) return;
+  l.style.translate = "";
+  if (!document.body.classList.contains("modo-espera")) return;
+  const r = l.getBoundingClientRect();
+  l.style.translate = `0 ${Math.max(0, Math.round(r.left - r.top))}px`;
+};
+addEventListener("resize", ajustaLogo);
 // largura da barra de rolagem (0 no celular), pra nada usar 100vw e passar da tela
 const marcaSb = () => document.documentElement.style.setProperty("--sb", Math.max(0, innerWidth - document.documentElement.clientWidth) + "px");
 addEventListener("resize", marcaSb); marcaSb();
