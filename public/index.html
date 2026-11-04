@@ -402,16 +402,17 @@ body.espera-vivo .espera .cap{color:var(--red)}
 .esp-sobre{grid-column:1/-1;justify-self:center;text-align:center;margin:0 0 1vh;max-width:40em;font:500 clamp(16px,2.4vh,22px)/1.45;align-self:start "Inter Tight",Inter,sans-serif;letter-spacing:-.01em;color:var(--mut)}
 .esp-sobre b{display:block;color:var(--tx);font:700 clamp(22px,3.4vh,34px)/1.2 "Inter Tight",Inter,sans-serif;letter-spacing:-.02em;margin-bottom:.35em}
 /* fila de episódios andando sem parar no fim da primeira tela; ao rolar, ela some e os episódios se espalham nas temporadas */
-.esp-fila{--cw:clamp(190px,15vw,260px);display:none;position:relative;overflow:hidden;contain:paint;height:calc(var(--cw) * .5625 * .45);margin:0 -2vw;padding-top:6px;opacity:calc(.6 * (1 - var(--rola,0)));transform:translateY(calc(var(--rola,0) * 40px)) scale(calc(1 + var(--rola,0) * .05));
-  -webkit-mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);pointer-events:none}
+.esp-fila{--cw:clamp(190px,15vw,260px);display:none;position:relative;overflow:hidden;contain:paint;height:calc(var(--cw) * .5625 * .45);margin:0 -2vw;padding-top:6px;opacity:calc(.6 * (1 - var(--rola,0)));transform:translateY(calc(var(--rola,0) * 40px)) scale(calc(1 + var(--rola,0) * .05));pointer-events:none}
+.esp-fila::before,.esp-fila::after{content:"";position:absolute;top:0;bottom:0;width:10%;z-index:1;pointer-events:none}.esp-fila::before{left:0;background:linear-gradient(90deg,var(--bg),transparent)}.esp-fila::after{right:0;background:linear-gradient(270deg,var(--bg),transparent)}
+.esp-fila.parada .ef-trilho{animation-play-state:paused}
 body.modo-espera .esp-fila{display:block}
-.ef-trilho{display:flex;gap:14px;width:max-content;animation:anda var(--tempo,60s) linear infinite}
-.ef-trilho{align-items:flex-start}.ef-trilho img{width:var(--cw);aspect-ratio:16/9;object-fit:cover;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.35)}
-@keyframes anda{to{transform:translateX(-50%)}}
+.ef-trilho{display:flex;gap:14px;width:max-content;animation:anda var(--tempo,60s) linear infinite;will-change:transform;backface-visibility:hidden}
+.ef-trilho{align-items:flex-start}.ef-trilho img{width:var(--cw);aspect-ratio:16/9;object-fit:cover;border-radius:12px}
+@keyframes anda{to{transform:translate3d(-50%,0,0)}}
 /* cartões das temporadas entram um depois do outro, subindo e crescendo */
 .fileira .cartao{animation:none}
 .fileira.visivel .cartao{animation:espalha .7s calc(var(--i,0) * 70ms + 80ms) cubic-bezier(.2,.8,.2,1) backwards}
-@keyframes espalha{from{opacity:0;transform:translateY(46px) scale(.82);filter:blur(4px)}}
+@keyframes espalha{from{opacity:0;transform:translateY(46px) scale(.82)}}
 .esp-acoes .sbtn{padding:.75em 1.2em}
 .esp-acoes .sbtn[hidden]{display:none}
 .esp-capa{position:relative;overflow:hidden;display:grid;place-items:center}
@@ -494,7 +495,7 @@ body.modo-espera .espera{min-height:calc(100dvh - 3.6vh - clamp(28px,4.4vh,44px)
 .cartao .c-info{position:absolute;left:12px;right:12px;bottom:10px;z-index:1;display:flex;flex-direction:column;gap:2px}
 .cartao b{font-size:15px;font-weight:700;line-height:1.25;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-shadow:0 1px 6px rgba(0,0,0,.6)}
 .cartao small{font-size:12.5px;color:rgba(255,255,255,.8);max-height:0;opacity:0;overflow:hidden;transition:max-height .3s,opacity .3s}
-.cartao .selo{position:absolute;top:10px;left:10px;z-index:1;font:700 12px Inter,sans-serif;background:rgba(0,0,0,.65);backdrop-filter:blur(6px);padding:4px 8px;border-radius:6px;font-variant-numeric:tabular-nums}
+.cartao .selo{position:absolute;top:10px;left:10px;z-index:1;font:700 12px Inter,sans-serif;background:rgba(0,0,0,.74);padding:4px 8px;border-radius:6px;font-variant-numeric:tabular-nums}
 .cartao .selo.vivo{background:var(--red)}
 @media (hover:hover){
   .cartao:hover,.cartao:focus-visible{transform:scale(1.06);box-shadow:0 12px 32px rgba(0,0,0,.45);z-index:2}
@@ -509,6 +510,11 @@ body.modo-espera .espera{min-height:calc(100dvh - 3.6vh - clamp(28px,4.4vh,44px)
 
 }
 #proxC,#clock{font-variant-numeric:tabular-nums}
+/* sem aceleração de hardware: tira desfoques e sombras e deixa a fila mais calma; o resto continua animado */
+html.leve *,html.leve *::before,html.leve *::after{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-shadow:none!important;text-shadow:none!important}
+html.leve .esp-capa.previa::before,html.leve .cartao img[style*="blur"]{filter:none!important}
+html.leve .ef-trilho{animation-duration:calc(var(--tempo,60s) * 1.6)}
+html.leve .cartao:hover img{transform:none}
 /* até a primeira resposta não mostra nada, pra não piscar o episódio antes da contagem */
 body.carregando .main,body.carregando .strip,body.carregando .espera{visibility:hidden}
 /* no F5, botões da header, relógio com a bola do ao vivo e as fileiras só aparecem quando se sabe o que mostrar, surgindo suave */
@@ -1544,7 +1550,7 @@ function montaInicio(d) {
     ligaFileiras();
     // fila do pé da primeira tela: as capas de todos os episódios, repetidas pra dar a volta sem emenda
     const capas = eps.filter(([id]) => !id.startsWith("twitch:")).map(([id]) => `<img src="/capa/${id}.jpg" alt="" loading="lazy">`).join("");
-    let volta = capas; while (volta.split("<img").length - 1 < 14) volta += capas;
+    const precisa = Math.ceil(innerWidth / 200) + 2; let volta = capas; while (volta.split("<img").length - 1 < precisa) volta += capas;
     $("efTrilho").innerHTML = volta + volta;
     $("efTrilho").style.setProperty("--tempo", Math.max(40, (volta.split("<img").length - 1) * 5) + "s");
   }
@@ -1553,7 +1559,28 @@ function montaInicio(d) {
 const marcaSb = () => document.documentElement.style.setProperty("--sb", Math.max(0, innerWidth - document.documentElement.clientWidth) + "px");
 addEventListener("resize", marcaSb); marcaSb();
 // ao rolar, a fila da primeira tela some aos poucos enquanto as temporadas aparecem
-addEventListener("scroll", () => document.body.style.setProperty("--rola", Math.min(1, (document.scrollingElement.scrollTop || 0) / (innerHeight * .35)).toFixed(3)), { passive: true });
+let rolaPend = false, rolaUlt = -1;
+addEventListener("scroll", () => {
+  if (rolaPend) return; rolaPend = true;
+  requestAnimationFrame(() => {
+    rolaPend = false;
+    const v = Math.round(Math.min(1, (document.scrollingElement.scrollTop || 0) / (innerHeight * .35)) * 50) / 50;
+    if (v !== rolaUlt) { rolaUlt = v; $("espFila").style.setProperty("--rola", v); }
+  });
+}, { passive: true });
+// a fila só anda quando aparece na tela e a aba está aberta
+let filaVisivel = true;
+const paraFila = () => $("espFila").classList.toggle("parada", !filaVisivel || document.hidden || rolaUlt >= 1);
+if ("IntersectionObserver" in window) new IntersectionObserver(es => { filaVisivel = es[0].isIntersecting; paraFila(); }).observe($("espFila"));
+document.addEventListener("visibilitychange", paraFila);
+addEventListener("scroll", () => requestAnimationFrame(paraFila), { passive: true });
+// sem placa de vídeo (o navegador desenha tudo no processador): liga o modo leve
+try {
+  const gl = document.createElement("canvas").getContext("webgl");
+  const info = gl && gl.getExtension("WEBGL_debug_renderer_info");
+  const r = info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : "";
+  if (!gl || /swiftshader|llvmpipe|softpipe|basic render|software/i.test(r)) document.documentElement.classList.add("leve");
+} catch { document.documentElement.classList.add("leve"); }
 // seta da primeira tela: leva até as fileiras e some quando a pessoa já rolou
 $("rolaDica").onclick = () => $("inicioMais").scrollIntoView({ behavior: "smooth", block: "start" });
 addEventListener("scroll", () => $("rolaDica").classList.toggle("some", (document.scrollingElement.scrollTop || 0) > 60), { passive: true });
