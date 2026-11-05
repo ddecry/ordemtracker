@@ -1596,7 +1596,7 @@ function montaInicio(d) {
       const cartoes = [...lista].reverse().map(([id, e]) => {
         const vivo = d.aoVivo && id === d.ver;
         return `<a class="cartao" style="--i:${ci++}" href="/ep/${e.slug || id}"><img src="/capa/${id}-p.jpg?v=3" alt="" loading="lazy" decoding="async"><span class="selo${vivo ? " vivo" : ""}">${vivo ? "AO VIVO, " + f(d.atual?.total) : "Pico " + f(e.recorde)}</span>
-          <span class="c-info"><b>${esc(nomeEp(id, e).replace(t + " - ", ""))}${e.nome ? ": “" + esc(e.nome) + "”" : ""}</b><small>${dia(e)}${e.media ? ", média de " + f(e.media) : ""}</small></span></a>`; });
+          <span class="c-info"><b>${esc(nomeEp(id, e).replace(t + " - ", ""))}${e.nome ? ": “" + esc(e.nome) + "”" : ""}</b><small>${dia(e)}</small></span></a>`; });
       const prox = (d.proximos || []).filter(p => p.temporada === t).map(p => `<a class="cartao" href="/ep/${esc(p.slug || p.id)}"><img src="${p.id.startsWith("ag-") ? `/capa/${lista[0][0]}-p.jpg?v=3` : `/capa/${p.id}-p.jpg?v=3`}" alt="" loading="lazy" decoding="async" style="filter:blur(1.2px) brightness(.7)"><span class="selo">Em breve</span>
           <span class="c-info"><b>${esc((p.titulo || "Próximo episódio").replace(new RegExp("^" + t + "\\s*-\\s*", "i"), ""))}</b><small>${new Date(p.data).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })} às ${hm(new Date(p.data))}</small></span></a>`);
       const tl = "/temporada/" + kebab(t);
