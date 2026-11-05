@@ -74,7 +74,7 @@ body.encerrado .clockw .dot{display:none}
 .seg{display:flex;align-items:center;padding:0 .8em;min-width:0;font-weight:700;font-size:clamp(13px,2.1vh,21px);line-height:1;white-space:nowrap;overflow:hidden;transition:flex-basis 1.2s cubic-bezier(.2,.8,.2,1)}
 .seg[style*="flex-basis: 0%"]{padding:0}
 /* balãozinho com a % de cada plataforma ao passar o mouse na barra (as pequenas não cabem o número) */
-.bar-dica{position:fixed;z-index:20;transform:translate(-50%,calc(-100% - 8px));background:var(--panel2);border:1px solid var(--line2);color:var(--tx);font:600 1em Inter,sans-serif;padding:.45em .8em;border-radius:8px;pointer-events:none;white-space:nowrap;opacity:0;transition:opacity .12s}
+.bar-dica{position:fixed;z-index:20;background:var(--panel2);border:1px solid var(--line2);color:var(--tx);font:600 1em Inter,sans-serif;padding:.45em .8em;border-radius:8px;pointer-events:none;white-space:nowrap;opacity:0;transition:opacity .12s}
 .bar-dica.on{opacity:1}
 .bar-dica i{display:inline-block;width:.6em;height:.6em;border-radius:50%;margin-right:.45em}
 .seg.tw{background:var(--twitch);color:#fff}.seg.kk{background:var(--kick);color:#063}
@@ -281,6 +281,7 @@ body.encerrado .clockw .dot{display:none}
   body.modo-espera .marcas .rn-logo{height:195%;margin:0 -.4em}
   .top .tbtn span{display:none}
   .prox:not([hidden])~.clockw{display:none}
+  .top>.tbtn:last-of-type{margin-right:0}
   .prox .mut{display:none}
   .aviso{white-space:normal}
   .st .tags{flex-wrap:wrap;gap:.2em .8em}
@@ -317,10 +318,11 @@ body.encerrado .clockw .dot{display:none}
 .onde{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.4vh;background:rgba(8,8,8,.62);backdrop-filter:blur(10px) saturate(1.2);opacity:0;pointer-events:none;transition:opacity .3s}
 .capa.aberta .onde{opacity:1;pointer-events:auto}
 .onde-t{color:#fff;font:600 clamp(13px,1.8vh,17px) Inter,sans-serif;letter-spacing:.04em;opacity:0;transform:translateY(-8px);transition:.35s .05s}
-.onde-l{display:grid;grid-template-columns:repeat(4,auto);gap:1vw}
+.onde-l{display:grid;grid-template-columns:repeat(var(--n,4),auto);gap:1vw}
 .onde-l a{display:flex;flex-direction:column;align-items:center;gap:.6em;padding:1.1em 1.4em;min-width:6.5em;border-radius:16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#fff;text-decoration:none;font:600 1em Inter,sans-serif;
   opacity:0;transform:translateY(14px) scale(.9);transition:transform .45s cubic-bezier(.2,.9,.25,1.25),opacity .3s,background .2s,border-color .2s}
 .onde-l img{width:2.8em;height:2.8em;object-fit:contain;transition:transform .3s cubic-bezier(.2,.9,.25,1.4)}
+.onde-l a[hidden]{display:none}
 .onde-l a:hover{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.3)}
 .onde-l a:hover img{transform:scale(1.15) rotate(-4deg)}
 .capa.aberta .onde-t,.capa.aberta .onde-l a{opacity:1;transform:none}
@@ -361,10 +363,11 @@ body.encerrado .clockw .dot{display:none}
 @media (max-width:800px),(max-aspect-ratio:1/1){html,body{overflow-x:hidden;overflow-x:clip}.main,.strip{grid-template-columns:minmax(0,1fr)}.main>*,.col{min-width:0}.strip{gap:12px}.sl,.sr{flex-wrap:wrap;row-gap:12px}.sr{border-left:0;padding-left:0}}
 .onde{gap:2.2vh}
 .onde-t{font:600 11px Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.7)}
-.onde-l{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;width:min(88%,460px)}
+.onde-l{grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:12px;width:min(88%,460px)}
 .onde-l a{aspect-ratio:1;justify-content:center;gap:10px;padding:0;min-width:0;border-radius:18px;font-size:13px;font-weight:600;letter-spacing:.01em}
 .onde-l a span,.onde-l a{color:rgba(255,255,255,.92)}
 .onde-l img{width:auto;height:34px;max-width:46px;object-fit:contain}
+.onde-l a[hidden]{display:none}
 .onde-l a:hover{background:color-mix(in srgb,var(--c) 14%,transparent);border-color:color-mix(in srgb,var(--c) 55%,transparent);box-shadow:0 0 24px color-mix(in srgb,var(--c) 30%,transparent)}
 .onde-l a:hover img{transform:translateY(-3px) scale(1.08)}
 .onde{gap:1.4vh}
@@ -372,7 +375,8 @@ body.encerrado .clockw .dot{display:none}
 .onde-l a{border-radius:14px;gap:6px;font-size:11px}
 .onde-l img{height:24px;max-width:32px}
 /* onde assistir: sem cards, só logo e nome */
-.onde-l{gap:4px;width:auto;grid-template-columns:repeat(4,auto)}
+.onde-l{gap:4px;width:auto;grid-template-columns:repeat(var(--n,4),1fr)}
+.onde-l a{text-align:center;white-space:nowrap}
 .onde-l a,.onde-l a:hover{background:none;border:0;box-shadow:none;aspect-ratio:auto;padding:8px 14px}
 .onde-l a:hover{color:var(--c)}
 .onde-l a:hover img{filter:drop-shadow(0 0 10px color-mix(in srgb,var(--c) 60%,transparent))}
@@ -416,6 +420,17 @@ body.modo-espera .esp-fila{display:block}
 .fileira .cartao{animation:none}
 .fileira.visivel .cartao{animation:espalha .7s calc(var(--i,0) * 70ms + 80ms) cubic-bezier(.2,.8,.2,1) backwards}
 @keyframes espalha{from{opacity:0;transform:translateY(46px) scale(.82)}}
+.f-top h2 a{color:inherit;text-decoration:none}
+.f-top h2 a:hover{text-decoration:underline}
+.f-top h2,.f-top small{white-space:nowrap}
+@media (max-width:420px){.top{gap:1.05em}.clockw{font-size:.88em}}
+@media (max-width:640px){.f-setas{display:none}}
+/* nome da temporada no painel do episódio abre o painel da temporada; a seta abre a lista de episódios */
+#epNome[data-temp]:not([data-temp=""]){cursor:pointer}
+#epNome[data-temp]:not([data-temp=""]):hover{text-decoration:underline;text-underline-offset:.15em}
+.clipes-mais{display:block;margin:16px auto 4px;padding:10px 22px;border-radius:99px;border:1px solid var(--line2);background:none;color:var(--tx);font:600 14px Inter,sans-serif;cursor:pointer}
+.clipes-mais:hover{background:var(--panel2)}
+.clipes-mais[hidden]{display:none}
 .esp-acoes .sbtn{padding:.75em 1.2em}
 .esp-acoes .sbtn[hidden]{display:none}
 .esp-capa{position:relative;overflow:hidden;display:grid;place-items:center}
@@ -485,15 +500,19 @@ body.modo-espera .espera{min-height:calc(100dvh - 3.6vh - clamp(28px,4.4vh,44px)
 .f-top h2{margin:0;font:700 clamp(18px,2.5vh,24px) "Inter Tight",Inter,sans-serif;letter-spacing:-.01em}
 .f-top small{color:var(--mut);font-size:.85em}
 .f-setas{margin-left:auto;display:flex;gap:6px}
-.f-setas button{width:34px;height:34px;border:0;border-radius:50%;background:var(--panel2);color:var(--tx);font-size:20px;line-height:1;cursor:pointer;transition:background .15s,opacity .15s}
-.f-setas button:hover{background:var(--line)}
+.f-setas{align-self:center}
+.f-setas[hidden]{display:none}
+.f-setas button{display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--line2);border-radius:50%;background:var(--panel);color:var(--tx);cursor:pointer;transition:background-color .15s,border-color .15s,opacity .15s}
+.f-setas button svg{width:16px;height:16px}
+.f-setas button:hover:not(:disabled){background:var(--panel2);border-color:var(--mut)}
 .f-setas button:disabled{opacity:.3;cursor:default}
 .f-trilho{display:grid;grid-auto-flow:column;grid-auto-columns:clamp(220px,22vw,320px);gap:14px;overflow-x:auto;overflow-y:visible;scroll-snap-type:x mandatory;scroll-behavior:smooth;scrollbar-width:none;padding:10px 4px 18px;margin:-10px -4px -18px}
 .f-trilho::-webkit-scrollbar{display:none}
 .f-trilho>*{scroll-snap-align:start}
 .cartao{position:relative;display:block;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:var(--panel2);color:#fff;text-decoration:none;border:0;padding:0;font:inherit;text-align:left;cursor:pointer;
   transition:transform .3s cubic-bezier(.2,.8,.2,1),box-shadow .3s;box-shadow:0 2px 10px rgba(0,0,0,.25)}
-.cartao img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+.cartao img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cartao img{transition:transform .5s cubic-bezier(.2,.8,.2,1)}
 .cartao::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 35%,rgba(0,0,0,.88));transition:opacity .3s}
 .cartao .c-info{position:absolute;left:12px;right:12px;bottom:10px;z-index:1;display:flex;flex-direction:column;gap:2px}
 .cartao b{font-size:15px;font-weight:700;line-height:1.25;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-shadow:0 1px 6px rgba(0,0,0,.6)}
@@ -515,7 +534,6 @@ body.modo-espera .espera{min-height:calc(100dvh - 3.6vh - clamp(28px,4.4vh,44px)
 #proxC,#clock{font-variant-numeric:tabular-nums}
 /* sem aceleração de hardware: tira desfoques e sombras e deixa a fila mais calma; o resto continua animado */
 html.leve *,html.leve *::before,html.leve *::after{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-shadow:none!important;text-shadow:none!important}
-html.leve .esp-capa.previa::before,html.leve .cartao img[style*="blur"]{filter:none!important}
 html.leve .ef-trilho{animation-duration:calc(var(--tempo,60s) * 1.6)}
 html.leve .cartao:hover img{transform:none}
 /* até a primeira resposta não mostra nada, pra não piscar o episódio antes da contagem */
@@ -619,10 +637,11 @@ button.ep-titulo:hover .seta{color:var(--tx)}
         <div class="onde" id="onde">
           <span class="onde-t">Onde assistir</span>
           <div class="onde-l">
-            <a id="lYT" target="_blank" rel="noopener" style="--c:#ff2b2b"><img src="/icones/youtube.png?v=2" alt="">YouTube</a>
-            <a href="https://www.twitch.tv/cellbit" target="_blank" rel="noopener" style="--c:#9146ff"><img src="/icones/twitch.png?v=2" alt="">Twitch</a>
-            <a href="https://kick.com/cellbit" target="_blank" rel="noopener" style="--c:#53fc18"><img src="/icones/kick-k.png?v=1" alt="">Kick</a>
-            <a href="https://www.tiktok.com/@ordemparanormal/live" target="_blank" rel="noopener" style="--c:#25f4ee"><img src="/icones/tiktok-branco.png?v=1" alt="">TikTok</a>
+            <a id="lYT" target="_blank" rel="noopener" style="--c:#ff2b2b"><img src="/icones/youtube.png?v=2" alt=""><span id="lYTt">YouTube</span></a>
+            <a id="lYT2" target="_blank" rel="noopener" style="--c:#ff2b2b" hidden><img src="/icones/youtube.png?v=2" alt=""><span id="lYT2t">YouTube</span></a>
+            <a id="lTw" href="https://www.twitch.tv/cellbit" target="_blank" rel="noopener" style="--c:#9146ff"><img src="/icones/twitch.png?v=2" alt="">Twitch</a>
+            <a id="lKick" href="https://kick.com/cellbit" target="_blank" rel="noopener" style="--c:#53fc18"><img src="/icones/kick-k.png?v=1" alt="">Kick</a>
+            <a id="lTik" href="https://www.tiktok.com/@ordemparanormal/live" target="_blank" rel="noopener" style="--c:#25f4ee"><img src="/icones/tiktok-branco.png?v=1" alt="">TikTok</a>
           </div>
         </div>
       </div>
@@ -717,6 +736,7 @@ button.ep-titulo:hover .seta{color:var(--tx)}
       <div class="clipes-ordem" role="group" aria-label="Ordem"><button type="button" data-o="views" class="on">Mais vistos</button><button type="button" data-o="quando">Mais recentes</button></div></div>
     <div class="clipe-player" id="clipePlayer" hidden><button type="button" class="voltar" id="clipeVolta">← Voltar aos clipes</button><iframe id="clipeFrame" title="Clipe da Twitch" allowfullscreen></iframe><p id="clipeInfo"></p></div>
     <div class="clipes" id="clipesLista"></div>
+    <button type="button" class="clipes-mais" id="clipesMais" hidden>Carregar mais clipes</button>
   </div>
 </div></div>
 <div class="modal" id="eps"><div class="eps-box">
@@ -791,7 +811,9 @@ const eixos = () => ({
 });
 // no celular arrastar o gráfico já troca os números lá em cima, então não precisa da caixinha
 const dicaFora = matchMedia("(max-width:800px),(max-aspect-ratio:1/1)").matches;
-const dica = { enabled: !dicaFora,backgroundColor: "#1c1c1ce0", borderColor: "#2e2e2e", borderWidth: 1, padding: 10, boxPadding: 4, usePointStyle: true,
+// dicas dos gráficos acompanham o mouse; o Chart.js vira a caixa de lado quando falta espaço
+if (window.Chart && !Chart.Tooltip.positioners.mouse) Chart.Tooltip.positioners.mouse = (els, pos) => pos && { x: pos.x, y: pos.y };
+const dica = { enabled: !dicaFora, position: "mouse", caretSize: 0,backgroundColor: "#1c1c1ce0", borderColor: "#2e2e2e", borderWidth: 1, padding: 10, boxPadding: 4, usePointStyle: true,
   callbacks: { title: it => it.length ? hm(it[0].parsed.x) : "", label: c => ` ${c.dataset.label}: ${f(c.parsed.y)}` } };
 // no celular a legenda fica à esquerda e mais compacta, pra caber numa linha
 const celular = matchMedia("(max-width:800px),(max-aspect-ratio:1/1)").matches;
@@ -966,19 +988,26 @@ let simulando = null, vAgora = null;
 function mostra(v, rapido) {
   conta("tot", v.total, rapido); conta("tN", v.twitch, rapido); conta("kN", v.kick, rapido); conta("yN", v.youtube, rapido); conta("ttN", v.tiktok, rapido);
   const T = v.total || 1, pt = (v.twitch || 0) / T * 100, pk = (v.kick || 0) / T * 100, py = (v.youtube || 0) / T * 100, ptt = (v.tiktok || 0) / T * 100;
-  $("sT").style.flexBasis = pt + "%"; $("sK").style.flexBasis = pk + "%"; $("sY").style.flexBasis = py + "%"; $("sTT").style.flexBasis = ptt + "%"; $("sTT").style.display = ptt ? "" : "none";
+  $("sT").style.flexBasis = pt + "%"; $("sK").style.flexBasis = pk + "%"; $("sY").style.flexBasis = py + "%"; $("sTT").style.flexBasis = ptt + "%"; // plataforma sem audiência (ex.: temporadas antigas, só Twitch) some da barra
+  for (const [id, p] of [["sT", pt], ["sK", pk], ["sY", py], ["sTT", ptt]]) $(id).style.display = p ? "" : "none";
   // só mostra a % se couber no pedaço da barra
   const cabe = p => p * $("sT").parentNode.clientWidth / 100 > 70;
   barra = { sT: ["Twitch", pt, v.twitch], sK: ["Kick", pk, v.kick], sY: ["YouTube", py, v.youtube], sTT: ["TikTok", ptt, v.tiktok] };
   $("pT").textContent = cabe(pt) ? pc(pt) : ""; $("pY").textContent = cabe(py) ? pc(py) : ""; $("pK").textContent = cabe(pk) ? pc(pk) : ""; $("pTT").textContent = cabe(ptt) ? pc(ptt) : "";
 }
+// caixinha segue o mouse: fica em cima do cursor; perto do topo vai pra baixo; nunca passa das bordas da tela
+const poeDica = (el, e) => {
+  const w = el.offsetWidth, h = el.offsetHeight, m = 8;
+  const x = Math.min(Math.max(e.clientX - w / 2, m), innerWidth - w - m);
+  const y = e.clientY - h - 14 >= m ? e.clientY - h - 14 : Math.min(e.clientY + 20, innerHeight - h - m);
+  el.style.left = x + "px"; el.style.top = y + "px";
+};
 let barra = {};
 const barDica = document.body.appendChild(Object.assign(document.createElement("div"), { className: "bar-dica num" }));
 const dicaBarra = e => {
   const s = e.target.closest(".seg"), d = s && barra[s.id]; if (!d) return barDica.classList.remove("on");
   barDica.innerHTML = `<i style="background:${getComputedStyle(s).backgroundColor}"></i>${d[0]} <b>${pc(d[1])}</b>, ${f(d[2])}`;
-  const meia = barDica.offsetWidth / 2 + 8; // não deixa o balão sair pela lateral da tela
-  barDica.style.left = Math.min(Math.max(e.clientX, meia), innerWidth - meia) + "px"; barDica.style.top = s.getBoundingClientRect().top + "px";
+  poeDica(barDica, e);
   barDica.classList.add("on");
 };
 // no celular: tocar na barra mostra; rolar a página esconde
@@ -1121,9 +1150,11 @@ async function up() {
     // com nome: título "A Vigília “O Vilarejo”" e o número do episódio embaixo
     $("epNum").textContent = r.nome ? "“" + r.nome + "”" : m ? nome(m[2]) : "";
     // sem número de episódio (ex.: Transcendendo): o resto do título da live vai embaixo
-    const resto = !m && r.temporada ? r.titulo.replace(/\s*\|.*$/, "").replace(new RegExp("^" + r.temporada.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*", "i"), "") : "";
+    const resto = !m && r.temporada ? r.titulo.replace(/\s*\|.*$/, "").replace(new RegExp("^" + r.temporada.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*-?\\s*", "i"), "") : "";
     const sub = r.nome && m ? nome(m[2]) : resto;
     $("epSub").textContent = sub; $("epSub").hidden = !sub;
+    ondeAssistir(r, vivo);
+    $("epNome").dataset.temp = r.temporada ? kebab(r.temporada) : "";
     proximo = vivo ? null : (d.proximos || []).find(p => new Date(p.data) > Date.now()) || null;
     const cfg = d.config || {};
     // página inicial é sempre o menu; com live no ar, ela fica em destaque no meio e o painel abre clicando
@@ -1208,6 +1239,17 @@ async function up() {
   } catch (e) { revelaPagina(); }
 }
 let futuroEp = null;
+// "Onde assistir": Twitch abre o VOD do episódio quando tem; Kick e TikTok só aparecem se o episódio passou lá (ou está ao vivo)
+function ondeAssistir(r, vivo) {
+  // live que virou dois vídeos no YouTube: um link pra cada, com o nome da parte
+  const vs = !vivo && r?.videosYT?.length > 1 ? r.videosYT : null;
+  $("lYT2").hidden = !vs; $("lYTt").textContent = vs ? "YouTube, " + vs[0][1].toLowerCase() : "YouTube";
+  if (vs) { $("lYT").href = "https://www.youtube.com/watch?v=" + vs[0][0]; $("lYT2").href = "https://www.youtube.com/watch?v=" + vs[1][0]; $("lYT2t").textContent = "YouTube, " + vs[1][1].toLowerCase(); }
+  $("lTw").href = !vivo && r?.vods?.length ? "https://www.twitch.tv/videos/" + r.vods[0] : "https://www.twitch.tv/cellbit";
+  $("lKick").hidden = !vivo && r && !r.picos?.kick;
+  $("lTik").hidden = !vivo && r && !r.picos?.tiktok;
+  $("onde").querySelector(".onde-l").style.setProperty("--n", [...$("onde").querySelectorAll(".onde-l a")].filter(a => !a.hidden).length);
+}
 function modoFuturo(d) {
   const e = futuroEp = d.futuro, temLink = !e.id.startsWith("ag-");
   document.body.classList.add("futuro", "encerrado"); document.body.classList.remove("modo-espera"); $("espera").hidden = true;
@@ -1222,6 +1264,7 @@ function modoFuturo(d) {
     const im = new Image(); im.onload = () => { $("capa").style.backgroundImage = `url(${im.src})`; $("capa").classList.add("on"); }; im.src = img;
   }
   $("lYT").href = temLink ? "https://www.youtube.com/watch?v=" + e.id : "https://cellbit.live/";
+  ondeAssistir(null, true);
   // tudo zerado até a live começar
   mostra({ total: 0, twitch: 0, kick: 0, youtube: 0, tiktok: 0 });
   conta("rec", 0); $("recq").textContent = "";
@@ -1252,7 +1295,14 @@ async function fazPrevia() {
     aviso.textContent = r.ok ? "Prévia do link atualizada. Pode fechar esta aba." : (await r.json()).erro;
   } catch { aviso.textContent = "Não deu para gerar a prévia."; }
 }
-up().then(fazPrevia); setInterval(up, 5000);
+up().then(fazPrevia);
+let ultimoPedido = Date.now();
+setInterval(() => {
+  if (document.hidden) return;
+  const passo = ultimo?.aoVivo || futuroEp ? 5000 : 30000;
+  if (Date.now() - ultimoPedido >= passo - 200) { ultimoPedido = Date.now(); up(); }
+}, 5000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden && Date.now() - ultimoPedido > 5000) { ultimoPedido = Date.now(); up(); } });
 
 // clique na capa: links das lives
 $("capa").onclick = e => { if (!e.target.closest("a")) $("capa").classList.toggle("aberta"); };
@@ -1446,7 +1496,7 @@ function listaEps() {
     const quando = new Date(e.inicioLive || e.inicio);
     const vivo = d.aoVivo && id === d.atual.episodio;
     return `<div class="ep${id === d.ver ? " atual" : ""}">
-      ${yt ? `<a href="/ep/${e.slug || id}" data-dica="Ver painel" aria-label="Ver painel do episódio"><img src="/capa/${id}.jpg" alt="" loading="lazy"></a>` : `<div></div>`}
+      ${yt ? `<a href="/ep/${e.slug || id}" data-dica="Ver painel" aria-label="Ver painel do episódio"><img src="/capa/${id}-p.jpg?v=3" alt="" loading="lazy" decoding="async"></a>` : `<div></div>`}
       <div>
         <h4>${esc(e.titulo.match(/EPIS[ÓO]DIO\s*\d+/i) && e.temporada ? `${e.temporada} - Episódio ${e.titulo.match(/EPIS[ÓO]DIO\s*(\d+)/i)[1]}` : e.titulo.replace(/\s*\|.*$/, ""))}${e.nome ? `<span class="mut">: “${esc(e.nome)}”</span>` : ""}</h4>
         <div class="data">${vivo ? `<span class="vivo">AO VIVO</span> ` : ""}${quando.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })} às ${hm(quando)}</div>
@@ -1458,8 +1508,8 @@ function listaEps() {
       </div>
       <div class="acoes">
         <a href="/ep/${e.slug || id}">Ver painel</a>
-        ${yt ? `<a href="https://www.youtube.com/watch?v=${e.video || id}" target="_blank" rel="noopener">Assistir no YouTube</a>` : ""}
-        <a href="https://www.twitch.tv/cellbit/videos?filter=archives" target="_blank" rel="noopener">VODs na Twitch</a>
+        ${yt ? (e.videosYT?.length > 1 ? e.videosYT.map(([v, n]) => `<a href="https://www.youtube.com/watch?v=${v}" target="_blank" rel="noopener">YouTube: ${esc(n.toLowerCase())}</a>`).join("") : `<a href="https://www.youtube.com/watch?v=${e.video || id}" target="_blank" rel="noopener">Assistir no YouTube</a>`) : ""}
+        ${e.vods?.length ? e.vods.map((v, i) => `<a href="https://www.twitch.tv/videos/${v}" target="_blank" rel="noopener">VOD na Twitch${e.vods.length > 1 ? " (parte " + (i + 1) + ")" : ""}</a>`).join("") : `<a href="https://www.twitch.tv/cellbit/videos?filter=archives" target="_blank" rel="noopener">VODs na Twitch</a>`}
       </div>
     </div>`;
   }).join("") || `<p class="mut">Nenhum episódio gravado ainda.</p>`;
@@ -1526,6 +1576,7 @@ $("fbForm").onsubmit = async e => {
 };
 // ---------- página inicial: uma fileira de episódios por temporada ----------
 let inicioFx = "";
+const kebab = t => String(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 function montaInicio(d) {
   const eps = Object.entries(d.records).filter(([, e]) => e.inicioLive || e.inicio)
     .sort((p, q) => (q[1].inicioLive || q[1].inicio).localeCompare(p[1].inicioLive || p[1].inicio));
@@ -1537,23 +1588,24 @@ function montaInicio(d) {
     // uma fileira por temporada; os próximos episódios entram no fim da fileira
     const temps = new Map();
     for (const [id, e] of eps) { const t = e.temporada || "Outros"; if (!temps.has(t)) temps.set(t, []); temps.get(t).push([id, e]); }
-    const setas = `<div class="f-setas"><button type="button" data-d="-1" aria-label="Voltar">‹</button><button type="button" data-d="1" aria-label="Avançar">›</button></div>`;
+    const setas = `<div class="f-setas"><button type="button" data-d="-1" aria-label="Voltar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button><button type="button" data-d="1" aria-label="Avançar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button></div>`;
     // a temporada principal (A Vigília) fica sempre em cima, o Transcendendo (podcast) sempre por último; as outras seguem pela mais recente
     const peso = t => t === "A Vigília" ? 0 : /transcend/i.test(t) ? 2 : 1;
     $("imFileiras").innerHTML = [...temps].sort((p, q) => peso(p[0]) - peso(q[0])).map(([t, lista]) => {
       let ci = 0;
       const cartoes = [...lista].reverse().map(([id, e]) => {
         const vivo = d.aoVivo && id === d.ver;
-        return `<a class="cartao" style="--i:${ci++}" href="/ep/${e.slug || id}"><img src="/capa/${id}.jpg" alt="" loading="lazy"><span class="selo${vivo ? " vivo" : ""}">${vivo ? "AO VIVO, " + f(d.atual?.total) : "Pico " + f(e.recorde)}</span>
+        return `<a class="cartao" style="--i:${ci++}" href="/ep/${e.slug || id}"><img src="/capa/${id}-p.jpg?v=3" alt="" loading="lazy" decoding="async"><span class="selo${vivo ? " vivo" : ""}">${vivo ? "AO VIVO, " + f(d.atual?.total) : "Pico " + f(e.recorde)}</span>
           <span class="c-info"><b>${esc(nomeEp(id, e).replace(t + " - ", ""))}${e.nome ? ": “" + esc(e.nome) + "”" : ""}</b><small>${dia(e)}${e.media ? ", média de " + f(e.media) : ""}</small></span></a>`; });
-      const prox = (d.proximos || []).filter(p => p.temporada === t).map(p => `<a class="cartao" href="/ep/${esc(p.slug || p.id)}"><img src="${p.id.startsWith("ag-") ? `/capa/${lista[0][0]}.jpg` : `/capa/${p.id}.jpg`}" alt="" loading="lazy" style="filter:blur(1.2px) brightness(.7)"><span class="selo">Em breve</span>
+      const prox = (d.proximos || []).filter(p => p.temporada === t).map(p => `<a class="cartao" href="/ep/${esc(p.slug || p.id)}"><img src="${p.id.startsWith("ag-") ? `/capa/${lista[0][0]}-p.jpg?v=3` : `/capa/${p.id}-p.jpg?v=3`}" alt="" loading="lazy" decoding="async" style="filter:blur(1.2px) brightness(.7)"><span class="selo">Em breve</span>
           <span class="c-info"><b>${esc((p.titulo || "Próximo episódio").replace(new RegExp("^" + t + "\\s*-\\s*", "i"), ""))}</b><small>${new Date(p.data).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })} às ${hm(new Date(p.data))}</small></span></a>`);
-      return `<div class="fileira"><div class="f-top"><h2>${esc(t)}</h2><small>${lista.length} ${lista.length > 1 ? "episódios" : "episódio"}</small>${setas}</div><div class="f-trilho">${cartoes.join("") + prox.join("")}</div></div>`;
+      const tl = "/temporada/" + kebab(t);
+      return `<div class="fileira"><div class="f-top"><h2><a href="${tl}">${esc(t)}</a></h2><small>${lista.length} ${lista.length > 1 ? "episódios" : "episódio"}</small>${setas}</div><div class="f-trilho">${cartoes.join("") + prox.join("")}</div></div>`;
     }).join("");
     ligaFileiras();
     ajustaLogo();
     // fila do pé da primeira tela: as capas de todos os episódios, repetidas pra dar a volta sem emenda
-    const capas = eps.filter(([id]) => !id.startsWith("twitch:")).map(([id]) => `<img src="/capa/${id}.jpg" alt="" loading="lazy">`).join("");
+    const capas = eps.filter(([id]) => !id.startsWith("twitch:")).slice(0, 14).map(([id]) => `<img src="/capa/${id}-p.jpg?v=3" alt="" decoding="async">`).join("");
     const precisa = Math.ceil(innerWidth / 200) + 2; let volta = capas; while (volta.split("<img").length - 1 < precisa) volta += capas;
     $("efTrilho").innerHTML = volta + volta;
     $("efTrilho").style.setProperty("--tempo", Math.max(40, (volta.split("<img").length - 1) * 5) + "s");
@@ -1564,10 +1616,13 @@ const ajustaLogo = () => {
   const l = document.querySelector(".marcas .rn-logo"); if (!l) return;
   l.style.translate = "";
   if (!document.body.classList.contains("modo-espera")) return;
-  const r = l.getBoundingClientRect();
-  l.style.translate = `0 ${Math.max(0, Math.round((r.left - r.top) * .5))}px`;
+  // posição na página, não na tela: com a página rolada o topo da tela fica abaixo da logo e a conta empurrava ela pra longe
+  const r = l.getBoundingClientRect(), topo = r.top + (document.scrollingElement.scrollTop || 0);
+  l.style.translate = `0 ${Math.max(0, Math.round((r.left - topo) * .5))}px`;
 };
-addEventListener("resize", ajustaLogo);
+// no celular a barra de endereço some ao rolar e dispara resize sem mudar a largura: só recalcula quando a largura muda
+let larguraLogo = innerWidth;
+addEventListener("resize", () => { if (innerWidth !== larguraLogo) { larguraLogo = innerWidth; ajustaLogo(); } });
 // largura da barra de rolagem (0 no celular), pra nada usar 100vw e passar da tela
 const marcaSb = () => document.documentElement.style.setProperty("--sb", Math.max(0, innerWidth - document.documentElement.clientWidth) + "px");
 addEventListener("resize", marcaSb); marcaSb();
@@ -1609,7 +1664,7 @@ addEventListener("load", () => {
 $("rolaDica").onclick = () => $("inicioMais").scrollIntoView({ behavior: "smooth", block: "start" });
 addEventListener("scroll", () => $("rolaDica").classList.toggle("some", (document.scrollingElement.scrollTop || 0) > 60), { passive: true });
 // setas das fileiras rolam uma tela do trilho; somem nas pontas. Cada fileira aparece subindo quando entra na tela
-const aparece = "IntersectionObserver" in window ? new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add("visivel"); aparece.unobserve(e.target); } }), { threshold: .15 }) : null;
+const aparece = "IntersectionObserver" in window ? new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add("visivel"); aparece.unobserve(e.target); requestAnimationFrame(() => e.target.querySelector(".f-trilho")?.dispatchEvent(new Event("scroll"))); } }), { threshold: .15 }) : null;
 function ligaFileiras() {
   for (const fl of document.querySelectorAll(".inicio-mais .fileira")) {
     if (aparece) aparece.observe(fl); else fl.classList.add("visivel");
@@ -1618,46 +1673,60 @@ function ligaFileiras() {
     const tr = fl.querySelector(".f-trilho"), bs = fl.querySelectorAll(".f-setas button");
     if (!tr || fl.dataset.ligada) continue;
     fl.dataset.ligada = "1";
-    const pontas = () => { if (!bs.length) return; bs[0].disabled = tr.scrollLeft < 4; bs[1].disabled = tr.scrollLeft + tr.clientWidth > tr.scrollWidth - 4; };
+    // setas somem quando todos os cartões cabem na tela; nas pontas ficam apagadas
+    const pontas = () => { if (!bs.length) return; bs[0].disabled = tr.scrollLeft < 4; bs[1].disabled = tr.scrollLeft + tr.clientWidth > tr.scrollWidth - 4; bs[0].parentNode.hidden = bs[0].disabled && bs[1].disabled; };
+    if ("ResizeObserver" in window) new ResizeObserver(pontas).observe(tr);
     bs.forEach(b => b.onclick = () => tr.scrollBy({ left: +b.dataset.d * tr.clientWidth * .85 }));
     tr.addEventListener("scroll", pontas, { passive: true }); requestAnimationFrame(pontas);
   }
 }
 
 // ---------- clipes mais vistos da Twitch do episódio ----------
-let clipesEp = null, clipesLista = [];
+let clipesEp = null, clipesVisiveis = [], clipesTotal = 0, clipesOrdem = "views", clipesPedido = 0;
+async function pegaClipes(de) {
+  const q = new URLSearchParams({ ep: clipesEp, de, n: 24, ordem: clipesOrdem, q: $("clipesBusca").value.trim() });
+  const j = await (await fetch("/api/clipes?" + q)).json();
+  return j;
+}
+// só descobre se há clipes (pra mostrar o botão); a lista vem quando abrir
 async function carregaClipes(ver) {
   if (clipesEp === ver) return;
   clipesEp = ver;
-  try { clipesLista = (await (await fetch("/api/clipes?ep=" + encodeURIComponent(ver))).json()).lista || []; } catch { clipesLista = []; }
-  $("clipesBtn").hidden = !clipesLista.length;
+  try { const j = await (await fetch("/api/clipes?ep=" + encodeURIComponent(ver) + "&n=1")).json(); $("clipesBtn").hidden = !j.total; } catch { $("clipesBtn").hidden = true; }
 }
 function tocaClipe(c) {
   $("clipeFrame").src = `https://clips.twitch.tv/embed?clip=${encodeURIComponent(c.id)}&parent=${location.hostname}&autoplay=true`;
   $("clipeInfo").textContent = `${c.titulo}: ${f(c.views)} views, clipado por ${c.criador}`;
   // o player toma o lugar da grade; "Voltar aos clipes" desfaz
-  $("clipePlayer").hidden = false; $("clipesLista").hidden = true; $("clipesFiltro").hidden = true;
+  $("clipePlayer").hidden = false; $("clipesLista").hidden = true; $("clipesFiltro").hidden = true; $("clipesMais").hidden = true;
   $("clipePlayer").parentNode.scrollTop = 0;
 }
-const voltaClipes = () => { $("clipeFrame").src = "about:blank"; $("clipePlayer").hidden = true; $("clipesLista").hidden = false; $("clipesFiltro").hidden = false; };
+const voltaClipes = () => { $("clipeFrame").src = "about:blank"; $("clipePlayer").hidden = true; $("clipesLista").hidden = false; $("clipesFiltro").hidden = false; $("clipesMais").hidden = clipesVisiveis.length >= clipesTotal; };
 $("clipeVolta").onclick = voltaClipes;
-// filtros: palavra no título ou em quem clipou, e ordem por views ou pelos mais novos
-let clipesOrdem = "views", clipesVisiveis = [];
-const semAcento = s => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-function mostraClipes() {
-  const q = semAcento($("clipesBusca").value.trim());
-  clipesVisiveis = clipesLista.filter(c => !q || semAcento(c.titulo + " " + c.criador).includes(q))
-    .sort((a, b) => clipesOrdem === "quando" ? b.quando.localeCompare(a.quando) : b.views - a.views);
-  const nomeEp = id => { const r = ultimo?.records[id]; if (!r) return ""; const n = r.titulo.match(/EPIS[ÓO]DIO\s*(\d+)/i)?.[1]; return (r.temporada || "") + (n ? " - Episódio " + n : ""); };
-  const dia = s => new Date(s).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
-  $("clipesLista").innerHTML = clipesVisiveis.map((c, i) => `<button type="button" data-i="${i}"><div class="cap"><img src="${esc(c.capa)}" alt="" loading="lazy"><span class="v">${f(c.views)} views</span><span class="d">${c.duracao}s</span></div><b>${esc(c.titulo)}</b><small>por ${esc(c.criador)}, ${dia(c.quando)}</small>${c.ep ? `<span class="ep-tag">${esc(nomeEp(c.ep))}</span>` : ""}</button>`).join("")
-    || `<p class="clipes-vazio">Nenhum clipe com “${esc($("clipesBusca").value.trim())}”.</p>`;
+const nomeClipeEp = id => { const r = ultimo?.records[id]; if (!r) return ""; const n = r.titulo.match(/EPIS[ÓO]DIO\s*(\d+)/i)?.[1]; return (r.temporada || "") + (n ? " - Episódio " + n : r.titulo.replace(/\s*\|.*$/, "").replace(r.temporada || "", "")); };
+const cartaoClipe = (c, i) => `<button type="button" data-i="${i}"><div class="cap"><img src="${esc(c.capa)}" alt="" loading="lazy" decoding="async"><span class="v">${f(c.views)} views</span><span class="d">${c.duracao}s</span></div><b>${esc(c.titulo)}</b><small>por ${esc(c.criador)}, ${new Date(c.quando).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</small>${c.ep ? `<span class="ep-tag">${esc(nomeClipeEp(c.ep))}</span>` : ""}</button>`;
+// novo = começa a lista de novo (abriu, buscou ou trocou a ordem); senão acrescenta a próxima página
+async function mostraClipes(novo = true) {
+  const meu = ++clipesPedido;
+  if (novo) { clipesVisiveis = []; $("clipesLista").innerHTML = `<p class="clipes-vazio">Carregando…</p>`; }
+  $("clipesMais").disabled = true;
+  let j; try { j = await pegaClipes(clipesVisiveis.length); } catch { j = { lista: [], total: 0 }; }
+  if (meu !== clipesPedido) return;
+  const de = clipesVisiveis.length; clipesVisiveis.push(...j.lista); clipesTotal = j.total;
+  const html = j.lista.map((c, i) => cartaoClipe(c, de + i)).join("");
+  if (novo) $("clipesLista").innerHTML = html || `<p class="clipes-vazio">${$("clipesBusca").value.trim() ? `Nenhum clipe com “${esc($("clipesBusca").value.trim())}”.` : "Nenhum clipe ainda."}</p>`;
+  else $("clipesLista").insertAdjacentHTML("beforeend", html);
+  $("clipesMais").disabled = false;
+  $("clipesMais").textContent = `Carregar mais clipes (${f(clipesTotal - clipesVisiveis.length)} restantes)`;
+  $("clipesMais").hidden = clipesVisiveis.length >= clipesTotal;
 }
-$("clipesBusca").oninput = mostraClipes;
+$("clipesMais").onclick = () => mostraClipes(false);
+let buscaT = 0;
+$("clipesBusca").oninput = () => { clearTimeout(buscaT); buscaT = setTimeout(() => mostraClipes(true), 300); };
 document.querySelector(".clipes-ordem").onclick = e => { const b = e.target.closest("button[data-o]"); if (!b) return;
-  clipesOrdem = b.dataset.o; document.querySelectorAll(".clipes-ordem button").forEach(x => x.classList.toggle("on", x === b)); mostraClipes(); };
+  clipesOrdem = b.dataset.o; document.querySelectorAll(".clipes-ordem button").forEach(x => x.classList.toggle("on", x === b)); mostraClipes(true); };
 $("clipesBtn").onclick = () => {
-  $("clipesBusca").value = ""; mostraClipes();
+  $("clipesBusca").value = ""; mostraClipes(true);
   voltaClipes();
   $("clipes").classList.add("on");
 };
@@ -1665,6 +1734,7 @@ $("clipesLista").onclick = e => { const b = e.target.closest("button[data-i]"); 
 const fechaClipes = () => { $("clipes").classList.remove("on"); voltaClipes(); };
 $("clipesFecha").onclick = fechaClipes;
 $("clipes").onclick = e => { if (e.target.id === "clipes") fechaClipes(); };
+$("epNome").addEventListener("click", e => { const t = $("epNome").dataset.temp; if (t) { e.stopPropagation(); e.preventDefault(); location.href = "/temporada/" + t; } }, true);
 $("epsBtn").onclick = () => { listaEps(); $("eps").classList.add("on"); };
 $("epsFecha").onclick = () => $("eps").classList.remove("on");
 $("eps").onclick = e => { if (e.target.id === "eps") $("eps").classList.remove("on"); };

@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ordem Tracker</title>
+<meta name="description" content="Painel da temporada de Ordem Paranormal: audiência de cada episódio, comparação com as outras temporadas e clipes.">
+<link rel="icon" type="image/png" href="/rn-preto.png" media="(prefers-color-scheme: light)">
+<link rel="icon" type="image/png" href="/rn-branco.png" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=Inter+Tight:wght@700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+<script>
+try { document.documentElement.dataset.tema = localStorage.getItem("tema") || (matchMedia("(prefers-color-scheme: light)").matches ? "claro" : "escuro"); } catch { document.documentElement.dataset.tema = "escuro"; }
+</script>
+<style>
+:root{--bg:#121212;--panel:#181818;--panel2:#242424;--line:#2a2a2a;--line2:#3a3a3a;--tx:#ededed;--mut:#8a8a8a;
+  --twitch:#9146ff;--kick:#53fc18;--yt:#ff2b2b;--tiktok:#25f4ee;--red:#ef4444;--green:#22c55e;--grade:rgba(255,255,255,.05);--rn:url(/rn-branco.png);
+  --sombra:0 10px 32px rgba(0,0,0,.4),inset 0 0 0 1px rgba(255,255,255,.06)}
+:root[data-tema="claro"]{--bg:#f3f3f3;--panel:#fff;--panel2:#e7e7e7;--line:#ddd;--line2:#cfcfcf;--tx:#151515;--mut:#6e6e6e;
+  --kick:#2fbf00;--tiktok:#0aa6a0;--green:#16a34a;--grade:rgba(0,0,0,.06);--rn:url(/rn-preto.png);--sombra:0 0 0 1px rgba(0,0,0,.08)}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden}
+body{display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;grid-template-columns:minmax(0,1fr);gap:1.4vh;padding:1.8vh 2vw .8vh;
+  background:var(--bg);color:var(--tx);font-family:Inter,system-ui,sans-serif;font-size:clamp(11px,1.5vh,15px);-webkit-font-smoothing:antialiased}
+*{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--mut) 45%,transparent) transparent}
+a{color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.mut{color:var(--mut)}
+.cap{font-size:.78em;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+.lbl{color:var(--mut);font-size:.9em}
+[hidden]{display:none!important}
+/* ---- topo: igual ao do resto do site ---- */
+.top{position:relative;z-index:5;display:flex;align-items:center;gap:1.3em;height:clamp(28px,4.4vh,44px);font:500 clamp(12px,1.6vh,15px)/1 Inter,sans-serif}
+.marcas{display:flex;align-items:center;height:100%}
+.rn-logo{flex:none;display:inline-block;background:var(--rn) center/contain no-repeat}
+.marcas .rn-logo{aspect-ratio:1;height:170%;margin:0 -.4em}
+.sp{flex:1}
+.tbtn{display:inline-flex;align-items:center;justify-content:center;gap:.5em;background:none;border:0;padding:.6em .55em;margin:0 -.8em;min-width:36px;min-height:36px;color:var(--mut);font:inherit;cursor:pointer;transition:color .2s}
+.tbtn:hover,.tbtn:focus-visible{color:var(--tx)}
+.tbtn svg{width:1.3em;height:1.3em;flex:none}
+.top .tbtn span{display:none}
+:root[data-tema="claro"] .i-lua,:root:not([data-tema="claro"]) .i-sol{display:none}
+.clockw{display:flex;align-items:center;gap:.5em;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dot{width:.45em;height:.45em;border-radius:50%;background:var(--red)}
+.prox{display:flex;align-items:center;gap:.4em;color:var(--tx);text-decoration:none;white-space:nowrap}
+.prox b{font-weight:600}
+[data-dica]{position:relative}
+[data-dica]::after{content:attr(data-dica);position:absolute;top:calc(100% + 10px);right:0;z-index:60;padding:.5em .8em;border-radius:8px;background:var(--panel);border:1px solid var(--line);
+  box-shadow:0 8px 24px rgba(0,0,0,.25);color:var(--tx);font:500 12px/1 Inter,sans-serif;white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(-4px);transition:opacity .18s,transform .18s}
+[data-dica]:hover::after,[data-dica]:focus-visible::after{opacity:1;transform:none;transition-delay:.25s}
+.marcas[data-dica]::after{right:auto;left:0}
+@media (hover:none){[data-dica]::after{display:none}}
+/* ---- painel: mesma divisão do painel de episódio ---- */
+.main{display:grid;grid-template-columns:minmax(0,.78fr) minmax(0,1.22fr);gap:1.2vw;min-height:0}
+.col{display:flex;flex-direction:column;min-height:0;min-width:0}
+.col+.col{border-left:1px solid var(--line);padding-left:1.6vw}
+/* capa sempre em 16:9 (a imagem do YouTube inteira); quando a tela é baixa, ela diminui na largura em vez de cortar em cima e embaixo */
+/* coluna da esquerda: tudo com a largura da capa, centralizado */
+.main>.col:first-child>*{width:100%;flex-shrink:0}
+.main>.col:first-child>.dest{flex-shrink:1}
+.capa{flex:none;aspect-ratio:16/9;width:100%;border-radius:16px;background:var(--panel2) center/cover no-repeat;box-shadow:var(--sombra);margin-bottom:1.6vh}
+.seletor{position:relative}
+.ep-titulo{display:flex;align-items:center;gap:.35em;margin:0;padding:0;border:0;background:none;color:var(--tx);font:600 clamp(18px,3.4vh,34px)/1.15 "Inter Tight",Inter,sans-serif;letter-spacing:-.01em;cursor:pointer;max-width:100%}
+.ep-titulo span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ep-titulo .seta{width:.7em;height:.7em;flex:none;color:var(--mut);transition:transform .2s}
+.ep-titulo[aria-expanded="true"] .seta{transform:rotate(180deg)}
+.ep-sub{margin:.2vh 0 0;line-height:1.3;color:var(--mut);font:500 clamp(13px,1.7vh,17px) Inter,sans-serif}
+.menu{position:absolute;left:0;top:100%;z-index:20;min-width:min(320px,100%);max-height:60vh;overflow:auto;background:var(--panel);border:1px solid var(--line2);border-radius:14px;padding:6px;box-shadow:0 14px 40px rgba(0,0,0,.45);display:none}
+.menu.on{display:block}
+.menu a{display:flex;justify-content:space-between;gap:16px;padding:.6em .8em;border-radius:9px;text-decoration:none;white-space:nowrap}
+.menu a:hover,.menu a.atual{background:var(--panel2)}
+.menu a small{color:var(--mut)}
+/* pico da temporada */
+.pico{padding-top:1.2vh}
+.pico .cap{line-height:1.2}
+.pico .big{font:800 clamp(32px,min(10vh,6vw),112px)/1 "Inter Tight",Inter,sans-serif;letter-spacing:-.03em;margin:.06em 0 .1em}
+.onde-pico{display:flex;align-items:baseline;gap:.4em;color:var(--mut);font-size:1.02em;min-width:0}
+.onde-pico a{color:var(--tx);font-weight:600;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.onde-pico a:hover{text-decoration:underline}
+.onde-pico i{width:3px;height:3px;border-radius:50%;background:var(--mut);flex:none}
+/* destaques ocupam o espaço entre o pico e a barra de plataformas */
+.dest{flex:1 1 0;min-height:0;overflow:hidden;margin-top:1.2vh;border-top:1px solid var(--line);display:flex;flex-direction:column}
+.dest a{display:grid;grid-template-columns:.9em minmax(0,1fr) auto;align-items:center;gap:0 .5em;padding:.85vh 0;border-bottom:1px solid var(--line);text-decoration:none;min-width:0}
+.dest a:last-child{border-bottom:0}
+.dest a:hover .dn{text-decoration:underline}
+.dest i{width:.6em;height:.6em;border-radius:50%;background:var(--c,var(--tx));justify-self:center}
+.dest .dk{color:var(--mut);font-size:.88em;display:block}
+.dest .dn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;font-weight:500}
+.dest .dv{font-weight:700;font-size:1.08em;white-space:nowrap;text-align:right}
+.plats{display:flex;flex-wrap:wrap;gap:.4em 1em;margin:1vh 0 .6vh;line-height:1.2}
+.plats div{display:flex;align-items:center;gap:.3em}
+.plats img{width:1.1em;height:1.1em;object-fit:contain}
+:root[data-tema="claro"] .plats img[src*="tiktok"]{content:url(/icones/tiktok.png?v=3)}
+.plats b{font-weight:700}
+.bar{display:flex;height:clamp(26px,4.4vh,46px);border-radius:12px;overflow:hidden;background:var(--panel2)}
+.seg{display:flex;align-items:center;padding:0 .8em;font-weight:700;font-size:clamp(12px,1.9vh,19px);white-space:nowrap;overflow:hidden}
+.seg{cursor:default}
+.bar-dica{position:fixed;z-index:20;background:var(--panel2);border:1px solid var(--line2);color:var(--tx);font:600 1em Inter,sans-serif;padding:.45em .8em;border-radius:8px;pointer-events:none;white-space:nowrap;opacity:0;transition:opacity .12s}
+.bar-dica.on{opacity:1}
+.bar-dica i{display:inline-block;width:.6em;height:.6em;border-radius:50%;margin-right:.45em}
+.seg.tw{background:var(--twitch);color:#fff}.seg.kk{background:var(--kick);color:#063}.seg.yt{background:var(--yt);color:#fff;justify-content:flex-end}.seg.tt{background:var(--tiktok);color:#06302f}
+.trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:1.2vh;line-height:1.2}
+.trio>a{display:block;padding:0 1vw;border-left:1px solid var(--line);text-decoration:none;min-width:0}
+.trio>a:first-child{border-left:0;padding-left:0}
+.trio b{display:block;font-size:1.25em;font-weight:700;margin:.1em 0 0}
+.trio small{display:block;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trio>a:hover b{text-decoration:underline}
+/* gráfico */
+.g-top{display:flex;align-items:center;gap:1em;flex-wrap:wrap}
+.filtro{display:flex;gap:2px;margin-left:auto;background:var(--panel2);border-radius:99px;padding:3px}
+.filtro button{border:0;background:none;color:var(--mut);font:500 .92em Inter,sans-serif;padding:.45em .9em;border-radius:99px;cursor:pointer;transition:color .15s,background-color .15s}
+.filtro button:hover{color:var(--tx)}
+.filtro button.on{background:var(--panel);color:var(--tx);box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.cw{position:relative;flex:1;min-height:0;margin-top:1vh}
+.leg{display:flex;flex-wrap:wrap;gap:.3em .9em;color:var(--mut);font-size:.88em;margin-top:.8vh;min-height:1.3em}
+.leg span{display:inline-flex;align-items:center;gap:.35em;white-space:nowrap}
+.leg i{display:inline-block;width:.75em;height:.75em;border-radius:3px;background:var(--c)}
+.leg i.p{border-radius:50%}
+.leg i.tr{height:0;border-top:2px dashed var(--c);border-radius:0;width:1.1em;background:none}
+.lado{border-top:1px solid var(--line);padding-top:1.4vh;margin-top:1.2vh;display:grid;grid-template-columns:auto 1fr;align-items:end;gap:1.5vw}
+.lado .v{font:800 clamp(26px,min(6vh,4vw),64px)/1 "Inter Tight",Inter,sans-serif;letter-spacing:-.02em;display:block;margin-top:.2em}
+.lado .ext{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.4em 1.6em;color:var(--mut);font-size:1.05em;white-space:nowrap}
+.lado .ext b{color:var(--tx);font-weight:600}
+.sobe{color:var(--green)}.desce{color:var(--red)}
+/* faixa do pé, como no painel de episódio */
+.strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;border-top:1px solid var(--line);padding-top:1.4vh}
+.st{padding:0 1vw;border-left:1px solid var(--line);min-width:0}
+.st:first-child{border-left:0;padding-left:0}
+.st b{display:block;font:700 clamp(15px,2.3vh,24px)/1.15 "Inter Tight",Inter,sans-serif;margin:.2em 0 .05em;white-space:nowrap}
+.st small{color:var(--mut);font-size:.9em;white-space:nowrap}
+.mais-b{display:flex;gap:8px;padding-left:1vw;border-left:1px solid var(--line)}
+.sbtn{display:inline-flex;align-items:center;gap:.4em;padding:.6em 1em;border-radius:99px;border:1px solid var(--line2);background:none;color:var(--tx);font:600 .95em Inter,sans-serif;cursor:pointer;white-space:nowrap;text-decoration:none;transition:background-color .15s}
+.sbtn:hover{background:var(--panel2)}
+.aviso{text-align:center;color:var(--mut);font-size:.78em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aviso a{color:var(--mut)}
+/* ---- janelas (mesmo estilo das do site) ---- */
+.modal{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.8);display:grid;place-items:center;padding:3vh;opacity:0;pointer-events:none;transition:opacity .25s}
+.modal.on{opacity:1;pointer-events:auto}
+.jan{background:var(--panel);border:1px solid var(--line);border-radius:16px;width:min(960px,100%);max-height:88vh;display:flex;flex-direction:column;transform:translateY(10px) scale(.98);transition:transform .3s cubic-bezier(.2,.8,.2,1);font-size:14px}
+.modal.on .jan{transform:none}
+.jan-top{display:flex;align-items:center;gap:16px;padding:16px 22px;border-bottom:1px solid var(--line)}
+.jan-top h3{margin:0;font:600 18px Inter,sans-serif}
+.jan-top .tabs{display:flex;gap:16px;margin-left:8px}
+.jan-top .tabs button{border:0;background:none;color:var(--mut);font:500 14px Inter,sans-serif;cursor:pointer;padding:4px 0}
+.jan-top .tabs button.on{color:var(--tx)}
+.fechar{margin-left:auto;background:none;border:0;color:var(--mut);cursor:pointer;font:500 13px Inter,sans-serif}
+.fechar:hover{color:var(--tx)}
+.jan-c{overflow:auto;padding:10px 22px 18px}
+/* destaques */
+.fatos{list-style:none;margin:0;padding:0}
+.fatos li{display:grid;grid-template-columns:1fr auto;gap:2px 16px;align-items:baseline;padding:12px 0;border-bottom:1px solid var(--line)}
+.fatos li:last-child{border-bottom:0}
+.fatos .k{color:var(--mut)}
+.fatos .val{font-weight:700;font-size:1.15em;text-align:right;white-space:nowrap}
+.fatos .d{grid-column:1/-1;color:var(--mut);font-size:.92em}
+.fatos a{text-decoration:none}.fatos a:hover{text-decoration:underline}
+/* comparação */
+.comp a{display:grid;grid-template-columns:minmax(0,190px) 1fr 90px;align-items:center;gap:14px;text-decoration:none;padding:9px 0;border-bottom:1px solid var(--line)}
+.comp a:last-child{border-bottom:0}
+.comp .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.comp .tr{position:relative;height:8px;border-radius:4px;background:var(--panel2);overflow:hidden}
+.comp .tr i{position:absolute;inset:0 auto 0 0;background:var(--mut);border-radius:4px}
+.comp a.eu .tr i{background:var(--tx)}
+.comp a.eu{font-weight:700}
+.comp a:hover .nm{text-decoration:underline}
+.comp .vv{text-align:right}
+.nota{color:var(--mut);font-size:.88em;margin:12px 0 0}
+/* curvas */
+.curvas{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));border-top:1px solid var(--line);border-left:1px solid var(--line);margin-top:6px}
+.curva{display:block;padding:10px 12px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);text-decoration:none;transition:background-color .15s}
+.curva:hover{background:var(--panel2)}
+.curva svg{display:block;width:100%;height:42px;margin:8px 0 5px;color:var(--tx)}
+.curva .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.curva .r{display:flex;justify-content:space-between;color:var(--mut);font-size:.9em}
+/* tabela */
+table{width:100%;border-collapse:collapse;min-width:720px}
+th,td{padding:10px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+th:first-child,td:first-child{padding-left:0}
+tr:last-child td{border-bottom:0}
+th{font-size:.78em;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);font-weight:600;position:sticky;top:0;background:var(--panel)}
+th button{all:unset;cursor:pointer}
+th button:hover,th.on button{color:var(--tx)}
+th.on button::after{content:" ↓"}th.on.asc button::after{content:" ↑"}
+td a.ep{font-weight:600;text-decoration:none}td a.ep:hover{text-decoration:underline}
+td .nm{color:var(--mut)}
+.lk{display:inline-flex;gap:10px;vertical-align:middle}
+.lk img{width:18px;height:18px;object-fit:contain;display:block;opacity:.85}
+.lk a:hover img{opacity:1}
+/* clipes */
+.clipes{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;padding-top:6px}
+.clipes a{display:flex;flex-direction:column;gap:6px;text-decoration:none;min-width:0}
+.clipes .cp{position:relative;border-radius:10px;overflow:hidden;aspect-ratio:16/9;background:var(--panel2)}
+.clipes img{width:100%;height:100%;object-fit:cover;display:block}
+.clipes .cp span{position:absolute;bottom:6px;left:6px;font:600 12px Inter,sans-serif;color:#fff;background:rgba(0,0,0,.7);padding:2px 6px;border-radius:5px}
+.clipes b{font-weight:600;line-height:1.3;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.clipes small{color:var(--mut);font-size:.88em}
+.mais{display:block;margin:16px auto 0;padding:10px 22px;border-radius:99px;border:1px solid var(--line2);background:none;color:var(--tx);font:600 14px Inter,sans-serif;cursor:pointer}
+.mais:hover{background:var(--panel2)}
+/* feedback */
+.fb textarea,.fb input{width:100%;background:var(--panel2);color:var(--tx);border:1px solid transparent;border-radius:10px;padding:.7em .9em;font:inherit;font-size:15px;outline:0;margin-top:10px}
+.fb textarea{min-height:120px;resize:vertical}
+.fb .sbtn{margin-top:12px}
+.toast{position:fixed;left:50%;top:76px;z-index:70;background:var(--tx);color:var(--bg);font:700 .9em Inter,sans-serif;padding:.5em .9em;border-radius:99px;transform:translateX(-50%);opacity:0;pointer-events:none;transition:opacity .25s}
+.toast.on{opacity:1}
+.carrega{display:grid;place-items:center;color:var(--mut)}
+@keyframes sobe{from{opacity:0;transform:translateY(10px)}}
+.main>.col{animation:sobe .7s cubic-bezier(.2,.8,.2,1) both}
+.main>.col+.col{animation-delay:.12s}
+.strip:not(:empty){animation:sobe .7s .24s cubic-bezier(.2,.8,.2,1) both}
+.seg{transition:flex-basis 1.2s cubic-bezier(.2,.8,.2,1)}
+
+/* celular e tela em pé: a página rola, como no painel de episódio */
+@media (max-width:800px),(max-aspect-ratio:1/1){
+  html,body{height:auto;overflow:auto}
+  body{display:block;padding:16px;font-size:14px}
+  body>*+*{margin-top:16px}
+  .top{gap:10px}
+  .marcas .rn-logo{height:150%;margin:0 -.2em}
+  .prox~.clockw{display:none}.prox .mut{display:none}
+  .main{grid-template-columns:minmax(0,1fr);gap:0}
+  .col+.col{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:16px;margin-top:16px}
+  .main>.col:first-child>*{width:100%}
+  .pico .big{font-size:clamp(44px,15vw,88px)}
+  .cw{flex:none;height:260px}
+  .lado{grid-template-columns:1fr}.lado .ext{justify-content:flex-start}
+  .strip{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:14px}
+  .st{padding:0 0 0 12px}.st:nth-child(odd){border-left:0;padding-left:0}
+  .dest{flex:none;overflow:visible}
+  .aviso{white-space:normal}
+  .filtro{margin-left:0;width:100%;justify-content:space-between}
+  .filtro button{flex:1;padding:.5em .4em}
+  .comp a{grid-template-columns:minmax(0,120px) 1fr 70px;gap:10px}
+  .curvas{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .clipes{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .modal{padding:0;place-items:end stretch}.jan{max-height:92vh;border-radius:16px 16px 0 0;width:100%}
+  .trio>a{padding:0 10px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="top">
+  <a class="marcas" href="/" data-dica="Início" aria-label="Início"><span class="rn-logo" role="img" aria-label="Realitas News"></span></a>
+  <div class="sp"></div>
+  <a class="prox" id="prox" data-dica="Próximo episódio" aria-label="Próximo episódio" hidden><span class="mut">Próximo episódio em</span> <b class="num" id="proxC"></b></a>
+  <button class="tbtn" id="temaBtn" data-dica="Tema claro ou escuro" aria-label="Alternar tema"><svg class="i-lua" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><svg class="i-sol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></button>
+  <button class="tbtn" id="fbBtn" data-dica="Feedback e bugs" aria-label="Feedback e bugs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg></button>
+  <button class="tbtn" id="epsBtn" data-dica="Episódios" aria-label="Episódios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="m17 2-5 5-5-5"/></svg><span>Episódios</span></button>
+  <button class="tbtn" id="clipesBtn" data-dica="Clipes mais vistos" aria-label="Clipes mais vistos" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z"/><path d="m6.2 5.3 3.1 3.9"/><path d="m12.4 3.4 3.1 4"/><path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg><span>Clipes</span></button>
+  <button class="tbtn" id="shareBtn" data-dica="Compartilhar" aria-label="Compartilhar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg><span>Compartilhar</span></button>
+  <div class="clockw"><span class="dot"></span><span class="num" id="clock">--:--:--</span></div>
+</div>
+<div class="main" id="conteudo"><div class="carrega">Carregando a temporada…</div></div>
+<div class="strip num" id="strip"></div>
+<div class="aviso">Realitas News, projeto de fãs não oficial e sem vínculo com o Cellbit ou a Ordem Paranormal. Logos, capas e artes pertencem aos seus autores. <a href="/privacidade">Privacidade e fontes</a></div>
+
+<div class="modal" id="janela"><div class="jan"><div class="jan-top"><h3 id="janT"></h3><div class="tabs" id="janTabs"></div><button class="fechar" id="janFecha">Fechar</button></div><div class="jan-c" id="janC"></div></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const f = n => n == null ? "-" : Math.round(n).toLocaleString("pt-BR");
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const dia = s => new Date(s).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+const dur = m => { if (m == null) return "-"; m = Math.round(m); return Math.floor(m / 60) + "h" + String(m % 60).padStart(2, "0"); };
+const pct = v => (v > 0 ? "+" : "") + v.toLocaleString("pt-BR", { maximumFractionDigits: Math.abs(v) < 10 ? 1 : 0 }) + "%";
+const dois = n => String(n).padStart(2, "0");
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const PLAT = { twitch: ["Twitch", "tw", "/icones/twitch.png?v=2"], kick: ["Kick", "kk", "/icones/kick-k.png?v=1"], youtube: ["YouTube", "yt", "/icones/youtube.png?v=2"], tiktok: ["TikTok", "tt", "/icones/tiktok-branco.png?v=1"] };
+const slug = location.pathname.split("/").filter(Boolean)[1] || "";
+let D = null, graf = null, metrica = "media";
+const rotulo = e => e.rotulo + (e.nome ? ": “" + e.nome + "”" : "");
+const curto = e => e.rotulo.replace("Episódio ", "Ep ").replace("Parte ", "Pt ");
+const link = e => "/ep/" + encodeURIComponent(e.slug);
+const toast = t => { $("toast").textContent = t; $("toast").classList.add("on"); setTimeout(() => $("toast").classList.remove("on"), 2200); };
+
+// ---- topo: tema, relógio e contagem do próximo episódio (iguais às do site) ----
+$("temaBtn").onclick = () => {
+  const t = document.documentElement.dataset.tema === "claro" ? "escuro" : "claro";
+  document.documentElement.dataset.tema = t; try { localStorage.setItem("tema", t); } catch {}
+  if (D) desenhaGrafico();
+};
+let proximo = null;
+function relogio() {
+  const d = new Date(); $("clock").textContent = [d.getHours(), d.getMinutes(), d.getSeconds()].map(dois).join(":");
+  if (proximo) {
+    const s = Math.max(0, Math.floor((new Date(proximo.data) - Date.now()) / 1000)), n = Math.floor(s / 86400);
+    $("proxC").textContent = (n ? n + (n > 1 ? " dias e " : " dia e ") : "") + [Math.floor(s / 3600) % 24, Math.floor(s / 60) % 60, s % 60].map(dois).join(":");
+  }
+}
+relogio(); setInterval(relogio, 1000);
+fetch("/api").then(r => r.json()).then(d => {
+  proximo = (d.proximos || []).find(p => new Date(p.data) > Date.now()) || null;
+  if (proximo) { $("prox").hidden = false; $("prox").href = "/ep/" + (proximo.slug || proximo.id); relogio(); }
+}).catch(() => {});
+$("shareBtn").onclick = async () => {
+  const url = location.href, title = document.title;
+  if (navigator.share) { try { await navigator.share({ title, url }); return; } catch { return; } }
+  try { await navigator.clipboard.writeText(url); toast("Link copiado"); } catch { toast(url); }
+};
+
+// ---- janelas ----
+function abre(titulo, abas, mostra) {
+  $("janT").textContent = titulo;
+  $("janTabs").innerHTML = (abas || []).map((a, i) => `<button data-i="${i}" class="${i ? "" : "on"}">${a}</button>`).join("");
+  $("janTabs").onclick = e => { const b = e.target.closest("button"); if (!b) return; [...$("janTabs").children].forEach(x => x.classList.toggle("on", x === b)); mostra(+b.dataset.i); };
+  mostra(0); $("janC").scrollTop = 0;
+  $("janela").classList.add("on");
+}
+const fecha = () => $("janela").classList.remove("on");
+$("janFecha").onclick = fecha;
+$("janela").onclick = e => { if (e.target.id === "janela") fecha(); };
+addEventListener("keydown", e => { if (e.key === "Escape") fecha(); });
+
+$("fbBtn").onclick = () => abre("Feedback e bugs", null, () => {
+  $("janC").innerHTML = `<div class="fb"><p class="mut">Achou um número errado, um episódio faltando ou um bug? Conta pra gente.</p><textarea id="fbT" placeholder="Escreva aqui..."></textarea><input id="fbC" placeholder="Contato (opcional)"><button class="sbtn" id="fbE">Enviar</button> <span class="mut" id="fbM"></span></div>`;
+  $("fbE").onclick = async () => {
+    $("fbE").disabled = true; $("fbM").textContent = "Enviando…";
+    try {
+      const r = await fetch("/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tipo: "bug", texto: $("fbT").value, contato: $("fbC").value, pagina: location.pathname }) });
+      const j = await r.json(); if (!r.ok) throw new Error(j.erro || "Não deu para enviar agora.");
+      $("fbT").value = ""; $("fbM").textContent = "Recebido, obrigado!";
+    } catch (err) { $("fbM").textContent = err.message; }
+    $("fbE").disabled = false;
+  };
+});
+
+function sparkline(v) {
+  if (!v || v.length < 2) return "";
+  const mx = Math.max(...v) || 1, w = 100, h = 40;
+  const d = v.map((y, i) => (i ? "L" : "M") + ((i / (v.length - 1)) * w).toFixed(1) + " " + (h - (y / mx) * (h - 3) - 1.5).toFixed(1)).join("");
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}L${w} ${h}L0 ${h}Z" fill="currentColor" opacity=".1"/><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+async function carrega() {
+  try { const r = await fetch("/api/temporada?t=" + encodeURIComponent(slug)); if (!r.ok) throw 0; D = await r.json(); }
+  catch { $("conteudo").innerHTML = `<div class="carrega">Temporada não encontrada. <a href="/">Voltar ao início</a></div>`; return; }
+  monta();
+}
+
+// o que se destacou na temporada; cor = a mesma marca usada no gráfico
+function calcDestaques() {
+  const eps = D.episodios, com = k => eps.filter(e => e[k] != null);
+  const pares = eps.slice(1).map((e, i) => ({ e, ant: eps[i], v: eps[i].media ? (e.media - eps[i].media) / eps[i].media * 100 : 0 }));
+  const alta = pares.length ? pares.reduce((a, b) => b.v > a.v ? b : a) : null, queda = pares.length ? pares.reduce((a, b) => b.v < a.v ? b : a) : null;
+  const por = (k, d) => [...com(k)].sort((a, b) => d * (b[k] - a[k]))[0];
+  return { alta: alta && alta.v > 0 ? alta : null, queda: queda && queda.v < 0 ? queda : null, melhor: por("media", 1), pior: eps.length > 1 ? por("media", -1) : null,
+    horas: por("horas", 1), longa: por("duracaoMin", 1) };
+}
+function destaques() {
+  const d = calcDestaques();
+  const li = (cor, k, e, v) => e ? `<a href="${link(e)}" style="--c:${cor}"><i></i><span><span class="dk">${k}</span><span class="dn">${esc(rotulo(e))}</span></span><span class="dv">${v}</span></a>` : "";
+  return [
+    li("var(--tx)", "Melhor média", d.melhor, f(d.melhor?.media)),
+    li("var(--mut)", "Menor média", d.pior, f(d.pior?.media)),
+    d.alta ? li("var(--green)", `Maior alta: ${esc(curto(d.alta.ant))} → ${esc(curto(d.alta.e))}`, d.alta.e, `<span class="sobe">${pct(d.alta.v)}</span>`) : "",
+    d.queda ? li("var(--red)", `Maior queda: ${esc(curto(d.queda.ant))} → ${esc(curto(d.queda.e))}`, d.queda.e, `<span class="desce">${pct(d.queda.v)}</span>`) : "",
+    li("var(--mut)", "Mais horas assistidas", d.horas, f(d.horas?.horas)),
+  ].join("");
+}
+function monta() {
+  const t = D.temporada, eps = D.episodios;
+  const com = k => eps.filter(e => e[k] != null);
+  const soma = k => com(k).reduce((a, e) => a + e[k], 0);
+  const topo = [...eps].sort((a, b) => b.pico - a.pico)[0];
+  const melhor = [...eps].sort((a, b) => b.media - a.media)[0];
+  const minutos = soma("duracaoMin");
+  const anos = t.ano === t.fimAno ? t.ano : t.ano + "–" + t.fimAno;
+  const ret = eps.length > 1 && eps[0].media ? (eps.at(-1).media - eps[0].media) / eps[0].media * 100 : null;
+  const pos = k => [...D.todas].sort((a, b) => b[k] - a[k]).findIndex(x => x.slug === t.slug) + 1;
+  const ord = n => n + "ª";
+  const plat = Object.keys(PLAT).map(p => [p, eps.reduce((a, e) => a + (e.noPico?.[p] || 0), 0)]).filter(([, v]) => v > 0);
+  const totPlat = plat.reduce((a, [, v]) => a + v, 0) || 1, pp = v => (v / totPlat * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "%";
+  document.title = `${t.nome}: painel da temporada | Ordem Tracker`;
+
+  $("conteudo").innerHTML = `
+    <div class="col">
+      <div class="capa" style="background-image:url(/capa/${esc(t.capa)}.jpg)"></div>
+      <div class="seletor">
+        <button class="ep-titulo" id="tempSel" aria-haspopup="listbox" aria-expanded="false"><span>${esc(t.nome)}</span><svg class="seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+        <p class="ep-sub">Temporada de ${anos}, ${eps.length} ${eps.length > 1 ? "episódios" : "episódio"}</p>
+        <div class="menu" id="menuTemp" role="listbox">${[...D.todas].sort((a, b) => b.ano.localeCompare(a.ano)).map(x => `<a href="/temporada/${esc(x.slug)}" class="${x.slug === t.slug ? "atual" : ""}">${esc(x.nome)}<small>${x.ano}</small></a>`).join("")}</div>
+      </div>
+      <div class="pico">
+        <div class="cap">Pico da temporada</div>
+        <div class="big num" id="picoN" data-v="${t.pico}">0</div>
+        <div class="onde-pico"><a href="${link(topo)}">${esc(rotulo(topo))}</a><span>${dia(topo.data)}</span></div>
+      </div>
+      <div class="dest num">${destaques()}</div>
+      <div class="plats num">${plat.map(([p, v]) => `<div><img src="${PLAT[p][2]}" alt="">${PLAT[p][0]} <b>${pp(v)}</b></div>`).join("")}</div>
+      <div class="bar" id="barra">${plat.map(([p, v]) => `<div class="seg ${PLAT[p][1]}" style="flex-basis:0%" data-b="${v / totPlat * 100}" data-p="${p}" data-v="${v}" data-pc="${pp(v)}"><span></span></div>`).join("")}</div>
+      <div class="trio num">
+        <a href="${link(eps[0])}"><span class="cap">Primeiro</span><b>${f(eps[0].media)}</b><small>média, ${esc(curto(eps[0]))}</small></a>
+        <a href="${link(melhor)}"><span class="cap">Melhor</span><b>${f(melhor.media)}</b><small>média, ${esc(curto(melhor))}</small></a>
+        <a href="${link(eps.at(-1))}"><span class="cap">Último</span><b>${f(eps.at(-1).media)}</b><small>média, ${esc(curto(eps.at(-1)))}</small></a>
+      </div>
+    </div>
+    <div class="col">
+      <div class="g-top"><span class="lbl">Audiência por episódio</span>
+        <div class="filtro" role="group" aria-label="O que mostrar no gráfico">
+          <button data-m="media" class="on">Média</button><button data-m="pico">Pico</button><button data-m="horas">Horas</button><button data-m="duracaoMin">Duração</button><button data-m="temporadas">Temporadas</button>
+        </div></div>
+      <div class="leg" id="leg"></div>
+      <div class="cw"><canvas id="graf"></canvas></div>
+      <div class="lado">
+        <div><div class="cap">Média da temporada</div><b class="v num">${f(t.media)}</b></div>
+      </div>
+    </div>`;
+  $("strip").innerHTML = `
+    <div class="st"><small>Tempo de live</small><b>${dur(minutos)}</b><small>${dur(Math.round(minutos / eps.length))} por episódio</small></div>
+    <div class="st"><small>Horas assistidas</small><b>${f(soma("horas"))}</b><small>${ord(pos("horas"))} entre as temporadas</small></div>
+    <div class="st"><small>Pico</small><b>${ord(pos("pico"))}</b><small>entre ${D.todas.length} temporadas</small></div>
+    <div class="st"><small>Live mais longa</small><b>${dur(Math.max(...com("duracaoMin").map(e => e.duracaoMin)))}</b><small>${esc(curto(com("duracaoMin").sort((a, b) => b.duracaoMin - a.duracaoMin)[0] || eps[0]))}</small></div>
+    <div class="st"><small>Episódios</small><b>${eps.length}</b><small>${dia(eps[0].data).replace(/^\d+ de /, "")} a ${dia(eps.at(-1).data).replace(/^\d+ de /, "")}</small></div>`;
+
+  const bt = $("tempSel"), menu = $("menuTemp");
+  bt.onclick = e => { e.stopPropagation(); const on = !menu.classList.contains("on"); menu.classList.toggle("on", on); bt.setAttribute("aria-expanded", on); };
+  document.addEventListener("click", e => { if (!e.target.closest("#menuTemp")) { menu.classList.remove("on"); bt.setAttribute("aria-expanded", "false"); } });
+  document.querySelector(".filtro").onclick = e => { const b = e.target.closest("button"); if (!b) return; document.querySelectorAll(".filtro button").forEach(x => x.classList.toggle("on", x === b)); metrica = b.dataset.m; desenhaGrafico(); };
+  ajustaEsq(); ligaBarra(); cabeDest();
+  conta($("picoN"), +$("picoN").dataset.v);
+  requestAnimationFrame(() => requestAnimationFrame(() => { document.querySelectorAll("#barra .seg").forEach(g => g.style.flexBasis = g.dataset.b + "%"); setTimeout(escreveBarra, 1250); }));
+  const espera = () => typeof Chart === "undefined" ? setTimeout(espera, 50) : desenhaGrafico();
+  espera();
+  fetch(`/api/clipes?ep=temporada:${encodeURIComponent(slug)}&n=1`).then(r => r.json()).then(j => { $("clipesBtn").hidden = !j.total; }).catch(() => {});
+}
+
+// ---- barra de plataformas: % escrita dentro só se couber; passar o mouse (ou tocar) mostra o número ----
+// caixinha segue o mouse: fica em cima do cursor; perto do topo vai pra baixo; nunca passa das bordas da tela
+const poeDica = (el, e) => {
+  const w = el.offsetWidth, h = el.offsetHeight, m = 8;
+  const x = Math.min(Math.max(e.clientX - w / 2, m), innerWidth - w - m);
+  const y = e.clientY - h - 14 >= m ? e.clientY - h - 14 : Math.min(e.clientY + 20, innerHeight - h - m);
+  el.style.left = x + "px"; el.style.top = y + "px";
+};
+const barDica = document.body.appendChild(Object.assign(document.createElement("div"), { className: "bar-dica num" }));
+// número subindo até o valor, como o contador do painel de episódio
+function conta(el, alvo, ms = 1200) {
+  const t0 = performance.now(), passo = t => { const p = Math.min(1, (t - t0) / ms); el.textContent = f(alvo * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(passo); };
+  if (matchMedia("(prefers-reduced-motion:reduce)").matches) el.textContent = f(alvo); else requestAnimationFrame(passo);
+  setTimeout(() => { el.textContent = f(alvo); }, ms + 150); // aba em segundo plano pausa a animação: garante o valor final
+}
+// capa do tamanho que cabe: o que sobra da altura da coluna, sem empurrar a barra e os números pra fora da tela
+function ajustaEsq() {
+  const col = document.querySelector(".main>.col"), main = col?.parentNode; if (!col) return;
+  main.style.gridTemplateColumns = "";
+  if (getComputedStyle(document.body).overflow !== "hidden") return;
+  const capa = col.querySelector(".capa"), outros = [...col.children].filter(x => x !== capa && !x.classList.contains("dest"));
+  const usado = outros.reduce((a, x) => { const c = getComputedStyle(x); return a + x.offsetHeight + parseFloat(c.marginTop) + parseFloat(c.marginBottom); }, 0);
+  const sobra = col.clientHeight - usado - parseFloat(getComputedStyle(capa).marginBottom) - 8;
+  const h = Math.max(120, Math.min(sobra, innerHeight * .44));
+  // nunca mais que 42% da largura, pra o gráfico continuar grande
+  const w = Math.min(Math.round(h * 16 / 9), Math.round(main.clientWidth * .42));
+  main.style.gridTemplateColumns = w + "px minmax(0,1fr)";
+}
+function escreveBarra() { document.querySelectorAll("#barra .seg").forEach(g => { g.firstChild.textContent = g.clientWidth > 70 ? g.dataset.pc : ""; }); }
+function ligaBarra() {
+  const b = $("barra"); if (!b) return;
+  escreveBarra();
+  const dica = e => {
+    const g = e.target.closest(".seg"); if (!g) return barDica.classList.remove("on");
+    barDica.innerHTML = `<i style="background:${getComputedStyle(g).backgroundColor}"></i>${PLAT[g.dataset.p][0]} <b>${g.dataset.pc}</b>, ${f(+g.dataset.v)}`;
+    poeDica(barDica, e);
+    barDica.classList.add("on");
+  };
+  b.addEventListener("pointermove", dica); b.addEventListener("pointerdown", dica);
+  b.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") barDica.classList.remove("on"); });
+}
+addEventListener("scroll", () => barDica.classList.remove("on"), { passive: true });
+// destaques: mostra só os que cabem inteiros no espaço embaixo do pico
+function cabeDest() { const d = document.querySelector(".dest"); if (!d) return; const li = [...d.children]; li.forEach(x => x.hidden = false); if (getComputedStyle(d).overflow === "visible") return; const fim = d.getBoundingClientRect().bottom; li.forEach(x => { if (x.getBoundingClientRect().bottom > fim + 1) x.hidden = true; }); }
+addEventListener("resize", () => { ajustaEsq(); escreveBarra(); cabeDest(); });
+
+// ---- gráfico: área suave como o de viewers do episódio, com as marcas dos destaques ----
+// "Temporadas" troca pra comparação: média e pico de cada temporada, a atual em destaque
+const METR = { media: ["Média", f], pico: ["Pico", f], horas: ["Horas assistidas", f], duracaoMin: ["Duração", dur] };
+const kfmt = v => metrica === "duracaoMin" ? dur(v) : v >= 1e6 ? (v / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "M" : v >= 1000 ? Math.round(v / 1000) + "k" : v;
+function desenhaGrafico() {
+  const tx = css("--tx"), mut = css("--mut"), verde = css("--green"), verm = css("--red"), bg = css("--bg");
+  Chart.defaults.font.family = "Inter,system-ui,sans-serif"; Chart.defaults.color = mut;
+  if (graf) graf.destroy();
+  // dicas dos gráficos acompanham o mouse; o Chart.js vira a caixa de lado quando falta espaço
+  if (window.Chart && !Chart.Tooltip.positioners.mouse) Chart.Tooltip.positioners.mouse = (els, pos) => pos && { x: pos.x, y: pos.y };
+  const tip = { position: "mouse", caretSize: 0, backgroundColor: css("--panel") + "f0", borderColor: css("--line"), borderWidth: 1, titleColor: tx, bodyColor: tx, padding: 10, displayColors: false };
+  if (metrica === "temporadas") return graficoTemporadas(tx, mut, tip);
+  const eps = D.episodios, [nome, fmt] = METR[metrica], d = calcDestaques();
+  const vals = eps.map(e => e[metrica] ?? null), ok = vals.filter(v => v != null);
+  const mx = Math.max(...ok), iMx = vals.indexOf(mx), mn = Math.min(...ok), iMn = vals.indexOf(mn);
+  const med = ok.reduce((a, v) => a + v, 0) / (ok.length || 1);
+  // cor de cada ponto: maior valor (cheio), alta (verde), queda (vermelho), menor (vazado cinza)
+  const iAlta = metrica === "media" && d.alta ? eps.indexOf(d.alta.e) : -1, iQueda = metrica === "media" && d.queda ? eps.indexOf(d.queda.e) : -1;
+  const corP = i => i === iAlta ? verde : i === iQueda ? verm : i === iMx ? tx : i === iMn ? mut : tx;
+  const cheio = i => i === iMx || i === iAlta || i === iQueda;
+  const raio = i => cheio(i) || i === iMn ? 5 : eps.length > 24 ? 0 : 3;
+  const fundo = ctx => { const a = ctx.chart.chartArea; if (!a) return "transparent"; const g = ctx.chart.ctx.createLinearGradient(0, a.top, 0, a.bottom); g.addColorStop(0, tx + "33"); g.addColorStop(1, tx + "00"); return g; };
+  // rótulos: número do maior e do menor, % da alta e da queda; linha tracejada da média da temporada
+  const marcas = { id: "marcas", afterDatasetsDraw(c) {
+    const x = c.ctx, m = c.getDatasetMeta(0).data, a = c.chartArea, y = c.scales.y.getPixelForValue(med);
+    x.save();
+    x.setLineDash([4, 4]); x.strokeStyle = mut; x.globalAlpha = .7; x.beginPath(); x.moveTo(a.left, y); x.lineTo(a.right, y); x.stroke(); x.setLineDash([]); x.globalAlpha = 1;
+    x.font = "500 11px Inter,sans-serif"; x.fillStyle = mut; x.textAlign = "right"; x.fillText("média " + fmt(med), a.right, y - 6);
+    const rot = (i, t, cor, baixo) => { const p = m[i]; if (!p || i < 0) return; x.fillStyle = cor; x.font = "600 12px Inter,sans-serif";
+      x.textAlign = i === 0 ? "left" : i === eps.length - 1 ? "right" : "center"; x.fillText(t, p.x, baixo ? p.y + 20 : p.y - 12); };
+    rot(iMx, fmt(mx), tx); if (iMn !== iMx) rot(iMn, fmt(mn), mut, true);
+    if (iAlta >= 0 && iAlta !== iMx) rot(iAlta, pct(d.alta.v), verde);
+    if (iQueda >= 0 && iQueda !== iMn) rot(iQueda, pct(d.queda.v), verm, true);
+    x.restore(); } };
+  const sets = [{ type: "line", label: nome, data: vals, borderColor: tx, backgroundColor: fundo, fill: true, tension: .35, cubicInterpolationMode: "monotone", borderWidth: 2.2, spanGaps: true, order: 0,
+    pointRadius: eps.map((_, i) => raio(i)), pointBackgroundColor: eps.map((_, i) => cheio(i) ? corP(i) : bg), pointBorderColor: eps.map((_, i) => corP(i)), pointBorderWidth: 2, pointHoverRadius: 6 }];
+  // com média: o pico de cada episódio aparece em barras claras atrás da linha
+  if (metrica === "media") sets.push({ type: "bar", label: "Pico", data: eps.map(e => e.pico), backgroundColor: mut + "26", hoverBackgroundColor: mut + "44", borderRadius: 4, barPercentage: .7, order: 1 });
+  graf = new Chart($("graf"), {
+    data: { labels: eps.map(curto), datasets: sets },
+    options: { responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: "index", intersect: false }, layout: { padding: { top: 22, right: 8, left: 2 } },
+      plugins: { legend: { display: false }, tooltip: { ...tip, filter: c => c.datasetIndex === 0, callbacks: { title: it => rotulo(eps[it[0].dataIndex]),
+        label: c => { const e = eps[c.dataIndex]; return [`${nome}: ${fmt(c.raw)}`, metrica !== "media" ? `Média: ${f(e.media)}` : "", metrica !== "pico" ? `Pico: ${f(e.pico)}` : "", metrica !== "duracaoMin" ? `Duração: ${dur(e.duracaoMin)}` : "", metrica !== "horas" && e.horas ? `Horas assistidas: ${f(e.horas)}` : ""].filter(Boolean); },
+        footer: it => dia(eps[it[0].dataIndex].data) } } },
+      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { autoSkip: true, maxRotation: 0, padding: 6 } },
+        y: { beginAtZero: metrica !== "media" && metrica !== "pico", min: metrica === "media" ? 0 : undefined, grace: "12%", grid: { color: css("--grade") }, border: { display: false }, ticks: { maxTicksLimit: 5, padding: 8, callback: kfmt } } },
+      onClick: (ev, el) => { if (el[0]) location.href = link(eps[el[0].index]); },
+      onHover: (ev, el) => { ev.native.target.style.cursor = el.length ? "pointer" : ""; } },
+    plugins: [marcas]
+  });
+  const L = (c, t, cls = "") => `<span><i class="${cls}" style="--c:${c}"></i>${t}</span>`;
+  $("leg").innerHTML = [L(tx, nome, "p"), metrica === "media" ? L(mut + "66", "Pico") : "", L(mut, "Média da temporada", "tr"),
+    iAlta >= 0 ? L(verde, "Maior alta", "p") : "", iQueda >= 0 ? L(verm, "Maior queda", "p") : ""].join("");
+}
+// comparação entre temporadas: barras deitadas com o nome inteiro, da maior média pra menor;
+// a barra clara atrás é o pico e o número no fim é a média
+function graficoTemporadas(tx, mut, tip) {
+  const l = [...D.todas].sort((a, b) => b.media - a.media), eu = i => l[i].slug === D.temporada.slug;
+  const valores = { id: "valores", afterDatasetsDraw(c) {
+    const x = c.ctx, m = c.getDatasetMeta(0).data, p = c.getDatasetMeta(1).data;
+    x.save(); x.font = "600 12px Inter,sans-serif"; x.textBaseline = "middle"; x.textAlign = "left";
+    m.forEach((b, i) => { x.fillStyle = eu(i) ? tx : mut; x.fillText(f(l[i].media), Math.max(b.x, p[i].x) + 8, b.y); });
+    x.restore(); } };
+  graf = new Chart($("graf"), {
+    type: "bar",
+    data: { labels: l.map(x => x.nome + "  " + x.ano), datasets: [
+      { label: "Média", data: l.map(x => x.media), backgroundColor: l.map((_, i) => eu(i) ? tx : mut + "aa"), borderRadius: 4, barPercentage: .5, categoryPercentage: .9, grouped: false, order: 0 },
+      { label: "Pico", data: l.map(x => x.pico), backgroundColor: l.map((_, i) => eu(i) ? tx + "38" : mut + "2a"), borderRadius: 4, barPercentage: .82, categoryPercentage: .9, grouped: false, order: 1 }] },
+    options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: "index", axis: "y", intersect: false }, layout: { padding: { right: 64, top: 4 } },
+      plugins: { legend: { display: false }, tooltip: { ...tip, callbacks: { title: it => `${l[it[0].dataIndex].nome} (${l[it[0].dataIndex].ano})`, label: c => `${c.dataset.label}: ${f(c.raw)}`,
+        afterBody: it => `${l[it[0].dataIndex].eps} episódios, ${f(l[it[0].dataIndex].horas)} horas assistidas` } } },
+      scales: { y: { grid: { display: false }, border: { display: false }, ticks: { autoSkip: false, padding: 8, font: c => ({ size: 12, weight: eu(c.index) ? 700 : 400 }), color: c => eu(c.index) ? tx : mut } },
+        x: { beginAtZero: true, grid: { color: css("--grade") }, border: { display: false }, ticks: { maxTicksLimit: 5, callback: v => v >= 1000 ? Math.round(v / 1000) + "k" : v } } },
+      onClick: (ev, el) => { if (el[0] && !eu(el[0].index)) location.href = "/temporada/" + l[el[0].index].slug; },
+      onHover: (ev, el) => { ev.native.target.style.cursor = el.length && !eu(el[0].index) ? "pointer" : ""; } },
+    plugins: [valores]
+  });
+  const L = (c, t) => `<span><i style="--c:${c}"></i>${t}</span>`;
+  $("leg").innerHTML = [L(tx, "Média por episódio"), L(mut + "44", "Pico")].join("");
+}
+
+// ---- conteúdo das janelas ----
+const JAN = {
+  comparar() {
+    const ks = ["pico", "media", "horas"];
+    abre("Entre as temporadas", ["Pico", "Média", "Horas assistidas"], i => {
+      const k = ks[i], l = [...D.todas].sort((a, b) => b[k] - a[k]), mx = l[0][k] || 1;
+      $("janC").innerHTML = `<div class="comp num">${l.map(x => `<a href="/temporada/${esc(x.slug)}" class="${x.slug === D.temporada.slug ? "eu" : ""}"><span class="nm">${esc(x.nome)} <span class="mut">${x.ano}</span></span><span class="tr"><i style="width:${(x[k] / mx * 100).toFixed(1)}%"></i></span><span class="vv">${f(x[k])}</span></a>`).join("")}</div>
+        <p class="nota">Até o Natal Macabro (2024) os números são só da Twitch. Hexatombe e A Vigília somam YouTube, Twitch, Kick e TikTok.</p>`;
+    });
+  },
+  episodios() {
+    abre("Episódios de " + D.temporada.nome, null, () => { $("janC").innerHTML = `<table class="num"><thead><tr id="cab"></tr></thead><tbody id="linhas"></tbody></table>`; tabela(ordem.k, ordem.asc); });
+  },
+  clipes() {
+    abre("Clipes mais vistos de " + D.temporada.nome, null, () => { $("janC").innerHTML = `<p class="mut" id="clipesTot" style="margin:4px 0 0"></p><div class="clipes" id="clipes"></div><button class="mais" id="clipesMais" hidden>Carregar mais clipes</button>`; clipes(true); });
+  },
+};
+$("epsBtn").onclick = () => D && JAN.episodios();
+$("clipesBtn").onclick = () => D && JAN.clipes();
+
+const COLS = [["data", "Episódio"], ["dataTxt", "Data"], ["pico", "Pico"], ["media", "Média"], ["duracaoMin", "Duração"], ["horas", "Horas assistidas"], ["lk", "Assistir"]];
+let ordem = { k: "data", asc: true };
+function tabela(k, asc) {
+  ordem = { k, asc };
+  const eps = [...D.episodios].sort((a, b) => { const x = a[k] ?? -1, y = b[k] ?? -1; return (typeof x === "string" ? x.localeCompare(y) : x - y) * (asc ? 1 : -1); });
+  $("cab").innerHTML = COLS.map(([c, n]) => c === "lk" || c === "dataTxt" ? `<th>${n}</th>` : `<th class="${c === k ? "on" + (asc ? " asc" : "") : ""}"><button data-k="${c}">${n}</button></th>`).join("");
+  $("linhas").innerHTML = eps.map(e => `<tr>
+    <td><a class="ep" href="${link(e)}">${esc(e.rotulo)}</a>${e.nome ? ` <span class="nm">“${esc(e.nome)}”</span>` : ""}</td>
+    <td class="mut">${dia(e.data)}</td><td>${f(e.pico)}</td><td>${f(e.media)}</td><td>${dur(e.duracaoMin)}</td><td>${f(e.horas)}</td>
+    <td><span class="lk">${(e.videosYT?.length > 1 ? e.videosYT : /^[\w-]{11}$/.test(e.video || e.id) ? [[e.video || e.id, ""]] : []).map(([v, n]) => `<a href="https://www.youtube.com/watch?v=${esc(v)}" target="_blank" rel="noopener" aria-label="Ver no YouTube${n ? ": " + esc(n.toLowerCase()) : ""}" title="YouTube${n ? ": " + esc(n.toLowerCase()) : ""}"><img src="/icones/youtube.png?v=2" alt=""></a>`).join("")}${e.vods?.length ? `<a href="https://www.twitch.tv/videos/${esc(e.vods[0])}" target="_blank" rel="noopener" aria-label="VOD na Twitch"><img src="/icones/twitch.png?v=2" alt=""></a>` : ""}</span></td></tr>`).join("");
+}
+document.addEventListener("click", e => { const b = e.target.closest("#cab button[data-k]"); if (!b) return; const k = b.dataset.k; tabela(k, ordem.k === k ? !ordem.asc : k === "data"); });
+
+let cl = { de: 0, total: 0 };
+async function clipes(novo) {
+  if (novo) cl = { de: 0, total: 0 };
+  const bt = $("clipesMais"); if (!bt) return;
+  bt.disabled = true; bt.textContent = "Carregando…";
+  try {
+    const j = await (await fetch(`/api/clipes?ep=temporada:${encodeURIComponent(slug)}&de=${cl.de}&n=24`)).json();
+    cl.total = j.total; cl.de += j.lista.length;
+    const nomeEp = id => { const e = D.episodios.find(x => x.id === id); return e ? curto(e) : ""; };
+    $("clipes").insertAdjacentHTML("beforeend", j.lista.map(c => `<a href="https://clips.twitch.tv/${encodeURIComponent(c.id)}" target="_blank" rel="noopener"><div class="cp"><img src="${esc(c.capa)}" alt="" loading="lazy" decoding="async"><span>${f(c.views)} views</span></div><b>${esc(c.titulo)}</b><small>${esc(nomeEp(c.ep))}, por ${esc(c.criador)}</small></a>`).join(""));
+    $("clipesTot").textContent = `${f(cl.total)} clipes da Twitch criados durante os episódios.`;
+  } catch {}
+  bt.disabled = false; bt.textContent = `Carregar mais clipes (${f(cl.total - cl.de)} restantes)`;
+  bt.hidden = cl.de >= cl.total;
+}
+document.addEventListener("click", e => { if (e.target.id === "clipesMais") clipes(false); });
+carrega();
+</script>
+</body>
+</html>

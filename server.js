@@ -67,11 +67,13 @@ let twitchId = null;
 // clipes da Twitch criados durante o episódio (do começo da live até 1 h depois do fim), mais vistos primeiro
 // https://dev.twitch.tv/docs/api/reference/#get-clips — guarda 5 min pra não pedir de novo a cada visita
 const clipesCache = new Map();
+const capasCache = new Map();
 async function clipes(id) {
   const r = records[id];
   if (!r || !env.TWITCH_CLIENT_ID) return [];
   const c = clipesCache.get(id);
-  if (c && Date.now() - c.q < 300_000) return c.lista;
+  // episódio encerrado quase não ganha clipe novo: guarda 12 h; ao vivo, 5 min
+  if (c && Date.now() - c.q < (r.fimLive && id !== atual.episodio ? 12 * 3600e3 : 300_000)) return c.lista;
   const tk = await token("twitch", "https://id.twitch.tv/oauth2/token", env.TWITCH_CLIENT_ID, env.TWITCH_CLIENT_SECRET);
   const h = { "Client-Id": env.TWITCH_CLIENT_ID, Authorization: "Bearer " + tk };
   if (!twitchId) twitchId = (await (await fetch(`https://api.twitch.tv/helix/users?login=${TWITCH}`, { headers: h })).json())?.data?.[0]?.id;
@@ -85,6 +87,36 @@ async function clipes(id) {
   clipesCache.set(id, { q: Date.now(), lista });
   return lista;
 }
+
+// VOD da Twitch de cada episódio: procura nas transmissões salvas do canal as que começaram durante a live
+// (do início até o fim; live que caiu e voltou vira mais de um VOD, em ordem). Roda a cada hora pros episódios sem VOD.
+// https://dev.twitch.tv/docs/api/reference/#get-videos
+async function achaVods() {
+  if (!env.TWITCH_CLIENT_ID) return;
+  const falta = Object.entries(records).filter(([id, r]) => !r.vods?.length && r.fimLive && id !== atual.episodio);
+  if (!falta.length) return;
+  const tk = await token("twitch", "https://id.twitch.tv/oauth2/token", env.TWITCH_CLIENT_ID, env.TWITCH_CLIENT_SECRET);
+  const h = { "Client-Id": env.TWITCH_CLIENT_ID, Authorization: "Bearer " + tk };
+  if (!twitchId) twitchId = (await (await fetch(`https://api.twitch.tv/helix/users?login=${TWITCH}`, { headers: h })).json())?.data?.[0]?.id;
+  if (!twitchId) return;
+  // vai voltando nas páginas até passar do episódio mais antigo que falta (no máximo 10 páginas)
+  const maisAntigo = Math.min(...falta.map(([, r]) => new Date(r.inicioLive || r.inicio).getTime())) - 3600e3;
+  const vids = []; let cur = "";
+  for (let p = 0; p < 10; p++) {
+    const j = await (await fetch(`https://api.twitch.tv/helix/videos?user_id=${twitchId}&type=archive&first=100${cur ? "&after=" + cur : ""}`, { headers: h })).json();
+    vids.push(...(j?.data || [])); cur = j?.pagination?.cursor;
+    if (!cur || !j.data?.length || new Date(j.data.at(-1).created_at).getTime() < maisAntigo) break;
+  }
+  let mudou = false;
+  for (const [, r] of falta) {
+    const ini = new Date(r.inicioLive || r.inicio).getTime() - 30 * 60e3, fim = new Date(r.fimLive).getTime();
+    const v = vids.filter(x => { const t = new Date(x.created_at).getTime(); return t >= ini && t <= fim; }).sort((x, y) => x.created_at.localeCompare(y.created_at));
+    if (v.length) { r.vods = v.map(x => x.id); mudou = true; }
+  }
+  if (mudou) fs.writeFileSync(DB, JSON.stringify(records, null, 2));
+}
+setTimeout(() => achaVods().catch(() => {}), 15_000);
+setInterval(() => achaVods().catch(() => {}), 3600e3);
 
 // Kick Public API (oficial): https://docs.kick.com
 async function kick() {
@@ -248,6 +280,21 @@ if (episodios.config?.glossario) {
   episodios.config = { ...episodios.config, apelidos: { ...Object.fromEntries(pares), ...(episodios.config.apelidos || {}) }, glossario: "" };
   salvaEps();
 }
+// histórico lido uma vez e guardado por episódio; só lê de novo quando o arquivo muda (a cada leitura da live)
+let histCache = { chave: "", por: new Map() };
+function histDe(id) {
+  const st = fs.statSync(HIST), chave = st.mtimeMs + ":" + st.size;
+  if (histCache.chave !== chave) {
+    const por = new Map();
+    for (const l of fs.readFileSync(HIST, "utf8").split("\n")) {
+      const c = l.split(","); if (c.length < 6 || c[0] === "horario") continue;
+      let a = por.get(c[1]); if (!a) por.set(c[1], a = []);
+      a.push([c[0], ...c.slice(2, 6).map(v => (v === "" ? null : +v)), c[7] ? +c[7] : null, c[8] ? +c[8] : null]);
+    }
+    histCache = { chave, por };
+  }
+  return histCache.por.get(id) || [];
+}
 if (!fs.existsSync(HIST)) fs.writeFileSync(HIST, "horario,episodio,twitch,kick,youtube,total,yt_likes,msgs_min,tiktok\n");
 let atual = { total: 0 };
 
@@ -346,7 +393,7 @@ setTimeout(tick, 1000);
 setInterval(tick, INTERVALO);
 
 // ---------- dados públicos: registros + o que foi cadastrado no /admin ----------
-const CAMPOS = ["titulo", "temporada", "recorde", "quando", "twitch", "kick", "youtube", "tiktok", "picos", "media", "inicio", "inicioLive", "fimLive", "ultimaLeitura", "likes", "chatMsgs", "chatPessoas", "twitchSegInicio", "twitchSegFim", "kickSegInicio", "kickSegFim", "tiktokSegInicio", "tiktokSegFim", "picoMsgsMin"];
+const CAMPOS = ["titulo", "temporada", "recorde", "quando", "twitch", "kick", "youtube", "tiktok", "picos", "media", "inicio", "inicioLive", "fimLive", "ultimaLeitura", "likes", "chatMsgs", "chatPessoas", "twitchSegInicio", "twitchSegFim", "kickSegInicio", "kickSegFim", "tiktokSegInicio", "tiktokSegFim", "picoMsgsMin", "vods", "videosYT"];
 const so = (o, ks) => Object.fromEntries(ks.filter(k => o[k] != null).map(k => [k, o[k]]));
 // endereço amigável do episódio: "A VIGÍLIA - EPISÓDIO 1" vira "a-vigilia-1"
 const kebab = t => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -1108,8 +1155,54 @@ async function recebePrevia(req, res, url) {
   json(res, 200, { ok: true });
 }
 const attr = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+// ---------- painel da temporada ----------
+// por episódio: números do painel + horas assistidas, curva resumida (até 48 pontos) e divisão por plataforma no pico
+const temporadaCache = { chave: "", dados: null };
+function resumoEps() {
+  const pub = publicos();
+  const chave = histCache.chave + ":" + Object.values(pub).map(r => r.ultimaLeitura + r.recorde).join();
+  if (temporadaCache.chave === chave && temporadaCache.dados) return temporadaCache.dados;
+  const eps = Object.entries(pub).filter(([, r]) => r.temporada && (r.inicioLive || r.inicio)).map(([id, r]) => {
+    const h = histDe(id), e = episodios.lista.find(x => x.id === id) || {};
+    let soma = 0;
+    for (let i = 0; i < h.length - 1; i++) { const dt = Math.min(15 * 60e3, Date.parse(h[i + 1][0]) - Date.parse(h[i][0])); soma += (h[i][4] || 0) * dt; }
+    const passo = Math.max(1, Math.ceil(h.length / 48));
+    const curva = h.filter((_, i) => i % passo === 0).map(x => x[4] || 0);
+    const ini = r.inicioLive || r.inicio, fim = r.fimLive || r.ultimaLeitura;
+    const rotulo = (e.titulo || r.titulo || "").replace(/\s*\|.*$/, "").replace(new RegExp("^" + r.temporada.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*-\\s*", "i"), "").replace(/^EPIS[ÓO]DIO/i, "Episódio");
+    return { id, slug: r.slug, rotulo: rotulo.replace(/^Episódio\s+(\d+).*$/i, "Episódio $1"), nome: r.nome, temporada: r.temporada, data: ini,
+      pico: r.recorde, quando: r.quando, media: r.media, duracaoMin: fim ? Math.round((Date.parse(fim) - Date.parse(ini)) / 60e3) : null,
+      horas: soma ? Math.round(soma / 3600e3) : null, picos: r.picos || null,
+      noPico: { youtube: r.youtube, twitch: r.twitch, kick: r.kick, tiktok: r.tiktok },
+      segTwitch: r.twitchSegInicio && r.twitchSegFim ? r.twitchSegFim - r.twitchSegInicio : null,
+      chatMsgs: r.chatMsgs || null, chatPessoas: r.chatPessoas || null, vods: r.vods || null, videosYT: r.videosYT || null, video: r.video || null, curva };
+  }).sort((a, b) => a.data.localeCompare(b.data));
+  return (temporadaCache.chave = chave, temporadaCache.dados = eps);
+}
+function temporadaApi(t) {
+  const eps = resumoEps(), por = new Map();
+  for (const e of eps) { const k = kebab(e.temporada); if (!por.has(k)) por.set(k, []); por.get(k).push(e); }
+  const soma = (l, k) => l.reduce((a, e) => a + (e[k] || 0), 0);
+  const resumo = (k, l) => ({ slug: k, nome: l[0].temporada, ano: l[0].data.slice(0, 4), fimAno: l.at(-1).data.slice(0, 4), eps: l.length,
+    pico: Math.max(...l.map(e => e.pico || 0)), media: Math.round(soma(l, "media") / l.length), horas: soma(l, "horas"),
+    capa: l[0].id, plataformas: [...new Set(l.flatMap(e => Object.entries(e.picos || {}).filter(([, v]) => v > 0).map(([p]) => p)))] });
+  // o Transcendendo (podcast) não entra na comparação entre temporadas
+  const todas = [...por].filter(([k]) => k === t || !/transcend/.test(k)).map(([k, l]) => resumo(k, l)).sort((a, b) => a.ano.localeCompare(b.ano) || a.nome.localeCompare(b.nome));
+  const l = por.get(t);
+  if (!l) return null;
+  return { temporada: resumo(t, l), episodios: l, todas };
+}
+
 function og(caminho) {
   const pub = publicos();
+  const tp = caminho.match(/^\/temporada\/([\w-]+)/)?.[1];
+  if (tp) {
+    const d = temporadaApi(tp);
+    const tit = d ? `${d.temporada.nome}: painel da temporada | Ordem Tracker` : "Ordem Tracker";
+    const ds = d ? `${d.temporada.eps} episódios, pico de ${d.temporada.pico.toLocaleString("pt-BR")} pessoas ao vivo. Audiência de cada episódio de ${d.temporada.nome}.` : "";
+    return [["og:type", "website"], ["og:site_name", "Ordem Tracker"], ["og:title", tit], ["og:description", ds], ["og:url", SITE + caminho], ["og:image", d ? `${SITE}/capa/${d.temporada.capa}.jpg` : `${SITE}/rn-branco.png`], ["og:locale", "pt_BR"]]
+      .map(([k, v]) => `<meta property="${k}" content="${attr(v)}">`).join("\n") + `\n<meta name="twitter:card" content="summary_large_image">`;
+  }
   const p = caminho.match(/^\/ep\/([\w-]+)/)?.[1];
   const id = p ? achaEp(pub, p) : null;
   const fut = p && !id ? proximos().find(e => e.slug === p) : null;
@@ -1149,12 +1242,21 @@ http.createServer(async (req, res) => {
     const p = url.searchParams.get("ep") || "", pub = publicos();
     const doEp = id => clipes(id).catch(e => { console.warn("clipes: " + e.message); return []; });
     // página inicial: clipes de todos os episódios do site juntos, cada um com o nome do episódio
-    if (p === "todos") {
-      const listas = await Promise.all(Object.keys(pub).map(async id => (await doEp(id)).map(c => ({ ...c, ep: id }))));
-      return json(res, 200, { lista: listas.flat().sort((a, b) => b.views - a.views) });
-    }
-    const id = achaEp(pub, p);
-    return json(res, 200, { lista: id ? await doEp(id) : [] });
+    // ?de=0&n=24&q=palavra&ordem=views|quando: uma página por vez (com muitos clipes a lista inteira travava)
+    // ep=todos junta os de todos os episódios; ep=temporada:<slug> os da temporada
+    let lista;
+    if (p === "todos" || p.startsWith("temporada:")) {
+      const t = p.slice(10), ids = Object.keys(pub).filter(id => p === "todos" || kebab(pub[id].temporada || "") === t);
+      const listas = []; // de 6 em 6 episódios, pra não abrir dezenas de pedidos de uma vez
+      for (let i = 0; i < ids.length; i += 6) listas.push(...await Promise.all(ids.slice(i, i + 6).map(async id => (await doEp(id)).map(c => ({ ...c, ep: id })))));
+      lista = listas.flat();
+    } else { const id = achaEp(pub, p); lista = id ? await doEp(id) : []; }
+    const sem = x => String(x).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const q = sem(url.searchParams.get("q") || ""), ordem = url.searchParams.get("ordem") === "quando" ? "quando" : "views";
+    if (q) lista = lista.filter(c => sem(c.titulo + " " + c.criador).includes(q));
+    lista = [...lista].sort((a, b) => ordem === "quando" ? b.quando.localeCompare(a.quando) : b.views - a.views);
+    const de = Math.max(0, +url.searchParams.get("de") || 0), n = Math.min(60, Math.max(1, +url.searchParams.get("n") || 24));
+    return json(res, 200, { lista: lista.slice(de, de + n), total: lista.length });
   }
   // relatório do laboratório (só no computador): /api/lab?ep=<id>
   if (LAB && url.pathname === "/api/lab") return json(res, 200, LAB.relatorio(url.searchParams.get("ep") || epAtual || ""));
@@ -1173,13 +1275,23 @@ http.createServer(async (req, res) => {
     const futuro = p && !pedido ? proximos().find(e => e.slug === p || e.id === p) || null : null;
     const ver = pedido && pub[pedido] ? pedido : (atual.episodio && pub[atual.episodio] ? atual.episodio : ultimoEp);
     const aoVivo = !!atual.episodio && ver === atual.episodio && atual.total > 0;
-    const linhas = fs.readFileSync(HIST, "utf8").trim().split("\n").slice(1);
-    const hist = linhas.map(l => l.split(",")).filter(c => c[1] === ver).map(c => [c[0], ...c.slice(2, 6).map(v => (v === "" ? null : +v)), c[7] ? +c[7] : null, c[8] ? +c[8] : null]);
+    const hist = histDe(ver);
     // live de episódio escondido: o público não recebe nem os números de agora
     const at = atual.episodio && !pub[atual.episodio] ? { total: 0, hora: atual.hora, episodio: null, extras: {} }
       : { ...so(atual, ["twitch", "kick", "youtube", "tiktok", "total", "hora", "episodio"]), extras: so(atual.extras || {}, ["inicio", "ytLikes", "msgsMin", "chatMsgs", "chatPessoas", "twitchSeguidores", "tiktokSeguidores"]) };
     if (futuro) return json(res, 200, { atual: at, records: pub, hist: [], ver, aoVivo: false, futuro, proximos: proximos(), config: config(), momentos: [] });
     return json(res, 200, { atual: at, records: pub, hist, ver, aoVivo, proximos: proximos(), config: config(), momentos: ver ? momentosPublicos(ver) : [] });
+  }
+  if (url.pathname === "/api/temporada") {
+    const d = temporadaApi(url.searchParams.get("t") || "");
+    return d ? json(res, 200, d) : json(res, 404, { erro: "Temporada não encontrada" });
+  }
+  const tp = url.pathname.match(/^\/temporada\/([\w-]+)\/?$/);
+  if (tp) {
+    const tags = og("/temporada/" + tp[1]);
+    const titulo = tags.match(/og:title" content="([^"]*)"/)[1];
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+    return res.end(pagina("temporada.html").replace("<title>Ordem Tracker</title>", `<title>${titulo}</title>\n${tags}`));
   }
   if (url.pathname === "/feedback" && req.method === "POST") return feedback(req, res);
   if (ADMIN && url.pathname === ADMIN + "/api") return admin(req, res);
@@ -1190,16 +1302,23 @@ http.createServer(async (req, res) => {
     return html(res, "admin.html", { "X-Robots-Tag": "noindex" });
   }
   // capa do vídeo servida daqui, pra página poder desenhar ela no PNG de compartilhar
-  const capa = req.url.match(/^\/capa\/([\w-]{11})\.jpg$/);
+  // /capa/<id>-p.jpg: versão dos cartões e listas (640 px, leve); /capa/<id>.jpg: a grande, pro destaque e o PNG de compartilhar
+  // guardadas na memória por 6 h, pra não pedir ao YouTube a cada visita
+  const capa = url.pathname.match(/^\/capa\/([\w-]{11})(-p)?\.jpg$/);
   if (capa) {
+    const chave = capa[1] + (capa[2] || ""), c = capasCache.get(chave);
+    if (c && Date.now() - c.q < 6 * 3600e3) { res.writeHead(200, { "Content-Type": c.tipo, "Cache-Control": "max-age=21600" }); return res.end(c.buf); }
     try {
       // depois que a live acaba o YouTube troca a capa "_live" pela normal
-      let r = await fetch(`https://i.ytimg.com/vi/${capa[1]}/maxresdefault_live.jpg`);
-      if (!r.ok) r = await fetch(`https://i.ytimg.com/vi/${capa[1]}/maxresdefault.jpg`);
-      if (!r.ok) r = await fetch(`https://i.ytimg.com/vi/${capa[1]}/hqdefault.jpg`);
+      // pequena: WebP de 640 px do YouTube (as faixas pretas de cima e de baixo somem no corte 16:9 dos cartões), 3 a 5 vezes mais leve
+      const urls = capa[2] ? ["vi_webp/ID/sddefault_live.webp", "vi_webp/ID/sddefault.webp", "vi/ID/maxresdefault.jpg"] : ["vi/ID/maxresdefault_live.jpg", "vi/ID/maxresdefault.jpg", "vi/ID/hqdefault.jpg"];
+      let r, u; for (u of urls) { r = await fetch("https://i.ytimg.com/" + u.replace("ID", capa[1])); if (r.ok) break; }
+      const tipo = u.endsWith(".webp") ? "image/webp" : "image/jpeg";
       if (!r.ok) throw new Error(r.status);
-      res.writeHead(200, { "Content-Type": "image/jpeg", "Cache-Control": "max-age=3600" });
-      return res.end(Buffer.from(await r.arrayBuffer()));
+      const buf = Buffer.from(await r.arrayBuffer());
+      capasCache.set(chave, { q: Date.now(), buf, tipo });
+      res.writeHead(200, { "Content-Type": tipo, "Cache-Control": "max-age=21600" });
+      return res.end(buf);
     } catch { res.writeHead(404); return res.end(); }
   }
   const img = url.pathname.match(/^\/((?:(?:icones|temporadas)\/)?[\w-]+\.(png|jpg))$/);
