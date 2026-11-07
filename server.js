@@ -936,7 +936,7 @@ function foraDaLive(f) {
   return d / b.length < 10;
 }
 const GRAVACAO = path.join(DADOS, "gravacao");
-const PARTE_MIN = 10; // partes de 10 min: o resumo do momento sai uns 10 min depois de acontecer
+const PARTE_MIN = 5; // partes de 5 min: um momento a cada 5 min, que sai uns 5 min depois de acontecer
 let gravando = null; // { id, proc }
 const hora14 = d => d.toISOString().replace(/[-:]/g, "").slice(0, 15); // 20261107T210000
 const deHora14 = s => new Date(s.replace(/^(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)$/, "$1-$2-$3T$4:$5:$6Z"));
@@ -986,9 +986,9 @@ Para cada um, informe o segundo deste trecho em que começa, um título curto (a
 Seja factual: use só nomes de pessoas, personagens e lugares que foram ditos claramente. Não invente.
 Quase toda live começa com uma contagem regressiva (timer) de alguns minutos, às vezes mais de uma seguida, só com música e sem ninguém falando; a conversa ou a sessão só começa depois.
 Trechos só com música, vinheta, timer ou contagem regressiva viram no máximo um momento ("Contagem para o início", "Abertura" ou "Intervalo"); ignore letras de música e não trate o que toca na música como fala de alguém.
-Cada momento resume um BLOCO de 5 a 10 minutos: o assunto principal daquele bloco e o que aconteceu de mais marcante nele, como um capítulo. Não crie um momento para cada fala ou frase; junte as falas do mesmo assunto num só.
+Cada momento resume um BLOCO de uns 5 minutos: o assunto principal daquele bloco e o que aconteceu de mais marcante nele, como um capítulo. Não crie um momento para cada fala ou frase; junte as falas do mesmo assunto num só.
 O "segundo" é onde o bloco começa. O contexto conta o que rolou no bloco todo, não só a primeira frase. Não repita momentos parecidos.
-Num trecho de 30 minutos, gere de 3 a 6 momentos.
+Este trecho tem uns ${PARTE_MIN} minutos: gere 1 momento (2 só se o assunto mudar claramente no meio).
 Exceção: marcos e anúncios (recorde de espectadores, número de inscritos ou seguidores alcançado, novidade anunciada, convidado surpresa, data do próximo episódio) SEMPRE viram um momento próprio, mesmo curto e no meio de outro assunto.
 Use o chat como pista: quando muita gente manda a mesma coisa ao mesmo tempo (ex.: "(30 pessoas)"), algo aconteceu ali; procure na fala o que foi e, se for um marco ou algo marcante, crie o momento.`;
 const ESQUEMA_MOMENTOS = { type: "ARRAY", items: { type: "OBJECT", properties: {
@@ -1133,7 +1133,7 @@ async function analisaPartes() {
         const { lista, ia } = await analisaAudio(path.join(dir, p), chatDoTrecho(id, inicio, PARTE_MIN * 60), { temporada: records[id]?.temporada || episodios.lista.find(e => e.id === id)?.temporada, titulo: records[id]?.titulo });
         const caps = fs.readdirSync(path.join(dir, "capturas")).filter(f => f.endsWith(".jpg")).map(f => ({ f, t: deHora14(f.slice(0, 15)).getTime() }));
         const novos = lista.map(m => {
-          const t = inicio.getTime() + Math.max(0, Math.min(PARTE_MIN * 60, Number(m.segundo) || 0)) * 1000;
+          const t = inicio.getTime() + Math.max(0, Math.min(30 * 60, Number(m.segundo) || 0)) * 1000;
           // a captura de live mais perto do momento (primeiro as de depois, depois as de antes), pulando intervalo comercial e tela preta
           const depois = caps.filter(c => c.t >= t).sort((a, b) => a.t - b.t), antes = caps.filter(c => c.t < t).sort((a, b) => b.t - a.t);
           const cap = [...depois.slice(0, 20), ...antes.slice(0, 20)].find(c => !foraDaLive(path.join(dir, "capturas", c.f)));
