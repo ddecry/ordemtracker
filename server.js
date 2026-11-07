@@ -146,7 +146,8 @@ let ytLive = null, ytUltimaBusca = 0;
 async function procuraLive() {
   const rss = await (await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${YT_CANAL}`)).text();
   const ids = [...rss.matchAll(/<yt:videoId>([\w-]{11})</g)].slice(0, 8).map(m => m[1]);
-  for (const e of episodios.lista) if (/^[\w-]{11}$/.test(e.id) && !ids.includes(e.id)) ids.push(e.id);
+  // o feed do YouTube às vezes responde 404: os episódios cadastrados entram do mais novo pro mais antigo, pra o de hoje nunca ficar fora do limite de 50
+  for (const e of [...episodios.lista].sort((a, b) => (b.data || "").localeCompare(a.data || ""))) if (/^[\w-]{11}$/.test(e.id) && !ids.includes(e.id)) ids.push(e.id);
   const cadastrados = new Set(episodios.lista.map(e => e.id));
   // conta só live cadastrada no /admin ou com cara de episódio (ex.: "A VIGÍLIA - EPISÓDIO 2 | Ordem Paranormal RPG")
   const videos = await ytApi(ids.slice(0, 50));
