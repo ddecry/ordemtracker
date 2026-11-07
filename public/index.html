@@ -1363,7 +1363,7 @@ function contagem() {
       // live no ar: capa, título e quantas pessoas assistem agora; tudo leva pro painel da live
       const r = ultimo.records[espera.ver] || {}, link = "/ep/" + (r.slug || espera.ver);
       $("espRot").innerHTML = `<span class="dot"></span>Ao vivo agora${r.temporada ? ": " + esc(r.temporada) : ""}`;
-      $("espTit").textContent = [$("epNome").textContent, $("epNum").textContent].filter(Boolean).join(" ");
+      $("espTit").textContent = [$("epNome").textContent, $("epNum").textContent].filter(Boolean).join(" - ");
       $("espCont").innerHTML = `<div class="esp-vivo"><b>${f(ultimo.atual?.total)}</b><span>assistindo agora</span></div>`;
       const ini = r.inicioLive && new Date(r.inicioLive);
       $("espData").textContent = [$("epSub").textContent, ini ? "no ar desde " + hm(ini) : ""].filter(Boolean).join(", ");

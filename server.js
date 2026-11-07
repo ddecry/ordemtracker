@@ -282,7 +282,7 @@ async function webhookKick(req, res) {
   res.writeHead(200).end();
   try {
     const h = req.headers, ass = h["kick-event-signature"], base = `${h["kick-event-message-id"]}.${h["kick-event-message-timestamp"]}.${corpo}`;
-    if (!ass || !crypto.verify("RSA-SHA256", Buffer.from(base), await chaveKick(), Buffer.from(ass, "base64"))) return;
+    if (!ass || !crypto.verify("RSA-SHA256", Buffer.from(base), await chaveKick(), Buffer.from(ass, "base64"))) { marca("Chat da Kick", false, "chegou evento com assinatura inválida (" + (h["kick-event-type"] || "sem tipo") + ")"); console.warn("webhook kick: assinatura inválida"); return; }
     if (h["kick-event-type"] !== "chat.message.sent") return;
     const m = JSON.parse(corpo);
     // emote da Kick vem como [emote:123:nome]: fica só o nome, igual aos emotes da Twitch
