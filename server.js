@@ -1297,6 +1297,15 @@ const SEGURANCA = {
   "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://static-cdn.jtvnw.net https://clips-media-assets2.twitch.tv https://cdn.7tv.app https://cdn.betterttv.net https://cdn.frankerfacez.com; media-src 'self' blob:; connect-src 'self'; frame-src https://clips.twitch.tv; frame-ancestors 'none'",
 };
 
+// imagem com ETag: no F5 o navegador só pergunta "mudou?" e recebe 304 (sem baixar de novo)
+const etags = new WeakMap();
+const enviaImg = (req, res, buf, tipo, idade) => {
+  let et = etags.get(buf); if (!et) { et = '"' + crypto.createHash("sha1").update(buf).digest("base64url").slice(0, 16) + '"'; etags.set(buf, et); }
+  const cab = { "Content-Type": tipo, "Cache-Control": `public, max-age=${idade}`, ETag: et };
+  if (req.headers["if-none-match"] === et) { res.writeHead(304, cab); return res.end(); }
+  res.writeHead(200, cab); res.end(buf);
+};
+const imgsCache = new Map(); // arquivo de public/ -> buffer (lido uma vez)
 const apiCache = new Map(); // "ep|teste" -> { q, corpo }
 http.createServer(async (req, res) => {
   for (const [k, v] of Object.entries(SEGURANCA)) res.setHeader(k, v);
@@ -1377,7 +1386,7 @@ http.createServer(async (req, res) => {
   const capa = url.pathname.match(/^\/capa\/([\w-]{11})(-p)?\.jpg$/);
   if (capa) {
     const chave = capa[1] + (capa[2] || ""), c = capasCache.get(chave);
-    if (c && Date.now() - c.q < 6 * 3600e3) { res.writeHead(200, { "Content-Type": c.tipo, "Cache-Control": "max-age=21600" }); return res.end(c.buf); }
+    if (c && Date.now() - c.q < 6 * 3600e3) return enviaImg(req, res, c.buf, c.tipo, 21600);
     try {
       // depois que a live acaba o YouTube troca a capa "_live" pela normal
       // pequena: WebP de 640 px do YouTube (as faixas pretas de cima e de baixo somem no corte 16:9 dos cartões), 3 a 5 vezes mais leve
@@ -1387,14 +1396,15 @@ http.createServer(async (req, res) => {
       if (!r.ok) throw new Error(r.status);
       const buf = Buffer.from(await r.arrayBuffer());
       capasCache.set(chave, { q: Date.now(), buf, tipo });
-      res.writeHead(200, { "Content-Type": tipo, "Cache-Control": "max-age=21600" });
-      return res.end(buf);
+      return enviaImg(req, res, buf, tipo, 21600);
     } catch { res.writeHead(404); return res.end(); }
   }
   const img = url.pathname.match(/^\/((?:(?:icones|temporadas)\/)?[\w-]+\.(png|jpg))$/);
   if (img && fs.existsSync(path.join(PUBLICO, img[1]))) {
-    res.writeHead(200, { "Content-Type": { png: "image/png", jpg: "image/jpeg" }[img[2]], "Cache-Control": "max-age=86400" });
-    return res.end(fs.readFileSync(path.join(PUBLICO, img[1])));
+    let buf = imgsCache.get(img[1]);
+    if (!buf || env.NODE_ENV !== "production") { buf = fs.readFileSync(path.join(PUBLICO, img[1])); imgsCache.set(img[1], buf); }
+    // com ?v= no endereço o arquivo nunca muda: o navegador guarda por 1 ano
+    return enviaImg(req, res, buf, { png: "image/png", jpg: "image/jpeg" }[img[2]], url.searchParams.has("v") ? 31536000 : 86400);
   }
   if (url.pathname === "/previa" && req.method === "POST") return recebePrevia(req, res, url);
   // captura de momento aprovado
