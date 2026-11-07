@@ -157,7 +157,7 @@ body.encerrado .clockw .dot{display:none}
 .cena-reac.quente{color:var(--red)}
 .cena-reac img{width:1.9em;height:1.9em;object-fit:contain}
 .cena-emt{display:inline-flex;align-items:center;gap:3px}.cena-emt small{font-size:.95em;color:var(--mut);font-variant-numeric:tabular-nums}
-.cena-reac{gap:.7em}.cena-msg{font-variant-numeric:tabular-nums;color:var(--tx);padding-right:.7em;border-right:1px solid var(--line)}.cena-msg:last-child{border:0;padding:0}
+.cena-reac{gap:.7em}.cena-reac.quente .cena-agit{color:var(--red)}.cena-reac.quente .cena-emt small{color:var(--mut)}
 .cena .cena-chat b{color:var(--tx);font-weight:700}.cena .cena-chat{color:var(--mut);-webkit-line-clamp:2}
 .cena-agit{margin-right:.4em}
 .cena-pico{margin-right:.5em;padding:.15em .55em;border-radius:99px;background:var(--gold,#e8b64a);color:#141414;font-weight:700;font-size:.95em;white-space:nowrap}
@@ -168,7 +168,7 @@ body.encerrado .clockw .dot{display:none}
 .cena-pe.aperta .e3{display:none}.cena-pe.aperta2 .longo{display:none}.cena-pe.aperta2 .curto{display:inline}
 @media (max-width:800px),(max-aspect-ratio:1/1){.cena-pe.aperta2{flex-wrap:wrap;row-gap:.35em}.cena-pe.aperta2 .cena-reac{margin-left:0;flex-basis:100%}}
 /* celular: rótulos curtos e só os emotes no rodapé, pra caber na largura do texto */
-@media (max-width:800px),(max-aspect-ratio:1/1){.cena-pe{gap:0 .65em}.cena-pe .longo{display:none}.cena-pe .curto{display:inline}.cena-reac{font-size:11px;gap:.6em}.cena-reac img{width:20px;height:20px}.cena-reac .e3{display:none}.cena-msg{padding-right:.6em}}
+@media (max-width:800px),(max-aspect-ratio:1/1){.cena-pe{gap:0 .65em}.cena-pe .longo{display:none}.cena-pe .curto{display:inline}.cena-reac{font-size:11px;gap:.6em}.cena-reac img{width:20px;height:20px}.cena-reac .e3{display:none}}
 .cena b{font-size:1.05em}
 .cena p{margin:.25em 0 .4em;color:var(--mut);font-size:.92em;line-height:1.4}
 .cena a,.cena-corr{color:var(--tx);font-size:.8em;font-weight:600}
@@ -960,11 +960,12 @@ function mostraCena(t) {
   // selo no momento em que estava passando quando a live bateu o recorde de viewers
   const rp = ultimo?.records[ultimo.ver], pk = rp?.quando && new Date(rp.quando).getTime();
   const ehPico = pk && cenaEm(pk) === c;
-  // rodapé: mensagens por minuto naquele trecho e os emotes que mais gente mandou, cada um com o número de pessoas
-  const porMin = ch?.porMin ? `<span class="cena-msg" title="Mensagens por minuto no chat da Twitch e da Kick neste trecho">${f(ch.porMin)}<span class="longo"> msgs/min</span><span class="curto">/min</span></span>` : "";
-  $("cenaReac").hidden = !porMin && !emts && !ehPico;
-  $("cenaReac").className = "cena-reac";
-  $("cenaReac").innerHTML = (ehPico ? `<span class="cena-pico" title="A live bateu o recorde de viewers (${(rp.recorde || 0).toLocaleString("pt-BR")}) às ${hm(pk)}, durante este momento">Pico da live</span>` : "") + porMin + emts;
+  // rodapé: quanto o chat agitou em relação à média da live (vermelho quando bem acima) e, à direita, os emotes que mais gente mandou, com quantas pessoas
+  const agitado = ch && ch.ritmo >= 1.3;
+  const agit = agitado ? `<span class="cena-agit" title="${f(ch.porMin)} mensagens por minuto neste trecho"><span class="longo">${ch.ritmo.toLocaleString("pt-BR")}x mais agitado</span><span class="curto">${ch.ritmo.toLocaleString("pt-BR")}x</span></span>` : "";
+  $("cenaReac").hidden = !agitado && !emts && !ehPico;
+  $("cenaReac").className = "cena-reac" + (ch?.ritmo >= 1.5 ? " quente" : "");
+  $("cenaReac").innerHTML = (ehPico ? `<span class="cena-pico" title="A live bateu o recorde de viewers (${(rp.recorde || 0).toLocaleString("pt-BR")}) às ${hm(pk)}, durante este momento">Pico da live</span>` : "") + agit + emts;
   ajustaCena();
   $("cenaImg").hidden = !c.captura; if (c.captura) $("cenaImg").src = c.captura;
   // link pro mesmo ponto no vídeo do YouTube, pelo horário real do momento
