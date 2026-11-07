@@ -270,6 +270,39 @@ function conectaTwitch() {
 }
 conectaTwitch();
 
+// ---------- chat da Kick pelo webhook oficial (chat.message.sent) ----------
+// a Kick manda cada mensagem para https://<site>/webhook/kick (endereço configurado no app em kick.com/settings/developer)
+// a assinatura é conferida com a chave pública da Kick, pra ninguém mandar mensagem falsa
+let kickChave = null;
+const chaveKick = async () => kickChave ||= (await (await fetch("https://api.kick.com/public/v1/public-key")).json())?.data?.public_key;
+async function webhookKick(req, res) {
+  let corpo = ""; for await (const p of req) { corpo += p; if (corpo.length > 64e3) break; }
+  res.writeHead(200).end();
+  try {
+    const h = req.headers, ass = h["kick-event-signature"], base = `${h["kick-event-message-id"]}.${h["kick-event-message-timestamp"]}.${corpo}`;
+    if (!ass || !crypto.verify("RSA-SHA256", Buffer.from(base), await chaveKick(), Buffer.from(ass, "base64"))) return;
+    if (h["kick-event-type"] !== "chat.message.sent") return;
+    const m = JSON.parse(corpo);
+    // emote da Kick vem como [emote:123:nome]: fica só o nome, igual aos emotes da Twitch
+    msg("kick", m.sender?.username, String(m.content || "").replace(/\[emote:\d+:([^\]]+)\]/g, "$1"));
+    marca("Chat da Kick", true, "recebendo pelo webhook");
+  } catch (e) { console.warn("webhook kick:", e.message); }
+}
+// pede à Kick o evento de chat do canal (uma vez; se já existir, a Kick só confirma)
+async function assinaChatKick() {
+  if (!env.KICK_CLIENT_ID) return;
+  try {
+    const tk = await token("kick", "https://id.kick.com/oauth/token", env.KICK_CLIENT_ID, env.KICK_CLIENT_SECRET), H = { Authorization: "Bearer " + tk, "Content-Type": "application/json", Accept: "application/json" };
+    const canal = (await (await fetch(`https://api.kick.com/public/v1/channels?slug=${KICK}`, { headers: H })).json())?.data?.[0];
+    const r = await fetch("https://api.kick.com/public/v1/events/subscriptions", { method: "POST", headers: H,
+      body: JSON.stringify({ broadcaster_user_id: canal?.broadcaster_user_id, events: [{ name: "chat.message.sent", version: 1 }], method: "webhook" }) });
+    const j = await r.json().catch(() => ({}));
+    const erro = j?.data?.find?.(x => x.error)?.error;
+    marca("Chat da Kick", r.ok && !erro ? null : false, r.ok && !erro ? "assinado; esperando mensagens pelo webhook" : `assinatura HTTP ${r.status} ${erro || j?.message || ""}`);
+  } catch (e) { marca("Chat da Kick", false, e.message); }
+}
+setTimeout(assinaChatKick, 8000);
+
 // ---------- recordes e episódios cadastrados ----------
 let records = {};
 try { records = JSON.parse(fs.readFileSync(DB, "utf8")); } catch {}
@@ -781,11 +814,15 @@ function corrigeNomes(texto) {
     return perto ? perto[0] : p;
   });
 }
-const salvaMomentos = (id, lista) => { fs.mkdirSync(path.join(MOMENTOS, id), { recursive: true }); fs.writeFileSync(path.join(MOMENTOS, id, "momentos.json"), JSON.stringify(lista, null, 2)); };
+const salvaMomentos = (id, lista) => { momCache?.delete(id); fs.mkdirSync(path.join(MOMENTOS, id), { recursive: true }); fs.writeFileSync(path.join(MOMENTOS, id, "momentos.json"), JSON.stringify(lista, null, 2)); };
 // cada item da reação do chat leva a imagem oficial do emote, quando é um emote do canal (a lista se atualiza sozinha, 1 vez por dia)
 const comImagens = r => { if (!r) return null; emotesCanal(); const mapa = emotesCache.mapa; return { ...r, top: r.top.map(x => mapa[x.p] ? { ...x, img: mapa[x.p] } : x) }; };
-const momentosPublicos = id => { const reac = reacoesChat(id); return leMomentos(id).filter(m => m.aprovado)
-  .map(m => ({ quando: m.quando, titulo: m.titulo, contexto: m.contexto, tipo: m.tipo, captura: m.captura ? `/momento/${id}/${m.captura}` : null, chat: comImagens(reac?.(m.quando)) })); };
+// momentos com a reação do chat: contar o chat de cada momento pesa; refaz no máximo a cada 30 s por episódio
+const momCache = new Map(); // id -> { q, lista }
+const momentosPublicos = id => { const c = momCache.get(id); if (c && Date.now() - c.q < 30_000) return c.lista;
+  const reac = reacoesChat(id), lista = leMomentos(id).filter(m => m.aprovado)
+  .map(m => ({ quando: m.quando, titulo: m.titulo, contexto: m.contexto, tipo: m.tipo, captura: m.captura ? `/momento/${id}/${m.captura}` : null, chat: comImagens(reac?.(m.quando)), chatResumo: m.chatResumo || null }));
+  momCache.set(id, { q: Date.now(), lista }); return lista; };
 
 // imagens dos emotes do canal (nome -> endereço), pela API da Twitch; guarda 1 dia
 let emotesCache = { q: 0, mapa: {} };
@@ -838,24 +875,7 @@ function personagens(id) {
   }
   return mapa;
 }
-// clima do trecho, sem IA: cada emote cai numa categoria pelo significado (ref/emotes.json) ou pelo nome dos emotes comuns
-const CLIMAS = [["Risada", /risada|rindo|engraçad|piada/i, /^(KKKK|OMEGALUL|LUL|KEKW|LULW|ICANT|xdd?|LMAO)$/i],
-  ["Susto", /espanto|surpresa|susto|medo|choc|assust/i, /^(monkaS|monkaW|D:|WAYTOODANK|NOWAYING|WAJAJA)$/i],
-  ["Hype", /hype|comemora|empolga|aplauso|palmas|vamos/i, /^(Pog|PogChamp|POGGERS|PogU|EZ|catJAM|Clap|LETSGO)$/i],
-  ["Tristeza", /triste|chor|saudade|despedida/i, /^(Sadge|BibleThump|PepeHands|FeelsBadMan)$/i],
-  ["Desespero", /desespero|"não!"|raiva|bravo/i, /^(NOOO+|NAO+)$/i],
-  ["Desconfiança", /desconf|suspeita/i, /^(Hmm+|HUH|Susge|sus)$/i],
-  ["Carinho", /carinho|amor|coração/i, /^(<3|peepoLove|ApuLove)$/i],
-  ["Caos", /caos|maluc/i, /^(Chatting|ppOverheat)$/i]];
-const climaDe = p => { const sig = EMOTES[p] || ""; for (const [nome, re, nomes] of CLIMAS) if ((sig && re.test(sig)) || nomes.test(p)) return nome; return null; };
-// frase do chat como ela vai pro cartão: sem link, sem @, sem palavrão, com letras (não só emote ou risada)
-const PALAVRAO = /\b(porra|caralh|buceta|puta|fdp|vsf|merda|cu|pqp|viad|bost|arromb|otari|idiot|lix)/i;
-const fraseDe = t => { t = String(t).trim().replace(/\s+/g, " ");
-  if (t.length < 3 || t.length > 50 || /https?:|www\.|@/.test(t) || PALAVRAO.test(t)) return null;
-  const pal = t.split(" ").filter(w => !emotesCache.mapa[w] && !EMOTES[w] && !RISADA.test(w));
-  if (pal.join("").replace(/[^\p{L}]/gu, "").length < 3) return null;
-  return pal.join(" ").toUpperCase().replace(/([!?.])\1+/g, "$1").replace(/(\p{L})\1{2,}/gu, "$1$1"); };
-const chatCache = new Map(); // id -> { tam, q, msgs: [[t, u, palavras, frase]], media }
+const chatCache = new Map(); // id -> { tam, q, msgs: [[t, u, palavras]], media }
 function reacoesChat(id) {
   const arq = path.join(CHATLOG, id.replace(/[^\w-]/g, "_") + ".jsonl");
   let tam; try { tam = fs.statSync(arq).size; } catch { return null; }
@@ -877,7 +897,7 @@ function reacoesChat(id) {
         // emote (tem maiúscula no meio, ex.: cellbitHype) fica como está; palavra comum vira maiúscula
         palavras.add(/[a-z][A-Z]/.test(w) ? w : w.toUpperCase());
       }
-      msgs.push([new Date(m.q).getTime(), m.u, [...palavras], fraseDe(m.t)]);
+      msgs.push([new Date(m.q).getTime(), m.u, [...palavras]]);
     }
     const dur = msgs.length > 1 ? (msgs.at(-1)[0] - msgs[0][0]) / 60000 : 0;
     c = { tam, q: Date.now(), msgs, media: dur > 0 ? msgs.length / dur : 0 };
@@ -891,15 +911,7 @@ function reacoesChat(id) {
     const conta = new Map();
     for (const [, u, ps] of trecho) for (const p of ps) { const s = conta.get(p) || new Set(); s.add(u); conta.set(p, s); }
     const top = [...conta].map(([p, s]) => [p, s.size]).filter(([, n]) => n >= 3).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([p, n]) => ({ p, n }));
-    // clima: a categoria em que mais gente mandou emote ou risada (cada pessoa conta uma vez por categoria)
-    const cl = new Map();
-    for (const [, u, ps] of trecho) for (const p of ps) { const k = climaDe(p); if (k) { const s = cl.get(k) || new Set(); s.add(u); cl.set(k, s); } }
-    const clima = [...cl].map(([nome, s]) => ({ nome, n: s.size })).filter(x => x.n >= 5).sort((a, b) => b.n - a.n)[0] || null;
-    // a frase que mais gente mandou (mínimo 5 pessoas)
-    const fr = new Map();
-    for (const [, u, , f] of trecho) if (f) { const s = fr.get(f) || new Set(); s.add(u); fr.set(f, s); }
-    const frase = [...fr].map(([texto, s]) => ({ texto, n: s.size })).filter(x => x.n >= 5).sort((a, b) => b.n - a.n)[0] || null;
-    return { porMin: Math.round(trecho.length / 2), ritmo: Math.round(trecho.length / 2 / c.media * 10) / 10, top, clima, frase };
+    return { porMin: Math.round(trecho.length / 2), ritmo: Math.round(trecho.length / 2 / c.media * 10) / 10, top };
   };
 }
 
@@ -1171,7 +1183,7 @@ function status() {
   if (!itens["Gemini"]) itens["Gemini"] = { ok: env.GEMINI_API_KEY ? null : false, info: env.GEMINI_API_KEY ? "nenhuma análise feita desde que o servidor ligou" : "sem GEMINI_API_KEY", quando: Date.now() };
   if (partes.length) itens["Gemini"] = { ...itens["Gemini"], info: (itens["Gemini"].info ? itens["Gemini"].info + ", " : "") + partes.length + (partes.length > 1 ? " partes" : " parte") + " de áudio esperando análise" + (pausaAte > Date.now() ? " (próxima tentativa às " + new Date(pausaAte).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }) + ")" : "") };
   if (!itens["Chat do YouTube"]) itens["Chat do YouTube"] = { ok: null, info: "só lê com o episódio no ar", quando: Date.now() };
-  for (const [p, nome] of [["twitch", "Chat da Twitch"], ["youtube", "Chat do YouTube"]]) if (itens[nome] && ultimaMsg[p]) itens[nome] = { ...itens[nome], ultimaMsg: ultimaMsg[p] };
+  for (const [p, nome] of [["twitch", "Chat da Twitch"], ["kick", "Chat da Kick"], ["youtube", "Chat do YouTube"]]) if (itens[nome] && ultimaMsg[p]) itens[nome] = { ...itens[nome], ultimaMsg: ultimaMsg[p] };
   let disco = null; try { const d = fs.statfsSync(DADOS); disco = { livre: d.bavail * d.bsize, total: d.blocks * d.bsize }; } catch {}
   return {
     agora: Date.now(), episodio: atual.episodio || null, aoVivo: !!(atual.episodio && atual.total > 0), total: atual.total || 0,
@@ -1285,9 +1297,11 @@ const SEGURANCA = {
   "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://static-cdn.jtvnw.net https://clips-media-assets2.twitch.tv https://cdn.7tv.app https://cdn.betterttv.net https://cdn.frankerfacez.com; media-src 'self' blob:; connect-src 'self'; frame-src https://clips.twitch.tv; frame-ancestors 'none'",
 };
 
+const apiCache = new Map(); // "ep|teste" -> { q, corpo }
 http.createServer(async (req, res) => {
   for (const [k, v] of Object.entries(SEGURANCA)) res.setHeader(k, v);
   const url = new URL(req.url, "http://x");
+  if (req.method === "POST" && url.pathname === "/webhook/kick") return webhookKick(req, res);
   // clipes mais vistos da Twitch feitos durante o episódio
   if (url.pathname === "/api/clipes") {
     const p = url.searchParams.get("ep") || "", pub = publicos();
@@ -1314,6 +1328,11 @@ http.createServer(async (req, res) => {
   if (LAB && url.pathname === "/lab") return html(res, "lab.html");
   if (url.pathname === "/api") {
     registraAcesso(req, url);
+    // a mesma resposta serve todo mundo que pede o mesmo episódio no mesmo instante: monta uma vez a cada 2 s
+    const chave = (url.searchParams.get("ep") || "") + "|" + (url.searchParams.get("teste") || "");
+    const pronto = apiCache.get(chave);
+    if (pronto && Date.now() - pronto.q < 2000) { res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" }); return res.end(pronto.corpo); }
+    const json = (res, cod, obj) => { const corpo = JSON.stringify(obj); if (apiCache.size > 200) apiCache.clear(); apiCache.set(chave, { q: Date.now(), corpo }); res.writeHead(cod, { "Content-Type": "application/json; charset=utf-8" }); res.end(corpo); };
     // episódio exibido: o pedido (?ep=), o ao vivo, ou o último que foi ao ar
     // link de teste de episódio escondido: /ep/<id>?teste=<chave>; sem a chave ele não aparece pra ninguém
     const ch = url.searchParams.get("teste");

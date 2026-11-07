@@ -483,7 +483,7 @@ async function status() {
   const erros = j.itens.filter(i => i.ok === false).length;
   $("stQtd").textContent = erros || "";
   $("stResumo").textContent = (j.aoVivo ? "Episódio ao vivo agora: " + n(j.total) + " assistindo. " : "Sem live agora. ") + (erros ? erros + (erros > 1 ? " partes com problema." : " parte com problema.") : "Tudo funcionando.");
-  const ordem = ["YouTube", "Twitch", "Kick", "TikTok", "Chat da Twitch", "Chat do YouTube", "Gravação", "Gemini"];
+  const ordem = ["YouTube", "Twitch", "Kick", "TikTok", "Chat da Twitch", "Chat da Kick", "Chat do YouTube", "Gravação", "Gemini"];
   $("stLista").innerHTML = j.itens.sort((a, b) => (ordem.indexOf(a.nome) + 99) % 99 - (ordem.indexOf(b.nome) + 99) % 99).map(i => `<div class="st">
     <i class="${i.ok === true ? "ok" : i.ok === false ? "erro" : ""}"></i><b>${esc(i.nome)}</b>
     <span>${i.ok === false && i.ultimoOk ? "funcionou " + ha(j.agora - i.ultimoOk) : i.quando ? "checado " + ha(j.agora - i.quando) : ""}</span>
