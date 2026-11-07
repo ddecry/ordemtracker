@@ -377,7 +377,7 @@ function monta() {
 
   $("conteudo").innerHTML = `
     <div class="col">
-      <div class="capa" style="background-image:url(/capa/${esc(t.capa)}.jpg)"></div>
+      <div class="capa" style="background-image:url(/temporadas/${esc(t.slug)}.jpg),url(/capa/${esc(t.capa)}.jpg)"></div>
       <div class="seletor">
         <button class="ep-titulo" id="tempSel" aria-haspopup="listbox" aria-expanded="false"><span>${esc(t.nome)}</span><svg class="seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
         <p class="ep-sub">Temporada de ${anos}, ${eps.length} ${eps.length > 1 ? "episódios" : "episódio"}</p>

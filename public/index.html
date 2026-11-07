@@ -1265,7 +1265,7 @@ function modoFuturo(d) {
   $("epNome").textContent = e.temporada || nome(m ? m[1] : e.titulo || "Próximo episódio");
   $("epNum").textContent = m ? nome(m[2]) : "";
   // capa: a do vídeo agendado no YouTube; sem link ainda, a arte da temporada
-  const img = temLink ? `/capa/${e.id}.jpg` : PREVIAS[(e.temporada || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()];
+  const img = temLink ? `/capa/${e.id}.jpg` : capaTemp(e.temporada);
   if (img && $("capa").dataset.id !== img) {
     $("capa").dataset.id = img;
     const im = new Image(); im.onload = () => { $("capa").style.backgroundImage = `url(${im.src})`; $("capa").classList.add("on"); }; im.src = img;
@@ -1319,7 +1319,9 @@ document.addEventListener("click", e => { if (!e.target.closest("#capa")) $("cap
 // contagem para o próximo episódio cadastrado no /admin
 let proximo = null, espera = null;
 // logo de cada temporada para a prévia (nome da temporada sem acento)
-const PREVIAS = { "a vigilia": "/temporadas/a-vigilia.jpg" };
+// capas das campanhas (página Categoria:Campanhas da wiki), usadas nos episódios ainda sem link
+const CAPAS_TEMP = ["a-ordem-paranormal","o-segredo-na-floresta","desconjuracao","calamidade","o-segredo-na-ilha","sinais-do-outro-lado","quarentena","natal-macabro","hexatombe","a-vigilia"];
+const capaTemp = t => { const k = (t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); return CAPAS_TEMP.includes(k) ? `/temporadas/${k}.jpg` : null; };
 const dois = n => String(n).padStart(2, "0");
 function contagem() {
   if (futuroEp) {
@@ -1362,7 +1364,7 @@ function contagem() {
       $("espLembrete").hidden = !temLink;
       if (temLink) $("espLembrete").href = "https://www.youtube.com/watch?v=" + proximo.id;
       // sem link ainda: prévia com a arte da temporada, borrada
-      const previa = !temLink && PREVIAS[(proximo.temporada || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()];
+      const previa = !temLink && capaTemp(proximo.temporada);
       const img = previa || `/capa/${capaId}.jpg`;
       const c = $("espCapa"); if (c.dataset.img !== img) { c.dataset.img = img; c.dataset.id = ""; c.style.setProperty("--fundo", `url(${img})`); }
       c.classList.toggle("previa", !temLink);
@@ -1524,7 +1526,7 @@ function listaEps() {
   // próximos: com link mostra a capa e o lembrete; só da agenda usa a arte da temporada borrada
   const prox = (d.proximos || []).map(e => {
     const q = new Date(e.data), temLink = !e.id.startsWith("ag-");
-    const previa = PREVIAS[(e.temporada || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()];
+    const previa = capaTemp(e.temporada);
     const capa = temLink ? `<img src="/capa/${e.id}.jpg" alt="" loading="lazy">` : previa ? `<img class="borrada" src="${previa}" alt="">` : `<div class="sem-capa"></div>`;
     const acao = temLink ? `<a href="https://www.youtube.com/watch?v=${e.id}" target="_blank" rel="noopener">Lembrete no YouTube</a>` : `<a href="https://cellbit.live/" target="_blank" rel="noopener">Agenda de lives</a>`;
     return `<div class="ep">${capa}
