@@ -936,7 +936,7 @@ function foraDaLive(f) {
   return d / b.length < 10;
 }
 const GRAVACAO = path.join(DADOS, "gravacao");
-const PARTE_MIN = 30;
+const PARTE_MIN = 10; // partes de 10 min: o resumo do momento sai uns 10 min depois de acontecer
 let gravando = null; // { id, proc }
 const hora14 = d => d.toISOString().replace(/[-:]/g, "").slice(0, 15); // 20261107T210000
 const deHora14 = s => new Date(s.replace(/^(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)$/, "$1-$2-$3T$4:$5:$6Z"));
@@ -1139,7 +1139,7 @@ async function analisaPartes() {
           const cap = [...depois.slice(0, 20), ...antes.slice(0, 20)].find(c => !foraDaLive(path.join(dir, "capturas", c.f)));
           let captura = null;
           if (cap) { captura = cap.f; fs.mkdirSync(path.join(MOMENTOS, id, "capturas"), { recursive: true }); fs.copyFileSync(path.join(dir, "capturas", cap.f), path.join(MOMENTOS, id, "capturas", cap.f)); }
-          return { quando: new Date(t).toISOString(), titulo: String(m.titulo).replace(/\.$/, "").slice(0, 80), contexto: ponto(m.contexto).slice(0, 240), tipo: m.tipo === "mesa" ? "mesa" : "historia", captura, chatResumo: m.chat ? ponto(m.chat).slice(0, 160) : undefined, ia, aprovado: false, seg: (t - inicio.getTime()) / 1000 };
+          return { quando: new Date(t).toISOString(), titulo: String(m.titulo).replace(/\.$/, "").slice(0, 80), contexto: ponto(m.contexto).slice(0, 240), tipo: m.tipo === "mesa" ? "mesa" : "historia", captura, chatResumo: m.chat ? ponto(m.chat).slice(0, 160) : undefined, ia, aprovado: true, seg: (t - inicio.getTime()) / 1000 };
         });
         // trecho de 1 min do áudio de cada momento (5 s antes até 55 s depois), pra ouvir no painel e conferir o resumo
         fs.mkdirSync(path.join(MOMENTOS, id, "audio"), { recursive: true });
