@@ -122,7 +122,12 @@ setInterval(() => achaVods().catch(() => {}), 3600e3);
 async function kick() {
   if (!env.KICK_CLIENT_ID) return null;
   const tk = await token("kick", "https://id.kick.com/oauth/token", env.KICK_CLIENT_ID, env.KICK_CLIENT_SECRET);
-  const r = await fetch(`https://api.kick.com/public/v1/channels?slug=${KICK}`, { headers: { Authorization: "Bearer " + tk, Accept: "application/json" } });
+  // a API da Kick às vezes derruba a conexão: tenta de novo até 3 vezes antes de dar erro
+  let r;
+  for (let i = 0; ; i++) {
+    try { r = await fetch(`https://api.kick.com/public/v1/channels?slug=${KICK}`, { headers: { Authorization: "Bearer " + tk, Accept: "application/json" }, signal: AbortSignal.timeout(6000) }); break; }
+    catch (e) { if (i >= 2) throw e; await new Promise(ok => setTimeout(ok, 800)); }
+  }
   if (!r.ok) throw new Error(`kick HTTP ${r.status}`);
   const s = (await r.json())?.data?.[0]?.stream;
   return { n: s?.is_live ? s.viewer_count ?? 0 : 0, inicio: s?.is_live ? s.start_time : null };
@@ -780,7 +785,7 @@ const salvaMomentos = (id, lista) => { fs.mkdirSync(path.join(MOMENTOS, id), { r
 // cada item da reação do chat leva a imagem oficial do emote, quando é um emote do canal (a lista se atualiza sozinha, 1 vez por dia)
 const comImagens = r => { if (!r) return null; emotesCanal(); const mapa = emotesCache.mapa; return { ...r, top: r.top.map(x => mapa[x.p] ? { ...x, img: mapa[x.p] } : x) }; };
 const momentosPublicos = id => { const reac = reacoesChat(id); return leMomentos(id).filter(m => m.aprovado)
-  .map(m => ({ quando: m.quando, titulo: m.titulo, contexto: m.contexto, tipo: m.tipo, captura: m.captura ? `/momento/${id}/${m.captura}` : null, chat: comImagens(reac?.(m.quando)), chatResumo: m.chatResumo || null })); };
+  .map(m => ({ quando: m.quando, titulo: m.titulo, contexto: m.contexto, tipo: m.tipo, captura: m.captura ? `/momento/${id}/${m.captura}` : null, chat: comImagens(reac?.(m.quando)) })); };
 
 // imagens dos emotes do canal (nome -> endereço), pela API da Twitch; guarda 1 dia
 let emotesCache = { q: 0, mapa: {} };
@@ -813,7 +818,44 @@ setTimeout(emotesCanal, 5000);
 // e as palavras/emotes que mais gente usou (cada pessoa conta uma vez por palavra, pra spam não pesar)
 const PARADAS = new Set("a o e é de da do das dos em no na nos nas um uma uns umas que se pra para por com sem ele ela eles elas eu tu vc voce você vcs isso esse essa este esta aqui ai aí la lá ja já nao não sim mas mais muito so só tá ta to tô foi vai era ser ter tem como quando onde qual quem me te lhe meu minha seu sua nosso nossa the and of to is it in".split(" "));
 const RISADA = /k{3,}|(?:ha){2,}|(?:rs){2,}|(?:ks){2,}/i;
-const chatCache = new Map(); // id -> { tam, q, msgs: [[t, u, palavras]], media }
+// nomes dos personagens da temporada do episódio (wiki): "arthur" e "arthur cervero" -> "Arthur Cervero"; jogadores e locais ficam de fora
+function personagens(id) {
+  const tit = String(records[id]?.titulo || "").replace(/\s*-\s*EPIS[ÓO]DIO.*$/i, "").replace(/\s*\|.*$/, "").trim().toLowerCase();
+  // no podcast (Transcendendo) a wiki só lista os convidados: vale o elenco de personagens de todas as temporadas
+  const texto = /transcend/.test(tit) ? Object.entries(gloWiki).filter(([k]) => !/transcend/.test(k)).map(([, g]) => g.texto || "").join("\n") : gloWiki[tit]?.texto || "", mapa = new Map();
+  for (const l of texto.split("\n")) {
+    const [g, resto] = [l.slice(0, l.indexOf(":")), l.slice(l.indexOf(":") + 1)];
+    if (!resto || /^(campanha|mestre|elenco|irlanda|locais|lugares)/i.test(g)) continue;
+    const itens = /^jogadores/i.test(g) ? resto.split(";").map(x => x.split(/ joga /)[1] || "").flatMap(x => x.split(/\/|,| e /)) : resto.split(",");
+    for (let n of itens) {
+      n = n.replace(/\(.*?\)|".*?"|\.$/g, "").trim();
+      // só nome próprio curto ("Arthur Cervero", "Ana Delgado dos Santos"); descrições da wiki ficam de fora
+      if (n.length < 3 || !/^[A-ZÀ-Ý][\wÀ-ÿ'-]*(?: (?:de|da|do|dos|das|[A-ZÀ-Ý][\wÀ-ÿ'-]*)){0,3}$/.test(n)) continue;
+      if (!mapa.has(n.toLowerCase())) mapa.set(n.toLowerCase(), n);
+      const pri = n.split(/\s+/)[0].toLowerCase();
+      if (pri.length >= 3 && !PARADAS.has(pri) && !mapa.has(pri)) mapa.set(pri, n);
+    }
+  }
+  return mapa;
+}
+// clima do trecho, sem IA: cada emote cai numa categoria pelo significado (ref/emotes.json) ou pelo nome dos emotes comuns
+const CLIMAS = [["Risada", /risada|rindo|engraçad|piada/i, /^(KKKK|OMEGALUL|LUL|KEKW|LULW|ICANT|xdd?|LMAO)$/i],
+  ["Susto", /espanto|surpresa|susto|medo|choc|assust/i, /^(monkaS|monkaW|D:|WAYTOODANK|NOWAYING|WAJAJA)$/i],
+  ["Hype", /hype|comemora|empolga|aplauso|palmas|vamos/i, /^(Pog|PogChamp|POGGERS|PogU|EZ|catJAM|Clap|LETSGO)$/i],
+  ["Tristeza", /triste|chor|saudade|despedida/i, /^(Sadge|BibleThump|PepeHands|FeelsBadMan)$/i],
+  ["Desespero", /desespero|"não!"|raiva|bravo/i, /^(NOOO+|NAO+)$/i],
+  ["Desconfiança", /desconf|suspeita/i, /^(Hmm+|HUH|Susge|sus)$/i],
+  ["Carinho", /carinho|amor|coração/i, /^(<3|peepoLove|ApuLove)$/i],
+  ["Caos", /caos|maluc/i, /^(Chatting|ppOverheat)$/i]];
+const climaDe = p => { const sig = EMOTES[p] || ""; for (const [nome, re, nomes] of CLIMAS) if ((sig && re.test(sig)) || nomes.test(p)) return nome; return null; };
+// frase do chat como ela vai pro cartão: sem link, sem @, sem palavrão, com letras (não só emote ou risada)
+const PALAVRAO = /\b(porra|caralh|buceta|puta|fdp|vsf|merda|cu|pqp|viad|bost|arromb|otari|idiot|lix)/i;
+const fraseDe = t => { t = String(t).trim().replace(/\s+/g, " ");
+  if (t.length < 3 || t.length > 50 || /https?:|www\.|@/.test(t) || PALAVRAO.test(t)) return null;
+  const pal = t.split(" ").filter(w => !emotesCache.mapa[w] && !EMOTES[w] && !RISADA.test(w));
+  if (pal.join("").replace(/[^\p{L}]/gu, "").length < 3) return null;
+  return pal.join(" ").toUpperCase().replace(/([!?.])\1+/g, "$1").replace(/(\p{L})\1{2,}/gu, "$1$1"); };
+const chatCache = new Map(); // id -> { tam, q, msgs: [[t, u, palavras, frase]], media }
 function reacoesChat(id) {
   const arq = path.join(CHATLOG, id.replace(/[^\w-]/g, "_") + ".jsonl");
   let tam; try { tam = fs.statSync(arq).size; } catch { return null; }
@@ -835,7 +877,7 @@ function reacoesChat(id) {
         // emote (tem maiúscula no meio, ex.: cellbitHype) fica como está; palavra comum vira maiúscula
         palavras.add(/[a-z][A-Z]/.test(w) ? w : w.toUpperCase());
       }
-      msgs.push([new Date(m.q).getTime(), m.u, [...palavras]]);
+      msgs.push([new Date(m.q).getTime(), m.u, [...palavras], fraseDe(m.t)]);
     }
     const dur = msgs.length > 1 ? (msgs.at(-1)[0] - msgs[0][0]) / 60000 : 0;
     c = { tam, q: Date.now(), msgs, media: dur > 0 ? msgs.length / dur : 0 };
@@ -849,7 +891,15 @@ function reacoesChat(id) {
     const conta = new Map();
     for (const [, u, ps] of trecho) for (const p of ps) { const s = conta.get(p) || new Set(); s.add(u); conta.set(p, s); }
     const top = [...conta].map(([p, s]) => [p, s.size]).filter(([, n]) => n >= 3).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([p, n]) => ({ p, n }));
-    return { porMin: Math.round(trecho.length / 2), ritmo: Math.round(trecho.length / 2 / c.media * 10) / 10, top };
+    // clima: a categoria em que mais gente mandou emote ou risada (cada pessoa conta uma vez por categoria)
+    const cl = new Map();
+    for (const [, u, ps] of trecho) for (const p of ps) { const k = climaDe(p); if (k) { const s = cl.get(k) || new Set(); s.add(u); cl.set(k, s); } }
+    const clima = [...cl].map(([nome, s]) => ({ nome, n: s.size })).filter(x => x.n >= 5).sort((a, b) => b.n - a.n)[0] || null;
+    // a frase que mais gente mandou (mínimo 5 pessoas)
+    const fr = new Map();
+    for (const [, u, , f] of trecho) if (f) { const s = fr.get(f) || new Set(); s.add(u); fr.set(f, s); }
+    const frase = [...fr].map(([texto, s]) => ({ texto, n: s.size })).filter(x => x.n >= 5).sort((a, b) => b.n - a.n)[0] || null;
+    return { porMin: Math.round(trecho.length / 2), ritmo: Math.round(trecho.length / 2 / c.media * 10) / 10, top, clima, frase };
   };
 }
 
@@ -887,11 +937,12 @@ function gravacao() {
   // pega o endereço da transmissão pública da mesma live (o YouTube pede login para servidores de nuvem):
   // primeiro a Kick, que não põe comercial no meio pra quem assiste; se ela não abrir, a Twitch (que para quem não tem conta troca a live por comercial)
   // o endereço expira em algumas horas: quando cai, a próxima volta do tick recomeça
-  const endereco = (pagina, ok) => execFile("yt-dlp", ["-g", "-f", "best[height<=480]/worst", pagina], { timeout: 60_000 }, (erro, saida) => {
+  const endereco = (pagina, ok) => execFile("nice", ["-n", "15", "yt-dlp", "-g", "-f", "best[height<=480]/worst", pagina], { timeout: 60_000 }, (erro, saida) => {
     const url = String(saida || "").trim().split("\n")[0]; ok(!erro && url.startsWith("http") ? url : null, erro);
   });
   const grava = (url, fonte) => {
-    const proc = spawn("ffmpeg", ["-v", "error", "-i", url,
+    // decodifica só os quadros-chave (uma captura a cada 30 s não precisa de todos) e roda com prioridade baixa, pra não tirar processador do site
+    const proc = spawn("nice", ["-n", "15", "ffmpeg", "-v", "error", "-threads", "1", "-skip_frame:v", "nokey", "-i", url,
       "-map", "0:a", "-ac", "1", "-ar", "16000", "-c:a", "libopus", "-b:a", "24k", "-f", "segment", "-segment_time", String(PARTE_MIN * 60), "-reset_timestamps", "1", "-strftime", "1", path.join(dir, "audio-%Y%m%dT%H%M%S.ogg"),
       "-map", "0:v", "-vf", "fps=1/30,scale=854:-2", "-q:v", "4", "-f", "image2", "-strftime", "1", path.join(dir, "capturas", "%Y%m%dT%H%M%S.jpg")], { stdio: ["ignore", "ignore", "pipe"] });
     proc.stderr.on("data", d => console.warn("ffmpeg:", String(d).trim().slice(0, 200)));
