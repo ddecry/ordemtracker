@@ -263,6 +263,16 @@ body.encerrado .clockw .dot{display:none}
 
 .rec-aviso{position:fixed;left:50%;top:76px;z-index:40;background:var(--tx);color:var(--bg);font:700 .9em Inter,sans-serif;padding:.5em .9em;border-radius:99px;opacity:0;transform:translate(-50%,-8px);pointer-events:none;box-shadow:0 8px 30px rgba(0,0,0,.35)}
 .rec-aviso.on{animation:aviso 4.5s cubic-bezier(.2,.8,.2,1) both}
+/* recorde geral: aviso grande no meio da tela, com o número */
+.rec-super{position:fixed;inset:0;z-index:60;display:grid;place-items:center;pointer-events:none;background:radial-gradient(circle,rgba(0,0,0,.55),rgba(0,0,0,.2) 70%,transparent);opacity:0}
+.rec-super.on{animation:superOn 6s cubic-bezier(.2,.8,.2,1) both}
+.rec-super div{text-align:center;transform:scale(.8)}
+.rec-super.on div{animation:superZoom 6s cubic-bezier(.2,.8,.2,1) both}
+.rec-super small{display:block;font:700 clamp(14px,2.2vh,20px) Inter,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:#fff;opacity:.85}
+.rec-super b{display:block;font:800 clamp(56px,14vh,150px)/1 "Inter Tight",Inter,sans-serif;letter-spacing:-.03em;color:#fff;text-shadow:0 6px 40px rgba(0,0,0,.6);font-variant-numeric:tabular-nums}
+@keyframes superOn{0%{opacity:0}8%,80%{opacity:1}100%{opacity:0}}
+@keyframes superZoom{0%{transform:scale(.8)}12%{transform:scale(1.04)}20%,100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.rec-super.on,.rec-super.on div{animation-duration:4s;transform:none}}
 @keyframes aviso{0%{opacity:0;transform:translate(-50%,-8px)}8%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0)}}
 #tot.recorde{animation:brilho 1s ease 3}
 @keyframes brilho{50%{text-shadow:0 0 28px rgba(255,255,255,.45)}}
@@ -1117,9 +1127,12 @@ const tituloPagina = document.title;
 let tituloVivo = null;
 const tituloAba = () => { document.title = document.hidden && tituloVivo ? tituloVivo : tituloPagina; };
 document.addEventListener("visibilitychange", tituloAba);
-function avisaRecorde(texto) {
-  const a = $("recAviso"); a.textContent = texto;
-  a.classList.remove("on"); void a.offsetWidth; a.classList.add("on");
+function avisaRecorde(texto, valor) {
+  // aviso grande no meio da tela; some sozinho em 6 s
+  let sp = document.getElementById("recSuper");
+  if (!sp) { sp = document.body.appendChild(Object.assign(document.createElement("div"), { id: "recSuper", className: "rec-super" })); sp.setAttribute("aria-live", "assertive"); }
+  sp.innerHTML = `<div><small>${texto}</small><b>${f(valor)}</b></div>`;
+  sp.classList.remove("on"); void sp.offsetWidth; sp.classList.add("on");
   $("tot").classList.add("recorde"); setTimeout(() => $("tot").classList.remove("recorde"), 4000);
 }
 let carregou = false, ultHora = null, ultimo = null, avisou = false;
@@ -1184,12 +1197,9 @@ async function up() {
     vAgora = v;
     if (simulando == null) mostra(v);
 
-    // recorde batido durante a live: do episódio, ou o maior da temporada
-    // primeiro episódio acompanhado da temporada não tem com o que comparar: sem animação nem aviso
-    const outros = Object.entries(d.records).filter(([id, o]) => id !== d.ver && (o.temporada || "") === (r.temporada || "")).map(([, o]) => o.recorde || 0);
-    if (vivo && recVisto != null && r.recorde > recVisto && outros.length) {
-      avisaRecorde(outros.length && r.recorde > Math.max(...outros) && recVisto <= Math.max(...outros) ? "Maior audiência da temporada!" : "Novo recorde do episódio!");
-    }
+    // aviso só quando a live passa o recorde geral (maior audiência de todos os episódios); uma vez, no momento em que passa
+    const outros = Object.entries(d.records).filter(([id]) => id !== d.ver).map(([, o]) => o.recorde || 0);
+    if (vivo && recVisto != null && outros.length && r.recorde > Math.max(...outros) && recVisto <= Math.max(...outros)) avisaRecorde("Novo recorde geral", r.recorde);
     recVisto = r.recorde;
     // na página inicial, os clipes de todos os episódios juntos
     carregaClipes(espera ? "todos" : d.ver);
