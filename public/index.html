@@ -157,7 +157,7 @@ body.encerrado .clockw .dot{display:none}
 .cena-reac[hidden]{display:none}
 .cena-reac.quente{color:var(--red)}
 .cena-reac img{width:1.9em;height:1.9em;object-fit:contain}
-.cena-emt{display:inline-flex;align-items:center;gap:3px}.cena-emt small{font-size:.95em;color:var(--mut);font-variant-numeric:tabular-nums}
+.cena-emt{display:inline-flex;align-items:center;gap:3px}.cena-pal{font-weight:700;color:var(--tx);font-size:.95em;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cena-emt small{font-size:.95em;color:var(--mut);font-variant-numeric:tabular-nums}
 .cena-reac{gap:.7em}.cena-reac.quente .cena-agit{color:var(--red)}.cena-reac.quente .cena-emt small{color:var(--mut)}
 .cena .cena-chat b{color:var(--tx);font-weight:700}.cena .cena-chat{color:var(--mut);-webkit-line-clamp:2}
 .cena-agit{margin-right:.4em}
@@ -938,10 +938,10 @@ function noVideo(r, id, seg) {
 function ajustaCena() {
   const t = document.querySelector(".cena-txt"); if (!t) return;
   t.style.fontSize = ""; $("cenaC").style.webkitLineClamp = "";
-  // rodapé sem espaço: primeiro some o terceiro emote, depois os rótulos ficam curtos (no celular, os números descem uma linha)
+  // rodapé sem espaço: primeiro os rótulos ficam curtos (no celular, os números descem uma linha), depois somem os itens a mais do chat
   const pe = t.querySelector(".cena-pe"); pe.classList.remove("aperta", "aperta2");
-  if (pe.scrollWidth > pe.clientWidth + 1) pe.classList.add("aperta");
   if (pe.scrollWidth > pe.clientWidth + 1) pe.classList.add("aperta2");
+  if (pe.scrollWidth > pe.clientWidth + 1) pe.classList.add("aperta");
   const passa = () => t.scrollHeight > t.clientHeight + 1;
   for (let f = 96; passa() && f >= 72; f -= 4) t.style.fontSize = f + "%";
   for (let l = 3; passa() && l >= 1; l--) $("cenaC").style.webkitLineClamp = l;
@@ -969,7 +969,8 @@ function mostraCena(t) {
   const ch = c.chat, resumo = c.chatResumo;
   $("cenaChat").hidden = !resumo;
   $("cenaChat").innerHTML = resumo ? `<b>Chat:</b> ${esc(resumo)}` : "";
-  const emts = (ch?.top || []).filter(x => x.img).slice(0, 3).map((x, i) => `<span class="cena-emt${i > 1 ? " e3" : ""}"><img src="${esc(x.img)}" alt="${esc(x.p)}" title="${esc(x.p)}: ${x.n} pessoas" loading="lazy"><small>${x.n}</small></span>`).join("");
+  // o que mais gente mandou no trecho, como no painel do admin: emote com a imagem, palavra escrita; cada um com quantas pessoas
+  const emts = (ch?.top || []).slice(0, 3).map((x, i) => `<span class="cena-emt${i > 1 ? " e3" : ""}" title="${esc(x.p)}: ${x.n} pessoas">${x.img ? `<img src="${esc(x.img)}" alt="${esc(x.p)}" loading="lazy">` : `<b class="cena-pal">${esc(x.p === "KKKK" ? "kkkk" : x.p.toLowerCase())}</b>`}<small>${x.n}</small></span>`).join("");
   // selo no momento em que estava passando quando a live bateu o recorde de viewers
   const rp = ultimo?.records[ultimo.ver], pk = rp?.quando && new Date(rp.quando).getTime();
   const ehPico = pk && cenaEm(pk) === c;
