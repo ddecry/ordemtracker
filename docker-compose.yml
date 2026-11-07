@@ -5,6 +5,8 @@ services:
     env_file: .env
     volumes:
       - ./dados:/dados
+      # páginas e imagens lidas direto da pasta: publicar o visual é só copiar os arquivos, sem reconstruir nem reiniciar
+      - ./public:/app/public:ro
   web:
     image: caddy:2.10.2
     restart: always

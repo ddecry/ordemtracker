@@ -1158,6 +1158,8 @@ async function up() {
     const q = new URLSearchParams(epPedido ? { ep: epPedido } : {});
     const chave = new URLSearchParams(location.search).get("teste"); if (chave) q.set("teste", chave);
     if (!avisou) { avisou = true; q.set("nova", "1"); try { const o = document.referrer && new URL(document.referrer).hostname; if (o && o !== location.hostname) q.set("de", o); } catch {} }
+    // o histórico só é usado no primeiro carregamento: depois pede sem ele ("tenho" = episódio que já está desenhado)
+    if (carregou) q.set("tenho", carregou);
     const d = await (await fetch("/api" + (q.size ? "?" + q : ""))).json();
     const a = d.atual, x = a.extras || {}, r = d.records[d.ver], vivo = d.aoVivo;
     ultimo = d;
@@ -1259,7 +1261,8 @@ async function up() {
     pl.forEach((e, i) => e.classList.toggle("cheio", pl.length % 2 === 1 && i === pl.length - 1));
 
     // hist: [hora, twitch, kick, youtube, total]; encerrado não ganha pontos novos
-    if (!carregou) { carregou = true; d.hist.forEach(h => pontoNovo(h[0], h[4], h[3], h[1], h[2], h[6], h[5])); redesenha(r.recorde); }
+    if (carregou && carregou !== d.ver) { carregou = false; return up(); } // trocou de episódio: pede de novo com o histórico
+    if (!carregou) { carregou = d.ver; d.hist.forEach(h => pontoNovo(h[0], h[4], h[3], h[1], h[2], h[6], h[5])); redesenha(r.recorde); }
     else if (vivo && a.hora !== ultHora) { pontoNovo(a.hora, a.total, a.youtube, a.twitch, a.kick, a.tiktok, a.extras?.msgsMin); redesenha(r.recorde); }
     ultHora = a.hora;
     if ($("eps").classList.contains("on")) listaEps();

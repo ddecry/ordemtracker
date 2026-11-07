@@ -143,6 +143,10 @@ const ytApi = async (ids) => {
   return (await r.json()).items || [];
 };
 let ytLive = null, ytUltimaBusca = 0;
+// a live atual fica salva em disco: depois de reiniciar o servidor volta a ler na hora (o YouTube confirma se ainda está no ar)
+const LIVE_ARQ = path.join(DADOS, "live-atual.json");
+try { const l = JSON.parse(fs.readFileSync(LIVE_ARQ, "utf8")); if (l.id && Date.now() - l.q < 12 * 3600e3) ytLive = l.id; } catch {}
+const guardaLive = id => { try { id ? fs.writeFileSync(LIVE_ARQ, JSON.stringify({ id, q: Date.now() })) : fs.rmSync(LIVE_ARQ, { force: true }); } catch {} };
 async function procuraLive() {
   const rss = await (await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${YT_CANAL}`)).text();
   const ids = [...rss.matchAll(/<yt:videoId>([\w-]{11})</g)].slice(0, 8).map(m => m[1]);
@@ -153,6 +157,7 @@ async function procuraLive() {
   const videos = await ytApi(ids.slice(0, 50));
   const vivo = videos.find(v => v.snippet?.liveBroadcastContent === "live" && (cadastrados.has(v.id) || EPISODIO.test(v.snippet.title)));
   ytLive = vivo?.id || null;
+  guardaLive(ytLive);
   // live já agendada no YouTube (umas horas antes): troca o cadastro só da agenda pelo vídeo, pra ter capa e lembrete sem colar o link
   let mudou = false;
   for (const v of videos) {
@@ -173,7 +178,7 @@ async function youtube() {
   if (!v || ls?.actualEndTime) {
     // a live acabou: guarda início e fim oficiais do YouTube para a duração
     if (records[ytLive] && ls?.actualEndTime) { records[ytLive].fimLive = ls.actualEndTime; records[ytLive].inicioLive = ls.actualStartTime || records[ytLive].inicioLive; fs.writeFileSync(DB, JSON.stringify(records, null, 2)); }
-    ytLive = null; return { n: 0 };
+    ytLive = null; guardaLive(null); return { n: 0 };
   }
   ytChat = ls?.activeLiveChatId || null;
   return { n: +(ls?.concurrentViewers || 0), id: v.id, title: v.snippet.title, likes: +(v.statistics?.likeCount || 0) || null, inicio: ls?.actualStartTime };
@@ -994,7 +999,10 @@ function foraDaLive(f) {
   return d / b.length < 10;
 }
 const GRAVACAO = path.join(DADOS, "gravacao");
-const PARTE_MIN = 30; // partes de 30 min (a cota grátis da IA é de 20 pedidos por dia); a IA marca um momento a cada uns 5 min
+const PARTE_MIN = 30;
+// áudio já analisado: guardado 7 dias e depois apagado
+const FEITOS = path.join(DADOS, "gravacao-feitos");
+setInterval(() => { try { for (const id of fs.readdirSync(FEITOS)) for (const f of fs.readdirSync(path.join(FEITOS, id))) { const a = path.join(FEITOS, id, f); if (Date.now() - fs.statSync(a).mtimeMs > 7 * 86400e3) fs.rmSync(a, { force: true }); } } catch {} }, 6 * 3600e3); // partes de 30 min (a cota grátis da IA é de 20 pedidos por dia); a IA marca um momento a cada uns 5 min
 let gravando = null; // { id, proc }
 const hora14 = d => d.toISOString().replace(/[-:]/g, "").slice(0, 15); // 20261107T210000
 const deHora14 = s => new Date(s.replace(/^(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)$/, "$1-$2-$3T$4:$5:$6Z"));
@@ -1234,7 +1242,9 @@ async function analisaPartes() {
           delete m.seg;
         }
         salvaMomentos(id, [...leMomentos(id), ...novos].sort((a, b) => a.quando.localeCompare(b.quando)));
-        fs.unlinkSync(path.join(dir, p)); fs.rmSync(path.join(dir, p.replace(/\.ogg$/, ".transcricao.json")), { force: true });
+        // o áudio analisado vai pra feitos/ e fica 7 dias (dá pra refazer os momentos de um trecho); a transcrição temporária sai
+        fs.mkdirSync(path.join(FEITOS, id), { recursive: true });
+        fs.renameSync(path.join(dir, p), path.join(FEITOS, id, p)); fs.rmSync(path.join(dir, p.replace(/\.ogg$/, ".transcricao.json")), { force: true });
         console.log("momentos:", id, p, novos.length);
         marca("Gemini", true, novos.length + " momentos novos em rascunho" + (ia !== "Gemini" ? ", feitos pelo " + ia : ""));
       }
@@ -1372,7 +1382,8 @@ const limpa = html => html.replace(/<!--[\s\S]*?-->/g, "").replace(/\/\*[\s\S]*?
 const paginas = {};
 const le = nome => limpa(fs.readFileSync(path.join(PUBLICO, nome), "utf8"));
 // em produção guarda na memória; no computador relê a cada acesso
-const pagina = nome => env.NODE_ENV === "production" ? (paginas[nome] ||= le(nome)) : le(nome);
+// guarda cada página e só relê quando o arquivo muda: dá pra publicar o visual sem reiniciar o servidor
+const pagina = nome => { const mt = fs.statSync(path.join(PUBLICO, nome)).mtimeMs, c = paginas[nome]; if (c && c.mt === mt) return c.txt; const txt = le(nome); paginas[nome] = { mt, txt }; pagCache.clear(); return txt; };
 const html = (res, nome, extra = {}) => { res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache", ...extra }); res.end(pagina(nome)); };
 const SEGURANCA = {
   "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "strict-origin-when-cross-origin",
@@ -1396,7 +1407,7 @@ const envia = (req, res, cod, cab, item) => {
 const pagCache = new Map(); // endereço -> { q, corpo, br, gz }
 const enviaPagina = (req, res, chave, monta) => {
   let it = pagCache.get(chave);
-  if (!it || Date.now() - it.q > 60_000 || env.NODE_ENV !== "production") { if (pagCache.size > 500) pagCache.clear(); it = { q: Date.now(), corpo: Buffer.from(monta()) }; pagCache.set(chave, it); }
+  if (!it || Date.now() - it.q > 60_000) { if (pagCache.size > 500) pagCache.clear(); it = { q: Date.now(), corpo: Buffer.from(monta()) }; pagCache.set(chave, it); }
   envia(req, res, 200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" }, it);
 };
 // imagem com ETag: no F5 o navegador só pergunta "mudou?" e recebe 304 (sem baixar de novo)
@@ -1440,7 +1451,8 @@ http.createServer(async (req, res) => {
   if (url.pathname === "/api") {
     registraAcesso(req, url);
     // a mesma resposta serve todo mundo que pede o mesmo episódio no mesmo instante: monta uma vez a cada 2 s
-    const chave = (url.searchParams.get("ep") || "") + "|" + (url.searchParams.get("teste") || "");
+    const tenho = url.searchParams.get("tenho") || "";
+    const chave = (url.searchParams.get("ep") || "") + "|" + (url.searchParams.get("teste") || "") + "|" + tenho;
     const pronto = apiCache.get(chave);
     const JCAB = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
     if (pronto && Date.now() - pronto.q < 2000) return envia(req, res, 200, JCAB, pronto);
@@ -1457,7 +1469,8 @@ http.createServer(async (req, res) => {
     const futuro = p && !pedido ? proximos().find(e => e.slug === p || e.id === p) || null : null;
     const ver = pedido && pub[pedido] ? pedido : (atual.episodio && pub[atual.episodio] ? atual.episodio : ultimoEp);
     const aoVivo = !!atual.episodio && ver === atual.episodio && atual.total > 0;
-    const hist = histDe(ver);
+    // o painel que já desenhou este episódio não precisa do histórico de novo (é a maior parte da resposta)
+    const hist = tenho && tenho === ver ? [] : histDe(ver);
     // live de episódio escondido: o público não recebe nem os números de agora
     const at = atual.episodio && !pub[atual.episodio] ? { total: 0, hora: atual.hora, episodio: null, extras: {} }
       : { ...so(atual, ["twitch", "kick", "youtube", "tiktok", "total", "hora", "episodio"]), extras: so(atual.extras || {}, ["inicio", "ytLikes", "msgsMin", "chatMsgs", "chatPessoas", "twitchSeguidores", "tiktokSeguidores"]) };
@@ -1504,8 +1517,10 @@ http.createServer(async (req, res) => {
   }
   const img = url.pathname.match(/^\/((?:(?:icones|temporadas)\/)?[\w-]+\.(png|jpg))$/);
   if (img && fs.existsSync(path.join(PUBLICO, img[1]))) {
-    let buf = imgsCache.get(img[1]);
-    if (!buf || env.NODE_ENV !== "production") { buf = fs.readFileSync(path.join(PUBLICO, img[1])); imgsCache.set(img[1], buf); }
+    const arqImg = path.join(PUBLICO, img[1]), mtImg = fs.statSync(arqImg).mtimeMs;
+    let ci = imgsCache.get(img[1]);
+    if (!ci || ci.mt !== mtImg) { ci = { mt: mtImg, buf: fs.readFileSync(arqImg) }; imgsCache.set(img[1], ci); }
+    const buf = ci.buf;
     // com ?v= no endereço o arquivo nunca muda: o navegador guarda por 1 ano
     return enviaImg(req, res, buf, { png: "image/png", jpg: "image/jpeg" }[img[2]], url.searchParams.has("v") ? 31536000 : 86400);
   }
