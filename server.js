@@ -1405,9 +1405,10 @@ const envia = (req, res, cod, cab, item) => {
 };
 // página com as tags de compartilhar: monta e comprime uma vez por minuto por endereço
 const pagCache = new Map(); // endereço -> { q, corpo, br, gz }
-const enviaPagina = (req, res, chave, monta) => {
+const enviaPagina = (req, res, chave, monta, arquivo) => {
   let it = pagCache.get(chave);
-  if (!it || Date.now() - it.q > 60_000) { if (pagCache.size > 500) pagCache.clear(); it = { q: Date.now(), corpo: Buffer.from(monta()) }; pagCache.set(chave, it); }
+  const mt = fs.statSync(path.join(PUBLICO, arquivo)).mtimeMs; // arquivo trocado na pasta: monta de novo na hora
+  if (!it || Date.now() - it.q > 60_000 || it.mt !== mt) { if (pagCache.size > 500) pagCache.clear(); it = { q: Date.now(), mt, corpo: Buffer.from(monta()) }; pagCache.set(chave, it); }
   envia(req, res, 200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" }, it);
 };
 // imagem com ETag: no F5 o navegador só pergunta "mudou?" e recebe 304 (sem baixar de novo)
@@ -1486,7 +1487,7 @@ http.createServer(async (req, res) => {
     return enviaPagina(req, res, url.pathname, () => {
       const tags = og("/temporada/" + tp[1]), titulo = tags.match(/og:title" content="([^"]*)"/)[1];
       return pagina("temporada.html").replace("<title>Ordem Tracker</title>", `<title>${titulo}</title>\n${tags}`);
-    });
+    }, "temporada.html");
   }
   if (url.pathname === "/feedback" && req.method === "POST") return feedback(req, res);
   if (ADMIN && url.pathname === ADMIN + "/api") return admin(req, res);
@@ -1541,5 +1542,5 @@ http.createServer(async (req, res) => {
   enviaPagina(req, res, url.pathname, () => {
     const tags = og(url.pathname.replace(/\/$/, "") || "/"), titulo = tags.match(/og:title" content="([^"]*)"/)[1];
     return pagina("index.html").replace("<title>Ordem Tracker</title>", `<title>${titulo}</title>\n${tags}`);
-  });
+  }, "index.html");
 }).listen(PORTA, () => console.log(`http://localhost:${PORTA}`));
