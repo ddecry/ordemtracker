@@ -156,9 +156,15 @@ body.encerrado .clockw .dot{display:none}
 .cena-reac[hidden]{display:none}
 .cena-reac.quente{color:var(--red)}
 .cena-reac img{width:1.9em;height:1.9em;object-fit:contain}
+.cena-emt{display:inline-flex;align-items:center;gap:2px}.cena-emt small{font-size:.85em;color:var(--mut)}
+.cena-agit{margin-right:.4em}
+.cena-pico{margin-right:.5em;padding:.15em .55em;border-radius:99px;background:var(--gold,#e8b64a);color:#141414;font-weight:700;font-size:.95em;white-space:nowrap}
+/* descrição curta: o texto fica centrado na altura da imagem, com o rodapé logo abaixo, em vez de um buraco no meio */
+.cena-txt{justify-content:center}.cena-pe{margin-top:.35em}
+.cena .cena-txt p#cenaC{-webkit-line-clamp:4}
 .cena-pe .curto{display:none}
 /* celular: rótulos curtos e só os emotes no rodapé, pra caber na largura do texto */
-@media (max-width:800px),(max-aspect-ratio:1/1){.cena-pe{gap:0 .65em}.cena-pe .longo{display:none}.cena-pe .curto{display:inline}.cena-reac{font-size:0;gap:2px}.cena-reac img{width:22px;height:22px}.cena-reac img:nth-of-type(n+3){display:none}}
+@media (max-width:800px),(max-aspect-ratio:1/1){.cena-pe{gap:0 .65em}.cena-pe .longo{display:none}.cena-pe .curto{display:inline}.cena-reac{font-size:0;gap:2px}.cena-reac img{width:22px;height:22px}.cena-reac img:nth-of-type(n+3){display:none}.cena-reac .cena-agit,.cena-reac .cena-pico{font-size:11px}.cena-emt small{display:none}}
 .cena b{font-size:1.05em}
 .cena p{margin:.25em 0 .4em;color:var(--mut);font-size:.92em;line-height:1.4}
 .cena a,.cena-corr{color:var(--tx);font-size:.8em;font-weight:600}
@@ -440,7 +446,7 @@ body.modo-espera .esp-fila{display:block}
 .espera{grid-template-columns:minmax(0,min(34vw,560px)) auto;grid-template-rows:auto 1fr;justify-content:center;align-content:stretch;align-items:center;padding-top:2vh}
 @media (max-width:800px),(max-aspect-ratio:1/1){.espera{grid-template-columns:1fr;gap:20px}.esp-cont{gap:14px}.esp-acoes{flex-wrap:wrap}}
 /* compensa a header ser mais alta que o rodapé, pra ficar no meio da tela; botões ocupam a largura da contagem */
-@media (min-aspect-ratio:1/1) and (min-width:801px){.espera{margin-top:-4vh}.espera{grid-template-rows:none;align-content:center;padding-top:0}.espera>.esp-sobre{position:absolute;top:1vh;left:0;right:0;margin:0 auto}.esp-acoes{display:grid;grid-auto-flow:column;grid-auto-columns:1fr}}
+@media (min-aspect-ratio:1/1) and (min-width:801px){.espera{margin-top:-4vh}.espera{grid-template-rows:none;align-content:center;padding-top:0}.espera>.esp-sobre{position:absolute;top:1vh;left:0;right:0;margin:0 auto}.espera{gap:3vw}.esp-info .esp-acoes{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-self:center;width:min(100%,28em)}.esp-acoes .sbtn{white-space:nowrap}.esp-acoes .sbtn.pri{grid-column:1/-1}}
 .esp-cont b{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;display:inline-block;min-width:1.25em;text-align:center}
 @media (max-width:800px),(max-aspect-ratio:1/1){
   .espera{grid-template-rows:none;grid-template-columns:1fr;justify-content:stretch;align-content:start;gap:22px;padding-top:1vh}
@@ -907,7 +913,7 @@ function ajustaCena() {
   t.style.fontSize = ""; $("cenaC").style.webkitLineClamp = "";
   const passa = () => t.scrollHeight > t.clientHeight + 1;
   for (let f = 96; passa() && f >= 72; f -= 4) t.style.fontSize = f + "%";
-  for (let l = 2; passa() && l >= 1; l--) $("cenaC").style.webkitLineClamp = l;
+  for (let l = 3; passa() && l >= 1; l--) $("cenaC").style.webkitLineClamp = l;
 }
 addEventListener("resize", () => { if (!$("cena").hidden) ajustaCena(); });
 // a fonte do site chega depois do primeiro desenho e muda a largura do texto: mede de novo quando ela carregar
@@ -927,15 +933,16 @@ function mostraCena(t) {
   $("cenaCorr").dataset.t = c.t;
   $("cenaH").textContent = hm(c.t); $("cenaT").textContent = c.titulo; $("cenaC").textContent = ponto(c.contexto);
   // reação do chat naquele trecho: quanto agitou em relação à média da live e o que mais gente escreveu
-  // reação do chat: o resumo do que o chat falava (feito pelo Gemini junto com o momento);
-  // "mais agitado" só quando o chat ficou bem acima do normal
-  const ch = c.chat, agitado = ch && ch.ritmo >= 1.3, resumo = c.chatResumo;
-  // linha do chat: só o resumo ("O chat comemorou..."); no rodapé, à direita, quanto agitou e os emotes que mais gente mandou (imagem oficial, animada quando é)
-  $("cenaChat").hidden = !resumo; $("cenaChat").textContent = resumo ? ponto(resumo) : "";
-  const emts = (ch?.top || []).filter(x => x.img).slice(0, 3).map(x => `<img src="${esc(x.img)}" alt="${esc(x.p)}" title="${esc(x.p)}: ${x.n} pessoas" loading="lazy">`).join("");
-  $("cenaReac").hidden = !agitado && !emts;
+  // só números, no canto do rodapé: quanto o chat agitou e os emotes que mais gente mandou, com quantas pessoas
+  const ch = c.chat, agitado = ch && ch.ritmo >= 1.3;
+  $("cenaChat").hidden = true;
+  const emts = (ch?.top || []).filter(x => x.img).slice(0, 3).map(x => `<span class="cena-emt"><img src="${esc(x.img)}" alt="${esc(x.p)}" title="${esc(x.p)}: ${x.n} pessoas" loading="lazy"><small>${x.n}</small></span>`).join("");
+  // selo no momento em que estava passando quando a live bateu o recorde de viewers
+  const rp = ultimo?.records[ultimo.ver], pk = rp?.quando && new Date(rp.quando).getTime();
+  const ehPico = pk && cenaEm(pk) === c;
+  $("cenaReac").hidden = !agitado && !emts && !ehPico;
   $("cenaReac").className = "cena-reac" + (ch?.ritmo >= 1.5 ? " quente" : "");
-  $("cenaReac").innerHTML = (agitado ? `${ch.ritmo.toLocaleString("pt-BR")}x mais agitado` : "") + emts;
+  $("cenaReac").innerHTML = (ehPico ? `<span class="cena-pico" title="A live bateu o recorde de viewers (${(rp.recorde || 0).toLocaleString("pt-BR")}) às ${hm(pk)}, durante este momento">Pico da live</span>` : "") + (agitado ? `<span class="cena-agit"><span class="longo">${ch.ritmo.toLocaleString("pt-BR")}x mais agitado</span><span class="curto">${ch.ritmo.toLocaleString("pt-BR")}x</span></span>` : "") + emts;
   ajustaCena();
   $("cenaImg").hidden = !c.captura; if (c.captura) $("cenaImg").src = c.captura;
   // link pro mesmo ponto no vídeo do YouTube, pelo horário real do momento
