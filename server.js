@@ -802,8 +802,14 @@ function corrigeNomes(texto) {
   if (gloCache.texto !== g) {
     const apelidos = [...g.matchAll(/^\s*(.+?)\s*(?:=>|→)\s*(.+?)\s*$/gm)].map(m => [m[1], m[2]]);
     const nomes = [...new Set(g.replace(/^.*(?:=>|→).*$/gm, "").match(/\p{Lu}[\p{L}']{2,}/gu) || [])];
-    gloCache = { texto: g, apelidos, nomes, chave: new Set(nomes.map(semAcento)) };
+    gloCache = { texto: g, apelidos, nomes, chave: new Set(nomes.map(semAcento)), memo: new Map() };
   }
+  // comparar cada palavra com todos os nomes pesa: cada texto é corrigido uma vez e o resultado fica guardado até o glossário mudar
+  const pronto = gloCache.memo.get(texto); if (pronto != null) return pronto;
+  if (gloCache.memo.size > 5000) gloCache.memo.clear();
+  const r = corrige(texto); gloCache.memo.set(texto, r); return r;
+}
+function corrige(texto) {
   let t = texto;
   for (const [de, para] of gloCache.apelidos) t = t.replace(new RegExp(`(?<![\\p{L}])${de.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}])`, "gu"), para);
   return t.replace(/\p{Lu}[\p{L}']{4,}/gu, p => {
@@ -936,7 +942,7 @@ function foraDaLive(f) {
   return d / b.length < 10;
 }
 const GRAVACAO = path.join(DADOS, "gravacao");
-const PARTE_MIN = 5; // partes de 5 min: um momento a cada 5 min, que sai uns 5 min depois de acontecer
+const PARTE_MIN = 30; // partes de 30 min (a cota grátis da IA é de 20 pedidos por dia); a IA marca um momento a cada uns 5 min
 let gravando = null; // { id, proc }
 const hora14 = d => d.toISOString().replace(/[-:]/g, "").slice(0, 15); // 20261107T210000
 const deHora14 = s => new Date(s.replace(/^(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)$/, "$1-$2-$3T$4:$5:$6Z"));
@@ -988,7 +994,7 @@ Quase toda live começa com uma contagem regressiva (timer) de alguns minutos, �
 Trechos só com música, vinheta, timer ou contagem regressiva viram no máximo um momento ("Contagem para o início", "Abertura" ou "Intervalo"); ignore letras de música e não trate o que toca na música como fala de alguém.
 Cada momento resume um BLOCO de uns 5 minutos: o assunto principal daquele bloco e o que aconteceu de mais marcante nele, como um capítulo. Não crie um momento para cada fala ou frase; junte as falas do mesmo assunto num só.
 O "segundo" é onde o bloco começa. O contexto conta o que rolou no bloco todo, não só a primeira frase. Não repita momentos parecidos.
-Este trecho tem uns ${PARTE_MIN} minutos: gere 1 momento (2 só se o assunto mudar claramente no meio).
+Este trecho tem uns ${PARTE_MIN} minutos: gere um momento a cada uns 5 minutos (cerca de ${Math.round(PARTE_MIN / 5)} momentos), sem deixar buraco grande entre eles.
 Exceção: marcos e anúncios (recorde de espectadores, número de inscritos ou seguidores alcançado, novidade anunciada, convidado surpresa, data do próximo episódio) SEMPRE viram um momento próprio, mesmo curto e no meio de outro assunto.
 Use o chat como pista: quando muita gente manda a mesma coisa ao mesmo tempo (ex.: "(30 pessoas)"), algo aconteceu ali; procure na fala o que foi e, se for um marco ou algo marcante, crie o momento.`;
 const ESQUEMA_MOMENTOS = { type: "ARRAY", items: { type: "OBJECT", properties: {
@@ -1121,6 +1127,9 @@ const ponto = s => { s = String(s || "").trim().replace(/\s+/g, " "); if (!s) re
 let analisando = false, pausaAte = 0;
 async function analisaPartes() {
   if (analisando || Date.now() < pausaAte || !env.GEMINI_API_KEY || !fs.existsSync(GRAVACAO)) return;
+  // durante o episódio só grava: os momentos são feitos depois que a live acaba, pra não disputar processador com o site
+  // (logo depois de reiniciar o servidor ainda não sabe da live: vale também episódio com leitura nos últimos 15 min)
+  if (gravando || (atual.episodio && atual.total > 0) || Object.values(records).some(r => r.ultimaLeitura && Date.now() - Date.parse(r.ultimaLeitura) < 15 * 60e3)) return;
   analisando = true;
   try {
     for (const id of fs.readdirSync(GRAVACAO)) {
