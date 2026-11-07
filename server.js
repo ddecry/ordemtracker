@@ -349,6 +349,7 @@ function histDe(id) {
 }
 if (!fs.existsSync(HIST)) fs.writeFileSync(HIST, "horario,episodio,twitch,kick,youtube,total,yt_likes,msgs_min,tiktok\n");
 let atual = { total: 0 };
+const saude = []; // [quando, twitch, kick, youtube, tiktok, live no ar]
 
 // só dados de trackers (TwitchTracker / Streams Charts). Contam SÓ a Twitch.
 const ANTERIORES = [
@@ -388,6 +389,9 @@ async function tick() {
   if (LAB && id && t?.n && Date.now() - labRanking > 120_000) { labRanking = Date.now(); safe(() => LAB.ranking(id, t.h, TWITCH, t.jogoId)); }
   if (id !== epAtual) { if (epAtual) salvaChat(epAtual); if (id) carregaChat(id); epAtual = id; }
   janela = janela.filter(x => x > Date.now() - 60_000);
+  // saúde da live: o que cada plataforma respondeu em cada leitura dos últimos 30 min (null = não respondeu)
+  saude.push([Date.now(), t?.n ?? null, k?.n ?? null, y?.n ?? null, tk?.n ?? null, !!id]);
+  while (saude.length && saude[0][0] < Date.now() - 30 * 60e3) saude.shift();
   atual = {
     twitch: tw, kick: kk, youtube: y?.n ?? null, tiktok: tt, total, episodio: id, hora,
     extras: {
@@ -1280,7 +1284,7 @@ function status() {
   for (const [p, nome] of [["twitch", "Chat da Twitch"], ["kick", "Chat da Kick"], ["youtube", "Chat do YouTube"]]) if (itens[nome] && ultimaMsg[p]) itens[nome] = { ...itens[nome], ultimaMsg: ultimaMsg[p] };
   let disco = null; try { const d = fs.statfsSync(DADOS); disco = { livre: d.bavail * d.bsize, total: d.blocks * d.bsize }; } catch {}
   return {
-    agora: Date.now(), episodio: atual.episodio || null, aoVivo: !!(atual.episodio && atual.total > 0), total: atual.total || 0,
+    agora: Date.now(), episodio: atual.episodio || null, aoVivo: !!(atual.episodio && atual.total > 0), total: atual.total || 0, saude,
     itens: Object.entries(itens).map(([nome, v]) => ({ nome, ...v })),
     servidor: { ligadoHa: process.uptime() * 1000, memoriaLivre: os.freemem(), memoriaTotal: os.totalmem(), disco },
     // quem usa o site: agora, hoje e desde o começo (pico = mais pessoas ao mesmo tempo, medido a cada minuto)
