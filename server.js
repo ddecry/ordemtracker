@@ -837,7 +837,25 @@ function corrige(texto) {
 }
 const salvaMomentos = (id, lista) => { momCache?.delete(id); fs.mkdirSync(path.join(MOMENTOS, id), { recursive: true }); fs.writeFileSync(path.join(MOMENTOS, id, "momentos.json"), JSON.stringify(lista, null, 2)); };
 // cada item da reação do chat leva a imagem oficial do emote, quando é um emote do canal (a lista se atualiza sozinha, 1 vez por dia)
-const comImagens = r => { if (!r) return null; emotesCanal(); const mapa = emotesCache.mapa; return { ...r, top: r.top.map(x => mapa[x.p] ? { ...x, img: mapa[x.p] } : x) }; };
+const comImagens = r => { if (!r) return null; emotesCanal(); const mapa = emotesCache.mapa;
+  for (const x of r.top) if (!mapa[x.p]) buscaEmote(x.p);
+  return { ...r, top: r.top.map(x => mapa[x.p] ? { ...x, img: mapa[x.p] } : x) }; };
+// emote pessoal do 7TV (quem assina o 7TV usa os próprios emotes em qualquer canal): busca pelo nome exato, uma vez por nome
+// no máximo 30 buscas por hora; o resultado (achou ou não) fica guardado
+const emotesBusca = {}; let buscas = { q: 0, n: 0 };
+function buscaEmote(nome) {
+  if (nome in emotesBusca || !/[a-z][A-Z]|[A-Z][a-z]/.test(nome) || nome.length > 25) return;
+  if (Date.now() - buscas.q > 3600e3) buscas = { q: Date.now(), n: 0 };
+  if (buscas.n >= 30) return;
+  buscas.n++; emotesBusca[nome] = null;
+  fetch("https://7tv.io/v3/gql", { method: "POST", headers: { "Content-Type": "application/json" }, signal: AbortSignal.timeout(8000),
+    body: JSON.stringify({ query: "query($q:String!){emotes(query:$q,limit:5,filter:{exact_match:true,case_sensitive:true}){items{id name}}}", variables: { q: nome } }) })
+    .then(r => r.json()).then(j => {
+      const e = j?.data?.emotes?.items?.find(x => x.name === nome); if (!e) return;
+      emotesBusca[nome] = emotesCache.mapa[nome] = `https://cdn.7tv.app/emote/${e.id}/2x.webp`;
+      momCache.clear();
+    }).catch(() => { delete emotesBusca[nome]; });
+}
 // momentos com a reação do chat: contar o chat de cada momento pesa; refaz no máximo a cada 30 s por episódio
 const momCache = new Map(); // id -> { q, lista }
 const momentosPublicos = id => { const c = momCache.get(id); if (c && Date.now() - c.q < 30_000) return c.lista;
@@ -860,11 +878,23 @@ async function emotesCanal() {
       tpl.replace("{{id}}", e.id).replace("{{format}}", e.format?.includes("animated") ? "animated" : "static").replace("{{theme_mode}}", "dark").replace("{{scale}}", "2.0")]));
     // emotes das extensões que o chat usa (7TV, BTTV, FFZ), do canal e os globais; APIs públicas, sem login. Os da Twitch têm preferência
     const pega = u => fetch(u, { signal: AbortSignal.timeout(10_000) }).then(r => r.ok ? r.json() : null).catch(() => null);
-    const [s7, s7g, bt, btg, fz] = await Promise.all([pega(`https://7tv.io/v3/users/twitch/${twitchId}`), pega("https://7tv.io/v3/emote-sets/global"),
-      pega(`https://api.betterttv.net/3/cached/users/twitch/${twitchId}`), pega("https://api.betterttv.net/3/cached/emotes/global"), pega(`https://api.betterttv.net/3/cached/frankerfacez/users/twitch/${twitchId}`)]);
-    for (const e of [...(s7?.emote_set?.emotes || []), ...(s7g?.emotes || [])]) if (e.data?.host?.url) mapa[e.name] ??= `https:${e.data.host.url}/2x.webp`;
+    const [s7, s7g, bt, btg, fz, fzg, tg] = await Promise.all([pega(`https://7tv.io/v3/users/twitch/${twitchId}`), pega("https://7tv.io/v3/emote-sets/global"),
+      pega(`https://api.betterttv.net/3/cached/users/twitch/${twitchId}`), pega("https://api.betterttv.net/3/cached/emotes/global"), pega(`https://api.betterttv.net/3/cached/frankerfacez/users/twitch/${twitchId}`),
+      pega("https://api.betterttv.net/3/cached/frankerfacez/emotes/global"),
+      fetch("https://api.twitch.tv/helix/chat/emotes/global", { headers: h, signal: AbortSignal.timeout(10_000) }).then(r => r.ok ? r.json() : null).catch(() => null)]);
+    // 7TV: o conjunto ativo do canal às vezes fica vazio (o canal troca de conjunto); aí valem também os outros conjuntos do Cellbit
+    let sets7 = s7?.emote_set?.emotes || [];
+    if (!sets7.length && s7?.user?.id) {
+      const u = await pega(`https://7tv.io/v3/users/${s7.user.id}`);
+      for (const st of (u?.emote_sets || []).slice(0, 6)) sets7 = sets7.concat((await pega(`https://7tv.io/v3/emote-sets/${st.id}`))?.emotes || []);
+    }
+    for (const e of [...sets7, ...(s7g?.emotes || [])]) if (e.data?.host?.url) mapa[e.name] ??= `https:${e.data.host.url}/2x.webp`;
     for (const e of [...(bt?.channelEmotes || []), ...(bt?.sharedEmotes || []), ...(btg || [])]) mapa[e.code] ??= `https://cdn.betterttv.net/emote/${e.id}/2x`;
-    for (const e of fz || []) if (e.images) mapa[e.code] ??= e.images["2x"] || e.images["1x"];
+    for (const e of [...(fz || []), ...(fzg || [])]) if (e.images) mapa[e.code] ??= e.images["2x"] || e.images["1x"];
+    // globais da Twitch (Kappa, LUL, PogChamp...)
+    for (const e of tg?.data || []) mapa[e.name] ??= (tg.template || tpl).replace("{{id}}", e.id).replace("{{format}}", e.format?.includes("animated") ? "animated" : "static").replace("{{theme_mode}}", "dark").replace("{{scale}}", "2.0");
+    // emotes achados pela busca (pessoais do 7TV) continuam valendo
+    for (const [n, u] of Object.entries(emotesBusca)) if (u) mapa[n] ??= u;
     emotesCache = { q: Date.now(), mapa };
   } catch (e) { console.warn("emotes:", e.message); emotesCache.q = Date.now() - 86400e3 + 600e3; }
   return emotesCache.mapa;
