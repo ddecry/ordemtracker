@@ -4,6 +4,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const zlib = require("zlib");
 
 try { process.loadEnvFile(path.join(__dirname, ".env")); } catch {}
 const env = process.env;
@@ -320,16 +321,23 @@ if (episodios.config?.glossario) {
 }
 // histórico lido uma vez e guardado por episódio; só lê de novo quando o arquivo muda (a cada leitura da live)
 let histCache = { chave: "", por: new Map() };
+// durante a live o arquivo só cresce: lê só o pedaço novo; se ficou menor ou foi trocado (reescrito), relê inteiro
 function histDe(id) {
-  const st = fs.statSync(HIST), chave = st.mtimeMs + ":" + st.size;
-  if (histCache.chave !== chave) {
-    const por = new Map();
-    for (const l of fs.readFileSync(HIST, "utf8").split("\n")) {
-      const c = l.split(","); if (c.length < 6 || c[0] === "horario") continue;
-      let a = por.get(c[1]); if (!a) por.set(c[1], a = []);
-      a.push([c[0], ...c.slice(2, 6).map(v => (v === "" ? null : +v)), c[7] ? +c[7] : null, c[8] ? +c[8] : null]);
+  const st = fs.statSync(HIST);
+  if (histCache.tam !== st.size || histCache.mt !== st.mtimeMs) {
+    const lin = (por, l) => { const c = l.split(","); if (c.length < 6 || c[0] === "horario") return; let a = por.get(c[1]); if (!a) por.set(c[1], a = []);
+      a.push([c[0], ...c.slice(2, 6).map(v => (v === "" ? null : +v)), c[7] ? +c[7] : null, c[8] ? +c[8] : null]); };
+    if (histCache.por && st.size > histCache.tam && histCache.ino === st.ino) {
+      const fd = fs.openSync(HIST, "r"), buf = Buffer.alloc(st.size - histCache.tam);
+      fs.readSync(fd, buf, 0, buf.length, histCache.tam); fs.closeSync(fd);
+      const partes = (histCache.resto + buf.toString("utf8")).split("\n"), resto = partes.pop();
+      for (const l of partes) lin(histCache.por, l);
+      Object.assign(histCache, { tam: st.size, mt: st.mtimeMs, resto });
+    } else {
+      const por = new Map(), partes = fs.readFileSync(HIST, "utf8").split("\n"), resto = partes.pop();
+      for (const l of partes) lin(por, l);
+      histCache = { tam: st.size, mt: st.mtimeMs, ino: st.ino, resto, por };
     }
-    histCache = { chave, por };
   }
   return histCache.por.get(id) || [];
 }
@@ -713,8 +721,15 @@ async function admin(req, res) {
 // ---------- momentos do episódio (análise da live, revisados no painel) ----------
 // dados/momentos/<id>/momentos.json + capturas/<segundo>.jpg
 const MOMENTOS = path.join(DADOS, "momentos");
+// relê o arquivo só quando ele muda; cada chamada recebe uma cópia, pra quem altera a lista não mexer na guardada
+const leMomCache = new Map(); // id -> { mt, lista }
 const leMomentos = id => {
-  let lista; try { lista = JSON.parse(fs.readFileSync(path.join(MOMENTOS, id, "momentos.json"), "utf8")); } catch { return []; }
+  const arq = path.join(MOMENTOS, id, "momentos.json"); let mt; try { mt = fs.statSync(arq).mtimeMs; } catch { return []; }
+  const c = leMomCache.get(id); if (c && c.mt === mt) return structuredClone(c.lista);
+  const lista = leMomentosArq(id, arq); leMomCache.set(id, { mt, lista }); return structuredClone(lista);
+};
+const leMomentosArq = (id, arq) => {
+  let lista; try { lista = JSON.parse(fs.readFileSync(arq, "utf8")); } catch { return []; }
   // captura tirada depois (análise de vídeo gravado): capturas/<segundo do vídeo>.jpg
   for (const m of lista) if (!m.captura && m.segundoVideo != null && fs.existsSync(path.join(MOMENTOS, id, "capturas", m.segundoVideo + ".jpg"))) m.captura = m.segundoVideo + ".jpg";
   // trecho de áudio do momento (gravado ao vivo, ou tirado do vídeo: audio/<segundo do vídeo>.ogg)
@@ -888,8 +903,14 @@ function reacoesChat(id) {
   let c = chatCache.get(id);
   // durante a live o arquivo cresce: relê no máximo a cada 30 s
   if (!c || (c.tam !== tam && Date.now() - c.q > 30_000)) {
-    const msgs = [];
-    for (const l of fs.readFileSync(arq, "utf8").split("\n")) {
+    // o arquivo só cresce durante a live: lê só o pedaço novo e junta ao que já foi contado
+    const cresceu = c && tam > c.tam;
+    const msgs = cresceu ? c.msgs : [];
+    let texto;
+    if (cresceu) { const fd = fs.openSync(arq, "r"), buf = Buffer.alloc(tam - c.tam); fs.readSync(fd, buf, 0, buf.length, c.tam); fs.closeSync(fd); texto = c.resto + buf.toString("utf8"); }
+    else texto = fs.readFileSync(arq, "utf8");
+    const partes = texto.split("\n"), resto = partes.pop();
+    for (const l of partes) {
       if (!l) continue;
       let m; try { m = JSON.parse(l); } catch { continue; }
       const palavras = new Set();
@@ -906,7 +927,7 @@ function reacoesChat(id) {
       msgs.push([new Date(m.q).getTime(), m.u, [...palavras]]);
     }
     const dur = msgs.length > 1 ? (msgs.at(-1)[0] - msgs[0][0]) / 60000 : 0;
-    c = { tam, q: Date.now(), msgs, media: dur > 0 ? msgs.length / dur : 0 };
+    c = { tam, q: Date.now(), msgs, resto, media: dur > 0 ? msgs.length / dur : 0 };
     chatCache.set(id, c);
   }
   if (c.msgs.length < 100 || !c.media) return null;
@@ -1125,6 +1146,28 @@ async function analisaAudio(arq, chat, ep) {
 const ponto = s => { s = String(s || "").trim().replace(/\s+/g, " "); if (!s) return s; s = s[0].toUpperCase() + s.slice(1); return /[.!?…]$/.test(s) ? s : s.replace(/[,;:]$/, "") + "."; };
 // a cada 2 min: partes de áudio completas viram momentos (rascunho) com a captura mais próxima
 let analisando = false, pausaAte = 0;
+// partes curtas (reinício do servidor, ou gravadas em 5 min) viram blocos de uns PARTE_MIN minutos antes da análise:
+// cada parte é um pedido à IA, e a cota grátis é pequena; o bloco fica com o nome (horário) da primeira parte
+async function juntaPartes(dir) {
+  const partes = fs.readdirSync(dir).filter(f => /^audio-\d{8}T\d{6}\.ogg$/.test(f)).sort();
+  const grupos = []; let g = null;
+  for (const p of partes) {
+    const t = deHora14(p.slice(6, 21)).getTime();
+    if (!g || t - g.t0 >= (PARTE_MIN - 2) * 60e3) grupos.push(g = { t0: t, l: [] });
+    g.l.push(p);
+  }
+  for (const { l } of grupos) {
+    if (l.length < 2) continue;
+    const lista = path.join(dir, "juntar.txt"), saida = path.join(dir, "junto.ogg");
+    fs.writeFileSync(lista, l.map(p => `file '${path.join(dir, p)}'`).join("\n"));
+    const ok = await new Promise(fim => execFile("nice", ["-n", "15", "ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", lista, "-c", "copy", saida], e => fim(!e)));
+    fs.rmSync(lista, { force: true });
+    if (!ok || !fs.existsSync(saida)) { fs.rmSync(saida, { force: true }); continue; }
+    for (const p of l) fs.rmSync(path.join(dir, p), { force: true });
+    fs.renameSync(saida, path.join(dir, l[0]));
+    console.log("momentos: juntou", l.length, "partes em", l[0]);
+  }
+}
 async function analisaPartes() {
   if (analisando || Date.now() < pausaAte || !env.GEMINI_API_KEY || !fs.existsSync(GRAVACAO)) return;
   // durante o episódio só grava: os momentos são feitos depois que a live acaba, pra não disputar processador com o site
@@ -1134,6 +1177,7 @@ async function analisaPartes() {
   try {
     for (const id of fs.readdirSync(GRAVACAO)) {
       const dir = path.join(GRAVACAO, id);
+      if (gravando?.id !== id) await juntaPartes(dir);
       const partes = fs.readdirSync(dir).filter(f => /^audio-\d{8}T\d{6}\.ogg$/.test(f)).sort();
       // enquanto grava, a última parte ainda está sendo escrita
       const prontas = gravando?.id === id ? partes.slice(0, -1) : partes;
@@ -1306,6 +1350,24 @@ const SEGURANCA = {
   "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://static-cdn.jtvnw.net https://clips-media-assets2.twitch.tv https://cdn.7tv.app https://cdn.betterttv.net https://cdn.frankerfacez.com; media-src 'self' blob:; connect-src 'self'; frame-src https://clips.twitch.tv; frame-ancestors 'none'",
 };
 
+// resposta de texto já comprimida (brotli ou gzip) e guardada junto: com muita gente vendo, comprime uma vez em vez de uma por pedido
+// o Caddy vê o Content-Encoding e não comprime de novo
+const envia = (req, res, cod, cab, item) => {
+  const ae = req.headers["accept-encoding"] || "";
+  let enc = null, buf;
+  if (/\bbr\b/.test(ae)) { enc = "br"; buf = item.br ||= zlib.brotliCompressSync(item.corpo, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 5 } }); }
+  else if (/\bgzip\b/.test(ae)) { enc = "gzip"; buf = item.gz ||= zlib.gzipSync(item.corpo, { level: 6 }); }
+  else buf = item.corpo;
+  res.writeHead(cod, { ...cab, Vary: "Accept-Encoding", ...(enc ? { "Content-Encoding": enc } : {}) });
+  res.end(buf);
+};
+// página com as tags de compartilhar: monta e comprime uma vez por minuto por endereço
+const pagCache = new Map(); // endereço -> { q, corpo, br, gz }
+const enviaPagina = (req, res, chave, monta) => {
+  let it = pagCache.get(chave);
+  if (!it || Date.now() - it.q > 60_000 || env.NODE_ENV !== "production") { if (pagCache.size > 500) pagCache.clear(); it = { q: Date.now(), corpo: Buffer.from(monta()) }; pagCache.set(chave, it); }
+  envia(req, res, 200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" }, it);
+};
 // imagem com ETag: no F5 o navegador só pergunta "mudou?" e recebe 304 (sem baixar de novo)
 const etags = new WeakMap();
 const enviaImg = (req, res, buf, tipo, idade) => {
@@ -1349,8 +1411,9 @@ http.createServer(async (req, res) => {
     // a mesma resposta serve todo mundo que pede o mesmo episódio no mesmo instante: monta uma vez a cada 2 s
     const chave = (url.searchParams.get("ep") || "") + "|" + (url.searchParams.get("teste") || "");
     const pronto = apiCache.get(chave);
-    if (pronto && Date.now() - pronto.q < 2000) { res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" }); return res.end(pronto.corpo); }
-    const json = (res, cod, obj) => { const corpo = JSON.stringify(obj); if (apiCache.size > 200) apiCache.clear(); apiCache.set(chave, { q: Date.now(), corpo }); res.writeHead(cod, { "Content-Type": "application/json; charset=utf-8" }); res.end(corpo); };
+    const JCAB = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
+    if (pronto && Date.now() - pronto.q < 2000) return envia(req, res, 200, JCAB, pronto);
+    const json = (res, cod, obj) => { const it = { q: Date.now(), corpo: Buffer.from(JSON.stringify(obj)) }; if (apiCache.size > 200) apiCache.clear(); apiCache.set(chave, it); envia(req, res, cod, JCAB, it); };
     // episódio exibido: o pedido (?ep=), o ao vivo, ou o último que foi ao ar
     // link de teste de episódio escondido: /ep/<id>?teste=<chave>; sem a chave ele não aparece pra ninguém
     const ch = url.searchParams.get("teste");
@@ -1376,10 +1439,10 @@ http.createServer(async (req, res) => {
   }
   const tp = url.pathname.match(/^\/temporada\/([\w-]+)\/?$/);
   if (tp) {
-    const tags = og("/temporada/" + tp[1]);
-    const titulo = tags.match(/og:title" content="([^"]*)"/)[1];
-    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-    return res.end(pagina("temporada.html").replace("<title>Ordem Tracker</title>", `<title>${titulo}</title>\n${tags}`));
+    return enviaPagina(req, res, url.pathname, () => {
+      const tags = og("/temporada/" + tp[1]), titulo = tags.match(/og:title" content="([^"]*)"/)[1];
+      return pagina("temporada.html").replace("<title>Ordem Tracker</title>", `<title>${titulo}</title>\n${tags}`);
+    });
   }
   if (url.pathname === "/feedback" && req.method === "POST") return feedback(req, res);
   if (ADMIN && url.pathname === ADMIN + "/api") return admin(req, res);
@@ -1429,8 +1492,8 @@ http.createServer(async (req, res) => {
     return res.end(fs.readFileSync(path.join(PREVIAS, pv[1] + ".png")));
   }
   if (url.pathname !== "/" && !/^\/ep\/[\w-]+\/?$/.test(url.pathname)) { res.writeHead(404, { "Content-Type": "text/plain" }); return res.end("404"); }
-  const tags = og(url.pathname.replace(/\/$/, "") || "/");
-  const titulo = tags.match(/og:title" content="([^"]*)"/)[1];
-  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-  res.end(pagina("index.html").replace("<title>Ordem Tracker</title>", `<title>${titulo}</title>\n${tags}`));
+  enviaPagina(req, res, url.pathname, () => {
+    const tags = og(url.pathname.replace(/\/$/, "") || "/"), titulo = tags.match(/og:title" content="([^"]*)"/)[1];
+    return pagina("index.html").replace("<title>Ordem Tracker</title>", `<title>${titulo}</title>\n${tags}`);
+  });
 }).listen(PORTA, () => console.log(`http://localhost:${PORTA}`));
