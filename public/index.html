@@ -722,7 +722,7 @@ button.ep-titulo:hover .seta{color:var(--tx)}
 <div class="strip">
   <div class="sl"><div class="st"><span class="lbl">Média de viewers</span><b class="num" id="med">-</b></div>
   <div class="st"><span class="lbl" id="durL">No ar há</span><b class="num" id="dur">-</b></div></div>
-  <div class="sr">  <div class="st"><span class="lbl">Likes no YouTube</span><b class="num" id="lk">-</b><i id="lkI"></i></div>
+  <div class="sr">  <div class="st"><span class="lbl">Likes no YouTube</span><b class="num" id="lk">-</b></div>
   <div class="st"><span class="lbl">Horas assistidas</span><b class="num" id="cp">-</b></div>
   <div class="st"><span class="lbl">Seguidores novos</span><b class="num" id="sg">-</b><i class="tags" id="sgI"></i></div></div></div>
 <div class="modal" id="modal"><div class="modal-box">
@@ -1234,7 +1234,6 @@ async function up() {
     $("dur").textContent = vivo ? dura(inicio) : duracao(r.inicioLive, r.fimLive || r.ultimaLeitura);
         const likes = vivo ? x.ytLikes : r.likes;
     conta("lk", likes);
-    $("lkI").textContent = vivo && likes && a.youtube ? f(likes / a.youtube * 100) + " a cada 100 no YouTube" : "";
     // horas assistidas = média de pessoas ao mesmo tempo × duração da live
     const ini = r.inicioLive || r.inicio, fim = vivo ? Date.now() : r.fimLive || r.ultimaLeitura;
     const horas = ini && fim && r.media ? r.media * (new Date(fim) - new Date(ini)) / 3600e3 : null;
