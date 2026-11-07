@@ -109,6 +109,7 @@ body.encerrado .clockw .dot{display:none}
 .linha-t button:hover{color:var(--tx)}
 .linha-t button{display:inline-flex;align-items:center;gap:.4em}
 .linha-t button[hidden]{display:none}
+.linha-t #linhaV .fora{color:var(--red);font-weight:700;margin-right:.5em;padding:.1em .5em;border:1px solid currentColor;border-radius:99px;font-size:.9em}
 /* espaço fixo pro momento: trocar ou esconder o cartão não mexe no gráfico embaixo do mouse */
 .cena-slot{position:relative;height:max(calc(clamp(128px,13vw,210px) * .5625), 7.6em);margin:1vh 0 .4vh}
 .cena-slot[hidden]{display:none}
@@ -1066,7 +1067,8 @@ $("linhaR").oninput = e => {
     const [total, youtube, twitch, kick, tiktok] = brutos.map(arr => mediana(arr, i));
     mostra({ total, youtube, twitch, kick, tiktok }, true);
     $("linhaH").textContent = hm(tempos[i]); $("linhaV").hidden = !ultimo?.aoVivo;
-    $("linhaV").innerHTML = ultimo?.aoVivo ? "<span class=\"vivo\"></span>Ao vivo" : "";
+    // ao vivo e olhando outro horário: aviso pequeno de que os números não estão mais contando, com o botão pra voltar
+    $("linhaV").innerHTML = ultimo?.aoVivo ? "<span class=\"fora\">Fora do ao vivo</span><span class=\"vivo\"></span>Voltar ao vivo" : "";
     // só redesenha a linha vertical, sem recalcular o gráfico
     ch.options.marca = tempos[i]; ch.draw();
     mostraCena(tempos[i]);
@@ -1346,7 +1348,10 @@ let proximo = null, espera = null;
 // logo de cada temporada para a prévia (nome da temporada sem acento)
 // capas das campanhas (página Categoria:Campanhas da wiki), usadas nos episódios ainda sem link
 const CAPAS_TEMP = ["a-ordem-paranormal","o-segredo-na-floresta","desconjuracao","calamidade","o-segredo-na-ilha","sinais-do-outro-lado","quarentena","natal-macabro","hexatombe","a-vigilia"];
-const capaTemp = t => { const k = (t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); return CAPAS_TEMP.includes(k) ? `/temporadas/${k}.jpg` : null; };
+const capaTemp = t => { const k = (t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); if (CAPAS_TEMP.includes(k)) return `/temporadas/${k}.jpg`;
+  // sem capa na wiki (ex.: Transcendendo): a capa do primeiro episódio da temporada, que aparece borrada
+  const prim = Object.entries(ultimo?.records || {}).filter(([, r]) => (r.temporada || "") === t).sort((p, q) => (p[1].inicioLive || p[1].inicio || "").localeCompare(q[1].inicioLive || q[1].inicio || ""))[0];
+  return prim ? `/capa/${prim[0]}.jpg` : null; };
 const dois = n => String(n).padStart(2, "0");
 function contagem() {
   if (futuroEp) {
@@ -1384,7 +1389,7 @@ function contagem() {
       $("espTit").textContent = proximo.titulo || "Próximo episódio";
       const q = new Date(proximo.data);
       $("espData").textContent = q.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" }) + " às " + hm(q);
-      // cadastro só da agenda (sem link ainda): usa a capa do último episódio
+      // cadastro só da agenda (sem link ainda): capa da temporada borrada (wiki, ou o primeiro episódio dela); sem nenhuma, a do último episódio
       const temLink = !proximo.id.startsWith("ag-"), capaId = temLink ? proximo.id : espera.ultimo;
       $("espLembrete").hidden = !temLink;
       if (temLink) $("espLembrete").href = "https://www.youtube.com/watch?v=" + proximo.id;
