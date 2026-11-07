@@ -1299,7 +1299,7 @@ function modoFuturo(d) {
   conta("rec", 0); $("recq").textContent = "";
   $("picos").innerHTML = `<span class="mut">Picos</span>` + [["YouTube", "yt"], ["Twitch", "twitch"], ["Kick", "kick"], ["TikTok", "tiktok"]].map(([n, c]) => `<span class="cor" style="--c:var(--${c})">${n} <b>0</b></span>`).join("");
   conta("med", 0); conta("lk", 0); conta("cp", 0); conta("sg", 0);
-  $("durL").textContent = "Duração"; $("dur").textContent = "-"; $("lkI").textContent = ""; $("sgI").innerHTML = "";
+  $("durL").textContent = "Duração"; $("dur").textContent = "-"; $("sgI").innerHTML = "";
   $("linhaT").hidden = true; $("cenaSlot").hidden = true; $("momentos").innerHTML = "";
   const q = new Date(e.data);
   $("futData").textContent = q.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" }) + " às " + hm(q);
