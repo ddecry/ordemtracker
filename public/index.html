@@ -1470,10 +1470,10 @@ async function gerarImagem() {
     const cw = 900, ch = cw * 9 / 16, cy = (H - ch) / 2;
     capaEm(P, cy, cw);
     const X = P + cw + 60, CW = W - X - P;
-    // a coluna ocupa a altura toda: logo grande no alto, números até o pé
-    let y = (H - 690) / 2; // bloco da direita (uns 690 px de altura) centrado na altura da imagem
-    const lw = logo(X, y, 104); // Realitas News em cima
-    y += 104 + 60;
+    // logo do Realitas na faixa vazia em cima da capa; a coluna da direita fica só com o episódio e os números, centrada na altura
+    logo(P, (cy - 92) / 2 + 4, 92);
+    let y = (H - 520) / 2 + 40;
+    const lw = 0;
     txt(temporada, X, y, `800 ${cabe(temporada, 800, 52, 30, CW, -1)}px "Inter Tight", Inter`, "#ededed", -1);
     y += 40;
     txt(ep, X, y, `600 ${cabe(ep, 600, 30, 20, CW)}px "Inter Tight", Inter`, "#9a9a9a");
@@ -1494,8 +1494,9 @@ async function gerarImagem() {
     // ---------- vertical: logo e nome em cima, capa na largura toda, números embaixo ----------
     const CW = W - P * 2;
     let y = P;
-    logo(P, y, 112);
-    y += 112 + 62;
+    // logo do Realitas no pé, à direita (a parte visível da logo tem 92/.63*.9 de largura)
+    logo(W - P - 92 / .63 * .9, H - P - 100, 92);
+    y += 40;
     txt(temporada, P, y, `800 ${cabe(temporada, 800, 62, 34, CW, -1)}px "Inter Tight", Inter`, "#ededed", -1);
     y += 46;
     txt(ep, P, y, `600 ${cabe(ep, 600, 34, 22, CW)}px "Inter Tight", Inter`, "#9a9a9a");
