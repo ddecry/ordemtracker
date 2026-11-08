@@ -1079,7 +1079,7 @@ $("linhaR").oninput = e => {
     const [total, youtube, twitch, kick, tiktok] = brutos.map(arr => mediana(arr, i));
     mostra({ total, youtube, twitch, kick, tiktok }, true);
     $("linhaH").textContent = hm(tempos[i]); $("linhaV").hidden = !ultimo?.aoVivo;
-    $("linhaV").innerHTML = ultimo?.aoVivo ? "<span class=\"vivo\"></span>Ao vivo" : "";
+    $("linhaV").innerHTML = ultimo?.aoVivo ? "<span class=\"vivo\"></span>Voltar ao vivo" : "";
     // só redesenha a linha vertical, sem recalcular o gráfico
     ch.options.marca = tempos[i]; ch.draw();
     mostraCena(tempos[i]);
