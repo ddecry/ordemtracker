@@ -392,7 +392,9 @@ function resumo(e) {
 async function tick() {
   const [t, k, y, tk] = await Promise.all([coleta("Twitch", twitch), coleta("Kick", kick), coleta("YouTube", youtube), coleta("TikTok", tiktok)]);
   // episódio = live do canal Ordem Paranormal no YouTube; Twitch e Kick só contam enquanto ela está no ar
-  const id = y?.id || null;
+  // leitura do YouTube falhou (erro ou sem cota) com a live rolando na Twitch ou na Kick: segue no mesmo episódio e grava as outras plataformas
+  const semYT = y === null && !!epAtual && (t?.n > 0 || k?.n > 0);
+  const id = y?.id || (semYT ? epAtual : null);
   const tw = id ? t?.n ?? null : null, kk = id ? k?.n ?? null : null, tt = id ? tk?.n ?? null : null;
   const total = id ? (tw || 0) + (kk || 0) + (y?.n || 0) + (tt || 0) : 0;
   const hora = new Date().toISOString();
@@ -414,15 +416,14 @@ async function tick() {
       chat: { twitch: { msgs: chat.msgs.twitch, pessoas: chat.pessoas.twitch.size }, kick: { msgs: chat.msgs.kick, pessoas: chat.pessoas.kick.size } },
     },
   };
-  if (id) fs.appendFileSync(HIST, `${hora},${id},${tw ?? ""},${kk ?? ""},${atual.youtube ?? ""},${total},${y?.likes ?? ""},${janela.length},${tt ?? ""}\n`);
+  // sem o YouTube o total fica em branco no histórico: o gráfico não mostra uma queda falsa e a média não é puxada pra baixo
+  if (id) fs.appendFileSync(HIST, `${hora},${id},${tw ?? ""},${kk ?? ""},${atual.youtube ?? ""},${semYT ? "" : total},${y?.likes ?? ""},${janela.length},${tt ?? ""}\n`);
 
   if (id && total > 0) {
     const x = atual.extras;
     const ep = records[id] ||= { titulo: y?.title || id, inicio: hora, recorde: 0 };
     ep.picos ||= { twitch: 0, kick: 0, youtube: 0, tiktok: 0 };
-    ep.amostras = (ep.amostras || 0) + 1;
-    ep.soma = (ep.soma || 0) + total;
-    ep.media = Math.round(ep.soma / ep.amostras);
+    if (!semYT) { ep.amostras = (ep.amostras || 0) + 1; ep.soma = (ep.soma || 0) + total; ep.media = Math.round(ep.soma / ep.amostras); }
     ep.ultimaLeitura = hora;
     ep.inicioLive ||= x.inicio;
     for (const p of ["twitch", "kick", "youtube", "tiktok"]) if ((atual[p] || 0) > (ep.picos[p] || 0)) ep.picos[p] = atual[p];
