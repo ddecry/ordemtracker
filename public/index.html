@@ -8,7 +8,7 @@
 <link rel="icon" type="image/png" href="/rn-preto.png" media="(prefers-color-scheme: light)">
 <link rel="icon" type="image/png" href="/rn-branco.png" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=Inter+Tight:wght@700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=Inter+Tight:wght@600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root{--bg:#121212;--panel:#181818;--panel2:#242424;--line:#2a2a2a;--line2:#3a3a3a;--tx:#ededed;--mut:#8a8a8a;
@@ -1436,77 +1436,84 @@ const arred = (c, x, y, w, h, r) => { c.beginPath(); c.roundRect(x, y, w, h, r);
 let formato = "h";
 async function gerarImagem() {
   const V = formato === "v";
-  const d = ultimo, a = d.atual, r = d.records[d.ver];
+  const d = ultimo, r = d.records[d.ver];
   if (!r) throw new Error("sem episódio ao vivo");
   await document.fonts.ready;
   // horizontal 16:9 (1600x900, o X mostra sem cortar); vertical 4:5 pro Instagram
   // desenha em dobro (S) pra imagem sair nítida: 3200x1800 / 2160x2700
-  const W = V ? 1080 : 1600, H = V ? 1350 : 900, P = V ? 72 : 104, S = 2, cv = document.createElement("canvas");
+  const W = V ? 1080 : 1600, H = V ? 1350 : 900, P = V ? 64 : 72, S = 2, cv = document.createElement("canvas");
   cv.width = W * S; cv.height = H * S;
   const c = cv.getContext("2d");
   c.scale(S, S); c.imageSmoothingQuality = "high"; c.textBaseline = "alphabetic";
   c.fillStyle = "#121212"; c.fillRect(0, 0, W, H);
-  const txt = (s, x, y, fonte, cor, esp = 0, alinha = "left") => { c.font = fonte; c.fillStyle = cor; c.letterSpacing = esp + "px"; c.textAlign = alinha; c.fillText(s, x, y); c.letterSpacing = "0px"; c.textAlign = "left"; };
-
-  // cabeçalho: logo, nome do episódio e o site na direita, tudo na mesma linha
+  const txt = (t, x, y, fonte, cor, esp = 0, alinha = "left") => { c.font = fonte; c.fillStyle = cor; c.letterSpacing = esp + "px"; c.textAlign = alinha; c.fillText(t, x, y); c.letterSpacing = "0px"; c.textAlign = "left"; };
+  // texto que encolhe até caber na largura
+  const cabe = (t, peso, max, min, largura, esp = 0) => { let fz = max; c.letterSpacing = esp + "px"; while (fz > min && (c.font = `${peso} ${fz}px "Inter Tight", Inter`, c.measureText(t).width > largura)) fz -= 2; c.letterSpacing = "0px"; return fz; };
   const [rn, capa] = await Promise.all([carrega("/rn-branco.png").catch(() => null), carrega(`/capa/${d.ver}.jpg`).catch(() => null)]);
-  const LH = 60, meio = P + LH / 2 + 4;
   // a logo tem margem transparente: parte visível em 2–92% da largura e 20–83% da altura
-  let tx = P;
-  if (rn) { const t = LH / .63; c.drawImage(rn, P - t * .02, P - t * .2, t, t); tx = P + t * .9 + 28; }
-  const titulo = r.nome ? `${$("epNome").textContent} “${r.nome}” - ${$("epSub").textContent}` : [$("epNome").textContent, $("epNum").textContent].filter(Boolean).join(" - ");
-  txt(titulo, tx, meio + 12, "700 34px Inter", "#ededed");
-  if (!V) txt("ordemtracker.site", W - P, meio + 10, "500 26px Inter", "#8a8a8a", 0, "right");
-  const topo = P + LH + 48;
-
-  // capa inteira em 16:9, sem cortar; vertical: em cima na largura toda; horizontal: à esquerda, centrada no espaço
-  const cw = V ? W - P * 2 : 920, chh = cw * 9 / 16, cy = V ? topo : topo + (H - P - topo - chh) / 2;
-  c.save(); arred(c, P, cy, cw, chh, 24); c.clip();
-  c.fillStyle = "#242424"; c.fillRect(P, cy, cw, chh);
-  if (capa) c.drawImage(capa, P, cy, cw, chh);
-  c.restore();
-
-  // números: na horizontal a coluna vai do topo ao pé da capa; na vertical, logo abaixo dela
-  const X = V ? P : P + cw + 64, CW = W - X - P, y0 = V ? cy + chh + 72 : cy;
-  // posição de cada linha (baseline) a partir do topo do bloco
-  const L = V ? { lbl: 8, rec: 150, bar: 182, p1: 300, p2: 300, div: 352, med: 440 } : { lbl: 20, rec: 130, bar: 158, p1: 262, p2: 366, div: 422, med: 512 };
+  const logo = (x, y, alt) => { if (!rn) return 0; const t = alt / .63; c.drawImage(rn, x - t * .02, y - t * .2, t, t); return t * .9; };
+  const temporada = $("epNome").textContent.trim();
+  const ep = r.nome ? `${$("epSub").textContent.trim()}: “${r.nome}”` : $("epNum").textContent.trim();
   const fimL = r.fimLive || r.ultimaLeitura;
   const quando = r.quando ? new Date(r.quando).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
-  txt("RECORDE DO EPISÓDIO" + (quando ? " ÀS " + quando : ""), X, y0 + L.lbl, "600 22px Inter", "#8a8a8a", 4);
-  // o recorde encolhe se não couber na coluna
-  let fr = V ? 148 : 112;
-  c.letterSpacing = "-4px";
-  while (fr > 60 && (c.font = `800 ${fr}px Inter`, c.measureText(f(r.recorde)).width > CW)) fr -= 2;
-  txt(f(r.recorde), X - 4, y0 + L.rec, `800 ${fr}px Inter`, "#ededed", -4);
-
-  // barra das plataformas no pico
-  const pk = [["YouTube", r.youtube, "#ff2b2b"], ["Twitch", r.twitch, "#9146ff"], ["Kick", r.kick, "#53fc18"], ["TikTok", r.tiktok, "#25f4ee"]];
-  const tot = pk.reduce((s, p) => s + (p[1] || 0), 0) || 1;
-  let bx = X;
-  c.save(); arred(c, X, y0 + L.bar, CW, 20, 10); c.clip();
-  c.fillStyle = "#242424"; c.fillRect(X, y0 + L.bar, CW, 20);
-  for (const [, v, cor] of pk) { const w = (v || 0) / tot * CW; c.fillStyle = cor; c.fillRect(bx, y0 + L.bar, w, 20); bx += w; }
-  c.restore();
-
-  // cada plataforma: 4 colunas na vertical, 2x2 na horizontal
-  const col = V ? CW / 4 : CW / 2;
-  pk.forEach(([n, v, cor], i) => {
-    const px = X + col * (V ? i : i % 2), py = y0 + (V || i < 2 ? L.p1 : L.p2);
-    c.fillStyle = cor; c.beginPath(); c.arc(px + 7, py - 51, 7, 0, 7); c.fill();
-    txt(n, px + 22, py - 43, "500 23px Inter", "#8a8a8a");
-    txt(v ? f(v) : "-", px, py, "700 36px Inter", "#ededed");
-  });
-
-  // média e duração
-  c.fillStyle = "#2a2a2a"; c.fillRect(X, y0 + L.div, CW, 2);
   const dur = r.inicioLive && fimL ? (m => Math.floor(m / 60) + "h" + String(m % 60).padStart(2, "0"))(Math.round((new Date(fimL) - new Date(r.inicioLive)) / 60000)) : "-";
-  [["Média", f(r.media)], ["Duração", dur]].forEach(([n, v], i) => {
-    const px = X + col * (V ? i * 2 : i);
-    txt(n, px, y0 + L.med - 46, "500 23px Inter", "#8a8a8a");
-    txt(v, px, y0 + L.med, "700 36px Inter", "#ededed");
-  });
-  // vertical: o site no pé, alinhado à direita da linha de média/duração
-  if (V) txt("ordemtracker.site", W - P, H - P, "500 26px Inter", "#8a8a8a", 0, "right");
+  const pk = [["YouTube", r.youtube, "#ff2b2b"], ["Twitch", r.twitch, "#9146ff"], ["Kick", r.kick, "#53fc18"], ["TikTok", r.tiktok, "#25f4ee"]];
+  const tot = pk.reduce((t, p) => t + (p[1] || 0), 0) || 1;
+  const capaEm = (x, y, w) => { const h = w * 9 / 16; c.save(); arred(c, x, y, w, h, 22); c.clip(); c.fillStyle = "#242424"; c.fillRect(x, y, w, h); if (capa) c.drawImage(capa, x, y, w, h); c.restore(); return h; };
+  const barra = (x, y, w, h) => { c.save(); arred(c, x, y, w, h, h / 2); c.clip(); c.fillStyle = "#242424"; c.fillRect(x, y, w, h); let bx = x; for (const [, v, cor] of pk) { const bw = (v || 0) / tot * w; c.fillStyle = cor; c.fillRect(bx, y, bw, h); bx += bw; } c.restore(); };
+  const plataforma = (x, y, n, v, cor, tam) => { c.fillStyle = cor; c.beginPath(); c.arc(x + 7, y - tam - 10, 7, 0, 7); c.fill(); txt(n, x + 22, y - tam - 2, "500 24px Inter", "#8a8a8a"); txt(v ? f(v) : "-", x, y, `700 ${tam}px "Inter Tight", Inter`, "#ededed", -1); };
+  // o endereço do site fica pequeno e apagado no canto de baixo
+  const site = () => txt("ordemtracker.site", W - P, H - P * .55, "500 17px Inter", "#5c5c5c", 1, "right");
+
+  if (!V) {
+    // ---------- horizontal: capa grande à esquerda; à direita a logo, o nome do episódio e os números ----------
+    const cw = 900, ch = cw * 9 / 16, cy = (H - ch) / 2;
+    capaEm(P, cy, cw);
+    const X = P + cw + 60, CW = W - X - P;
+    // a coluna ocupa a altura toda: logo grande no alto, números até o pé
+    let y = (H - 690) / 2; // bloco da direita (uns 690 px de altura) centrado na altura da imagem
+    const lw = logo(X, y, 104); // Realitas News em cima
+    y += 104 + 60;
+    txt(temporada, X, y, `800 ${cabe(temporada, 800, 52, 30, CW, -1)}px "Inter Tight", Inter`, "#ededed", -1);
+    y += 40;
+    txt(ep, X, y, `600 ${cabe(ep, 600, 30, 20, CW)}px "Inter Tight", Inter`, "#9a9a9a");
+    y += 70;
+    txt("RECORDE DO EPISÓDIO" + (quando ? " ÀS " + quando : ""), X, y, "600 19px Inter", "#8a8a8a", 3);
+    y += 104;
+    txt(f(r.recorde), X - 3, y, `800 ${cabe(f(r.recorde), 800, 116, 60, CW, -4)}px "Inter Tight", Inter`, "#ededed", -4);
+    y += 26;
+    barra(X, y, CW, 16);
+    y += 84;
+    const col = CW / 2;
+    pk.forEach(([n, v, cor], k) => plataforma(X + col * (k % 2), y + (k < 2 ? 0 : 88), n, v, cor, 38));
+    y += 88 + 42;
+    c.fillStyle = "#2a2a2a"; c.fillRect(X, y - 30, CW, 2);
+    [["Média", f(r.media)], ["Duração", dur]].forEach(([n, v], k) => { txt(n, X + col * k, y + 10, "500 24px Inter", "#8a8a8a"); txt(v, X + col * k, y + 54, `700 38px "Inter Tight", Inter`, "#ededed", -1); });
+    void lw;
+  } else {
+    // ---------- vertical: logo e nome em cima, capa na largura toda, números embaixo ----------
+    const CW = W - P * 2;
+    let y = P;
+    logo(P, y, 112);
+    y += 112 + 62;
+    txt(temporada, P, y, `800 ${cabe(temporada, 800, 62, 34, CW, -1)}px "Inter Tight", Inter`, "#ededed", -1);
+    y += 46;
+    txt(ep, P, y, `600 ${cabe(ep, 600, 34, 22, CW)}px "Inter Tight", Inter`, "#9a9a9a");
+    y += 36;
+    y += capaEm(P, y, CW) + 52;
+    txt("RECORDE DO EPISÓDIO" + (quando ? " ÀS " + quando : ""), P, y, "600 20px Inter", "#8a8a8a", 3);
+    y += 124;
+    txt(f(r.recorde), P - 4, y, `800 ${cabe(f(r.recorde), 800, 136, 70, CW, -5)}px "Inter Tight", Inter`, "#ededed", -5);
+    y += 28;
+    barra(P, y, CW, 16);
+    y += 84;
+    const col = CW / 4;
+    pk.forEach(([n, v, cor], k) => plataforma(P + col * k, y, n, v, cor, 42));
+    y += 64;
+    c.fillStyle = "#2a2a2a"; c.fillRect(P, y - 20, CW, 2);
+    [["Média", f(r.media)], ["Duração", dur]].forEach(([n, v], k) => { txt(n, P + col * 2 * k, y + 22, "500 24px Inter", "#8a8a8a"); txt(v, P + col * 2 * k, y + 70, `700 44px "Inter Tight", Inter`, "#ededed", -1); });
+  }
+  site();
   return new Promise(ok => cv.toBlob(ok, "image/png"));
 }
 
