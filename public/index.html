@@ -1449,6 +1449,15 @@ async function gerarImagem() {
   const txt = (t, x, y, fonte, cor, esp = 0, alinha = "left") => { c.font = fonte; c.fillStyle = cor; c.letterSpacing = esp + "px"; c.textAlign = alinha; c.fillText(t, x, y); c.letterSpacing = "0px"; c.textAlign = "left"; };
   // texto que encolhe até caber na largura
   const cabe = (t, peso, max, min, largura, esp = 0) => { let fz = max; c.letterSpacing = esp + "px"; while (fz > min && (c.font = `${peso} ${fz}px "Inter Tight", Inter`, c.measureText(t).width > largura)) fz -= 2; c.letterSpacing = "0px"; return fz; };
+  // linha do episódio: diminui até um tamanho mínimo; se ainda não couber, quebra em duas linhas (devolve o tamanho e as linhas)
+  const quebra = (t, peso, max, min, largura) => {
+    const mede = (x, fz) => { c.font = `${peso} ${fz}px "Inter Tight", Inter`; return c.measureText(x).width; };
+    for (let fz = max; fz >= min; fz -= 2) if (mede(t, fz) <= largura) return { fz, l: [t] };
+    const fz = min + 2, p = t.split(" "); let a = "";
+    while (p.length && mede((a + " " + p[0]).trim(), fz) <= largura) a = (a + " " + p.shift()).trim();
+    let b = p.join(" "); while (b && mede(b, fz) > largura) b = b.replace(/\s*\S+$/, "") , b = b && b + "…";
+    return { fz, l: [a, b].filter(Boolean) };
+  };
   const [rn, capa] = await Promise.all([carrega("/rn-branco.png").catch(() => null), carrega(`/capa/${d.ver}.jpg`).catch(() => null)]);
   // a logo tem margem transparente: parte visível em 2–92% da largura e 20–83% da altura
   const logo = (x, y, alt) => { if (!rn) return 0; const t = alt / .63; c.drawImage(rn, x - t * .02, y - t * .2, t, t); return t * .9; };
@@ -1474,11 +1483,11 @@ async function gerarImagem() {
     let y = (H - 520) / 2 + 40;
     // logo do Realitas à direita do nome do episódio, na mesma altura
     const LA = 84, lw = LA / .63 * .9;
-    logo(W - P - lw, y - 56, LA);
+    logo(W - P - lw, y - 62, LA);
     txt(temporada, X, y, `800 ${cabe(temporada, 800, 52, 30, CW - lw - 24, -1)}px "Inter Tight", Inter`, "#ededed", -1);
-    y += 40;
-    txt(ep, X, y, `600 ${cabe(ep, 600, 30, 20, CW - lw - 24)}px "Inter Tight", Inter`, "#9a9a9a");
-    y += 70;
+    y += 44;
+    { const q = quebra(ep, 600, 30, 22, CW); q.l.forEach((l, k) => txt(l, X, y + k * (q.fz + 6), `600 ${q.fz}px "Inter Tight", Inter`, "#9a9a9a")); y += (q.l.length - 1) * (q.fz + 6); }
+    y += 66;
     txt("RECORDE DO EPISÓDIO" + (quando ? " ÀS " + quando : ""), X, y, "600 19px Inter", "#8a8a8a", 3);
     y += 104;
     txt(f(r.recorde), X - 3, y, `800 ${cabe(f(r.recorde), 800, 116, 60, CW, -4)}px "Inter Tight", Inter`, "#ededed", -4);
@@ -1500,8 +1509,8 @@ async function gerarImagem() {
     logo(W - P - lw, y - 4, LA);
     y += 52;
     txt(temporada, P, y, `800 ${cabe(temporada, 800, 62, 34, CW - lw - 24, -1)}px "Inter Tight", Inter`, "#ededed", -1);
-    y += 46;
-    txt(ep, P, y, `600 ${cabe(ep, 600, 34, 22, CW - lw - 24)}px "Inter Tight", Inter`, "#9a9a9a");
+    y += 48;
+    { const q = quebra(ep, 600, 34, 26, CW - lw - 24); q.l.forEach((l, k) => txt(l, P, y + k * (q.fz + 6), `600 ${q.fz}px "Inter Tight", Inter`, "#9a9a9a")); y += (q.l.length - 1) * (q.fz + 6); }
     y += 36;
     y += capaEm(P, y, CW) + 72;
     txt("RECORDE DO EPISÓDIO" + (quando ? " ÀS " + quando : ""), P, y, "600 20px Inter", "#8a8a8a", 3);
