@@ -409,13 +409,35 @@ function resumo(e) {
   ].filter(l => l != null).join("\n");
 }
 
+// leitura rápida da Twitch e da Kick a cada 3 s durante a live: a Twitch às vezes atualiza várias vezes em poucos segundos
+// e a Kick nem sempre espera 1 min; aqui o número novo entra assim que sai e o pico de cada plataforma não escapa entre duas leituras de 10 s
+const rapido = { twitch: null, kick: null };
+let rapidoRodando = false;
+async function leituraRapida() {
+  if (!epAtual || rapidoRodando) return;
+  rapidoRodando = true;
+  try {
+    if (env.TWITCH_CLIENT_ID) {
+      const tk = await token("twitch", "https://id.twitch.tv/oauth2/token", env.TWITCH_CLIENT_ID, env.TWITCH_CLIENT_SECRET);
+      const s = (await (await fetch(`https://api.twitch.tv/helix/streams?user_login=${TWITCH}`, { headers: { "Client-Id": env.TWITCH_CLIENT_ID, Authorization: "Bearer " + tk }, signal: AbortSignal.timeout(4000) })).json())?.data?.[0];
+      if (s) rapido.twitch = { n: s.viewer_count, t: Date.now() };
+    }
+  } catch {}
+  try { const k = await kick(); if (k?.n) rapido.kick = { n: k.n, t: Date.now() }; } catch {}
+  const ep = records[epAtual];
+  if (ep?.picos) for (const p of ["twitch", "kick"]) if (rapido[p] && rapido[p].n > (ep.picos[p] || 0)) ep.picos[p] = rapido[p].n;
+  rapidoRodando = false;
+}
+setInterval(() => safe(leituraRapida), 3000);
+
 async function tick() {
   const [t, k, y, tk] = await Promise.all([coleta("Twitch", twitch), coleta("Kick", kick), coleta("YouTube", youtube), coleta("TikTok", tiktok)]);
   // episódio = live do canal Ordem Paranormal no YouTube; Twitch e Kick só contam enquanto ela está no ar
   // leitura do YouTube falhou (erro ou sem cota) com a live rolando na Twitch ou na Kick: segue no mesmo episódio e grava as outras plataformas
   const semYT = y === null && !!epAtual && (t?.n > 0 || k?.n > 0);
   const id = y?.id || (semYT ? epAtual : null);
-  const tw = id ? t?.n ?? null : null, kk = id ? k?.n ?? null : null, tt = id ? tk?.n ?? null : null;
+  const novo = (p, x) => rapido[p] && Date.now() - rapido[p].t < 5000 ? rapido[p].n : x?.n ?? null;
+  const tw = id ? novo("twitch", t) : null, kk = id ? novo("kick", k) : null, tt = id ? tk?.n ?? null : null;
   const total = id ? (tw || 0) + (kk || 0) + (y?.n || 0) + (tt || 0) : 0;
   const hora = new Date().toISOString();
   if (LAB && id && t?.n && Date.now() - labRanking > 120_000) { labRanking = Date.now(); safe(() => LAB.ranking(id, t.h, TWITCH, t.jogoId)); }
