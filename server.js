@@ -169,15 +169,7 @@ async function procuraLive() {
   }
   if (mudou) salvaEps();
 }
-// a contagem do YouTube muda devagar: pergunta à API no máximo a cada 30 s e repete o último número entre uma e outra (economiza cota)
-let ytUltimo = null;
 async function youtube() {
-  if (ytUltimo && ytLive && ytUltimo.id === ytLive && Date.now() - ytUltimo.t < 30_000) return ytUltimo.r;
-  const r = await youtubeLer();
-  if (r?.id) ytUltimo = { id: r.id, t: Date.now(), r }; else ytUltimo = null;
-  return r;
-}
-async function youtubeLer() {
   if (!env.YOUTUBE_API_KEY) return null;
   if (!ytLive && Date.now() - ytUltimaBusca > 120_000) { ytUltimaBusca = Date.now(); await procuraLive(); }
   if (!ytLive) return { n: 0 };
