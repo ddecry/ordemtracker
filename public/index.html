@@ -1471,12 +1471,13 @@ async function gerarImagem() {
     capaEm(P, cy, cw);
     const X = P + cw + 60, CW = W - X - P;
     // logo do Realitas na faixa vazia em cima da capa; a coluna da direita fica só com o episódio e os números, centrada na altura
-    logo(P, (cy - 92) / 2 + 4, 92);
     let y = (H - 520) / 2 + 40;
-    const lw = 0;
-    txt(temporada, X, y, `800 ${cabe(temporada, 800, 52, 30, CW, -1)}px "Inter Tight", Inter`, "#ededed", -1);
+    // logo do Realitas à direita do nome do episódio, na mesma altura
+    const LA = 84, lw = LA / .63 * .9;
+    logo(W - P - lw, y - 56, LA);
+    txt(temporada, X, y, `800 ${cabe(temporada, 800, 52, 30, CW - lw - 24, -1)}px "Inter Tight", Inter`, "#ededed", -1);
     y += 40;
-    txt(ep, X, y, `600 ${cabe(ep, 600, 30, 20, CW)}px "Inter Tight", Inter`, "#9a9a9a");
+    txt(ep, X, y, `600 ${cabe(ep, 600, 30, 20, CW - lw - 24)}px "Inter Tight", Inter`, "#9a9a9a");
     y += 70;
     txt("RECORDE DO EPISÓDIO" + (quando ? " ÀS " + quando : ""), X, y, "600 19px Inter", "#8a8a8a", 3);
     y += 104;
@@ -1494,23 +1495,24 @@ async function gerarImagem() {
     // ---------- vertical: logo e nome em cima, capa na largura toda, números embaixo ----------
     const CW = W - P * 2;
     let y = P;
-    // logo do Realitas no pé, à direita (a parte visível da logo tem 92/.63*.9 de largura)
-    logo(W - P - 92 / .63 * .9, H - P - 100, 92);
-    y += 40;
-    txt(temporada, P, y, `800 ${cabe(temporada, 800, 62, 34, CW, -1)}px "Inter Tight", Inter`, "#ededed", -1);
+    // logo do Realitas à direita do nome do episódio, no topo
+    const LA = 96, lw = LA / .63 * .9;
+    logo(W - P - lw, y - 4, LA);
+    y += 52;
+    txt(temporada, P, y, `800 ${cabe(temporada, 800, 62, 34, CW - lw - 24, -1)}px "Inter Tight", Inter`, "#ededed", -1);
     y += 46;
-    txt(ep, P, y, `600 ${cabe(ep, 600, 34, 22, CW)}px "Inter Tight", Inter`, "#9a9a9a");
+    txt(ep, P, y, `600 ${cabe(ep, 600, 34, 22, CW - lw - 24)}px "Inter Tight", Inter`, "#9a9a9a");
     y += 36;
-    y += capaEm(P, y, CW) + 52;
+    y += capaEm(P, y, CW) + 72;
     txt("RECORDE DO EPISÓDIO" + (quando ? " ÀS " + quando : ""), P, y, "600 20px Inter", "#8a8a8a", 3);
-    y += 124;
+    y += 134;
     txt(f(r.recorde), P - 4, y, `800 ${cabe(f(r.recorde), 800, 136, 70, CW, -5)}px "Inter Tight", Inter`, "#ededed", -5);
     y += 28;
     barra(P, y, CW, 16);
-    y += 84;
+    y += 100;
     const col = CW / 4;
     pk.forEach(([n, v, cor], k) => plataforma(P + col * k, y, n, v, cor, 42));
-    y += 64;
+    y += 76;
     c.fillStyle = "#2a2a2a"; c.fillRect(P, y - 20, CW, 2);
     [["Média", f(r.media)], ["Duração", dur]].forEach(([n, v], k) => { txt(n, P + col * 2 * k, y + 22, "500 24px Inter", "#8a8a8a"); txt(v, P + col * 2 * k, y + 70, `700 44px "Inter Tight", Inter`, "#ededed", -1); });
   }
