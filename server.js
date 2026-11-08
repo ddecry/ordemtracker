@@ -1,16 +1,15 @@
 // node server.js  ->  http://localhost:3030   (Node 22+)
-// Chaves das APIs oficiais ficam no arquivo .env (veja .env.exemplo e LEIA-ME.md)
+// Chaves das APIs oficiais ficam no arquivo .env (veja .env.exemplo e README.md)
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const zlib = require("zlib");
 
-require("./src/uso"); // conta os pedidos de cada serviço e a cota do YouTube
-const { RAIZ, env, TWITCH, KICK, YT_CANAL, TIKTOK, EPISODIO, temporadaDoTitulo, ADMIN, SENHA_CFG, SENHA_LOCAL, PORTA, INTERVALO, DADOS, PUBLICO, DB, EPS, HIST, CHATTERS, RESUMOS } = require("./src/config");
-const { token, twitchH, twitchId, twitch, twitchRapido, kickH, kick, tiktok } = require("./src/plataformas");
+// primeiro de tudo: passa a contar os pedidos de cada serviço e a cota do YouTube
 const uso = require("./src/uso");
-
+const { RAIZ, env, TWITCH, KICK, YT_CANAL, TIKTOK, EPISODIO, temporadaDoTitulo, ADMIN, SENHA_CFG, SENHA_LOCAL, PORTA, INTERVALO, DADOS, PUBLICO, DB, EPS, HIST, CHATTERS, RESUMOS } = require("./src/config");
+const { twitchH, twitchId, twitch, twitchRapido, kickH, kick, tiktok } = require("./src/plataformas");
 
 // clipes da Twitch criados durante o episódio (do começo da live até 1 h depois do fim), mais vistos primeiro
 // https://dev.twitch.tv/docs/api/reference/#get-clips — guarda 5 min pra não pedir de novo a cada visita
@@ -130,7 +129,8 @@ async function youtube() {
     // sem cota na API (HTTP 403): lê a página pública do vídeo, que mostra se está ao vivo e quantos assistem agora
     if (!/HTTP 403/.test(e.message)) throw e;
     const t = await (await fetch(`https://www.youtube.com/watch?v=${ytLive}`, { headers: { "Accept-Language": "en-US", "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(8000) })).text();
-    if (!/"isLive":true/.test(t)) throw e;
+    // a página respondeu e o vídeo não está mais ao vivo: a live acabou (não é erro, senão o episódio ficaria aberto com a Twitch)
+    if (!/"isLive":true/.test(t)) { if (/"videoDetails"/.test(t)) { ytLive = null; guardaLive(null); return { n: 0 }; } throw e; }
     const n = +((t.match(/"originalViewCount":"(\d+)"/) || [])[1] || 0);
     return { n, id: ytJunta[ytLive] || ytLive, title: records[ytLive]?.titulo || episodios.lista.find(x => x.id === ytLive)?.titulo || "", likes: null, inicio: records[ytLive]?.inicioLive || null };
   }
@@ -352,11 +352,14 @@ async function leituraRapida() {
 }
 setInterval(() => safe(leituraRapida), 3000);
 
+let ultimoYT = Date.now();
 async function tick() {
   const [t, k, y, tk] = await Promise.all([coleta("Twitch", twitch), coleta("Kick", kick), coleta("YouTube", youtube), coleta("TikTok", tiktok)]);
   // episódio = live do canal Ordem Paranormal no YouTube; Twitch e Kick só contam enquanto ela está no ar
   // leitura do YouTube falhou (erro ou sem cota) com a live rolando na Twitch ou na Kick: segue no mesmo episódio e grava as outras plataformas
-  const semYT = y === null && !!epAtual && (t?.n > 0 || k?.n > 0);
+  // no máximo 15 min sem o YouTube: depois disso o episódio fecha, pra não seguir contando uma live que já acabou
+  if (y?.id) ultimoYT = Date.now();
+  const semYT = y === null && !!epAtual && (t?.n > 0 || k?.n > 0) && Date.now() - ultimoYT < 15 * 60e3;
   const id = y?.id || (semYT ? epAtual : null);
   const novo = (p, x) => rapido[p] && Date.now() - rapido[p].t < 5000 ? rapido[p].n : x?.n ?? null;
   const tw = id ? novo("twitch", t) : null, kk = id ? novo("kick", k) : null, tt = id ? tk?.n ?? null : null;
