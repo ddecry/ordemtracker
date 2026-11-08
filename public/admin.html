@@ -96,6 +96,8 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
 .barra i{grid-column:1/-1;height:6px;border-radius:9px;background:var(--line);overflow:hidden}.barra i u{display:block;height:100%;background:var(--tx)}
 .tab{font-size:13px}.tab div{display:grid;grid-template-columns:1fr 90px 90px;padding:8px 0;border-bottom:1px solid var(--line)}.tab div:first-child{color:var(--mut);font-size:12px}
 .tab span:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
+.tab.t4 div{grid-template-columns:1fr repeat(3,80px)}.tab.t5 div{grid-template-columns:1fr repeat(4,72px)}
+.horas{display:grid;grid-template-columns:repeat(12,1fr);margin-top:8px;font-size:12px;font-variant-numeric:tabular-nums}.horas div{display:flex;flex-direction:column;align-items:center;padding:6px 0;border-top:1px solid var(--line)}.horas span{color:var(--mut);font-size:11px}
 .nota{font-size:12px;margin-top:20px}
 .leg{display:inline-block;width:8px;height:8px;border-radius:2px;margin:0 4px 0 10px}
 
@@ -231,7 +233,7 @@ button.icone svg{width:16px;height:16px}
   .meta{margin-left:0;width:100%}
   .st{grid-template-columns:auto 1fr;padding:10px 12px}
   .st small{grid-row:2}.st span{grid-row:3;grid-column:2;text-align:left;font-size:11px}.st i{grid-row:1}
-  .tab div{grid-template-columns:1fr 70px 70px}
+  .tab div{grid-template-columns:1fr 70px 70px}.tab.t4 div{grid-template-columns:1fr repeat(3,58px)}.tab.t5 div{grid-template-columns:1fr repeat(4,50px)}.horas{grid-template-columns:repeat(6,1fr)}
 }
 
 /* compacto: menos espaço em volta de tudo, pra ver mais coisa de uma vez sem rolar */
@@ -301,6 +303,7 @@ button{padding:8px 14px}
     <div class="stat"><span>Visitas hoje</span><b id="acViews">-</b></div>
   </div>
   <div class="grafico"><svg id="acSerie" viewBox="0 0 600 120" preserveAspectRatio="none"></svg><div class="eixo"><span id="acIni"></span><span>online nas últimas 6 horas</span><span>agora</span></div></div>
+  <div id="acSerieTab" class="horas"></div>
 
   <h3>Desde o início</h3>
   <div class="stats">
@@ -319,6 +322,7 @@ button{padding:8px 14px}
     <div class="stat"><span>Voltaram mais de uma vez</span><b id="acVolt">-</b></div>
   </div>
   <div class="grafico"><svg id="acHoras" viewBox="0 0 600 120" preserveAspectRatio="none"></svg><div class="eixo"><span>0h</span><span>6h</span><span>entradas por horário</span><span>18h</span><span>23h</span></div></div>
+  <div id="acHorasTab" class="horas"></div>
   <div class="cols">
     <div><h3>Aparelho</h3><div id="acDisp"></div></div>
     <div><h3>De onde vieram</h3><div id="acOrig"></div></div>
@@ -328,7 +332,7 @@ button{padding:8px 14px}
   <h3>Páginas abertas</h3><div id="acPag"></div>
   <div class="cols">
     <div><h3>Por episódio</h3><div id="acEps" class="tab"></div></div>
-    <div><h3>Últimos dias</h3><div id="acHist" class="tab"></div></div>
+    <div><h3>Últimos dias</h3><div id="acHist" class="tab t4"></div></div>
   </div>
   <p class="nota">Contagem anônima, sem cookies: cada pessoa vira um código que muda todo dia. "Online" considera quem abriu o site no último minuto.</p>
 </section>
@@ -338,6 +342,10 @@ button{padding:8px 14px}
   <div id="stLista" class="st-lista"></div>
   <h3>Saúde da live <small class="mut" style="font-weight:400">últimos 30 minutos, uma barra por leitura; vermelho = a plataforma não respondeu</small></h3>
   <div id="stSaude" class="saude"></div>
+  <div id="stSaudeTab" class="tab t5"></div>
+  <h3>Cota e pedidos <small class="mut" style="font-weight:400">a cota do YouTube é de 10.000 unidades por dia e zera às <span id="stZera">-</span></small></h3>
+  <div class="stats" id="stCota"></div>
+  <div id="stPedidos" class="tab t4" style="margin-top:8px"></div>
   <h3>Servidor</h3>
   <div class="stats" id="stServ"></div>
 </section>
@@ -546,6 +554,7 @@ async function status() {
     <small>${esc(i.info || (i.ok ? "funcionando" : i.ok === false ? "com erro" : "parado"))}${i.ultimaMsg ? ", última mensagem " + ha(j.agora - i.ultimaMsg) : ""}</small>
   </div>`).join("");
   saudeLive(j.saude || [], j.agora);
+  if (j.uso) cota(j.uso, j.agora);
   const sv = j.servidor;
   $("stServ").innerHTML = `<div class="stat"><span>Ligado</span><b>${ha(sv.ligadoHa).replace("há ", "")}</b></div>
     <div class="stat"><span>Memória livre</span><b>${gb(sv.memoriaLivre)}</b></div>
@@ -553,10 +562,30 @@ async function status() {
     <div class="stat"><span>Episódio no ar</span><b>${j.aoVivo ? "Sim" : "Não"}</b></div>`;
 }
 
+// cota do YouTube e pedidos de cada serviço, em números
+function cota(u, agora) {
+  const hora = t => new Date(t).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  $("stZera").textContent = hora(u.zera);
+  const pct = Math.round(u.unidades / u.cota * 100);
+  $("stCota").innerHTML = `<div class="stat"><span>Cota do YouTube usada hoje</span><b>${n(u.unidades)}</b><small>de ${n(u.cota)} (${pct}%)</small></div>
+    <div class="stat"><span>Restam</span><b>${n(u.restam)}</b><small>unidades</small></div>
+    <div class="stat"><span>Gasto na última hora</span><b>${n(u.ultimaHora)}</b><small>unidades</small></div>
+    <div class="stat"><span>Nesse ritmo a cota</span><b${u.acaba ? ' style="color:var(--red)"' : ""}>${u.acaba ? "acaba às " + hora(u.acaba) : "dá até zerar"}</b><small>${u.acaba ? "antes de zerar às " + hora(u.zera) : "zera às " + hora(u.zera)}</small></div>`;
+  const nomes = [["ytVideos", "YouTube: contagem (1 unidade)"], ["ytChat", "YouTube: chat (5 unidades)"], ["ytPagina", "YouTube: página do vídeo (sem cota)"], ["ytFeed", "YouTube: feed do canal (sem cota)"],
+    ["twitch", "Twitch"], ["kick", "Kick"], ["tiktok", "TikTok"], ["gemini", "Gemini"], ["groq", "Groq"], ["wiki", "Wiki"], ["emotes", "Emotes (7TV e BTTV)"]];
+  $("stPedidos").innerHTML = `<div><span>Serviço</span><span>Hoje</span><span>Por min</span><span>Erros</span></div>` +
+    nomes.filter(([k]) => u.pedidos[k] || u.porMinuto[k]).map(([k, nome]) => `<div><span>${nome}</span><span>${n(u.pedidos[k])}</span><span>${n(u.porMinuto[k])}</span><span${u.erros[k] ? ' style="color:var(--red)"' : ""}>${n(u.erros[k])}</span></div>`).join("");
+}
+
 // saúde da live: uma linha por plataforma com a audiência lida nos últimos 30 min; leitura sem resposta vira uma barra vermelha
 function saudeLive(l, agora) {
   const vivo = l.filter(x => x[5]);
-  if (!vivo.length) { $("stSaude").innerHTML = '<p class="mut">Aparece quando um episódio estiver no ar.</p>'; return; }
+  if (!vivo.length) { $("stSaude").innerHTML = '<p class="mut">Aparece quando um episódio estiver no ar.</p>'; $("stSaudeTab").innerHTML = ""; return; }
+  // os mesmos 30 minutos em números: última leitura, menor, maior, média e leituras sem resposta
+  $("stSaudeTab").innerHTML = `<div><span>Plataforma</span><span>Agora</span><span>Menor</span><span>Maior</span><span>Falhas</span></div>` + [["Twitch", 1], ["Kick", 2], ["YouTube", 3], ["TikTok", 4]].map(([nome, k]) => {
+    const v = vivo.map(r => r[k]).filter(x => x != null), f = vivo.length - v.length;
+    return `<div><span>${nome}${v.length ? ' <small class="mut">média ' + n(Math.round(v.reduce((a, b) => a + b, 0) / v.length)) + "</small>" : ""}</span><span>${vivo.at(-1)[k] == null ? "-" : n(vivo.at(-1)[k])}</span><span>${v.length ? n(Math.min(...v)) : "-"}</span><span>${v.length ? n(Math.max(...v)) : "-"}</span><span${f ? ' style="color:var(--red)"' : ""}>${f} de ${vivo.length}</span></div>`;
+  }).join("");
   const t0 = agora - 30 * 60e3, W = 600, H = 34, x = t => ((t - t0) / (30 * 60e3)) * W;
   $("stSaude").innerHTML = [["Twitch", 1], ["Kick", 2], ["YouTube", 3], ["TikTok", 4]].map(([nome, k]) => {
     const pts = vivo.filter(r => r[k] != null), max = Math.max(1, ...pts.map(r => r[k])), min = Math.min(...pts.map(r => r[k]), max);
@@ -603,6 +632,9 @@ async function acessos() {
   const s = j.serie, max = Math.max(1, ...s.map(p => p[1]));
   const pts = s.map((p, i) => [s.length < 2 ? 600 : i / (s.length - 1) * 600, 115 - p[1] / max * 105].join(",")).join(" ");
   $("acSerie").innerHTML = s.length ? `<polyline points="0,120 ${pts} 600,120" fill="currentColor" opacity=".08"/><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"/>` : "";
+  // online a cada 30 min (o maior número de cada meia hora)
+  const meias = {}; for (const [t, v] of s) { const k = Math.floor(t / 1800e3); meias[k] = Math.max(meias[k] || 0, v); }
+  $("acSerieTab").innerHTML = Object.entries(meias).slice(-12).map(([k, v]) => `<div><span>${new Date(k * 1800e3).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>${n(v)}</div>`).join("");
   $("acIni").textContent = s.length ? new Date(s[0][0]).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
   const barra = (nome, v, tot) => `<div class="barra"><span>${esc(nome)}</span><span>${n(v)}</span><i><u style="width:${tot ? v / tot * 100 : 0}%"></u></i></div>`;
   const disp = j.celular + j.computador;
@@ -613,6 +645,7 @@ async function acessos() {
   $("acTempo").textContent = j.tempoMedio ? min(j.tempoMedio) : "-"; $("acMais10").textContent = n(j.mais10); $("acRap").textContent = n(j.rapidos); $("acVolt").textContent = n(j.voltaram);
   const hMax = Math.max(1, ...j.horas), larg = 600 / 24;
   $("acHoras").innerHTML = j.horas.map((v, h) => `<rect x="${h * larg + 2}" y="${118 - v / hMax * 110}" width="${larg - 4}" height="${v / hMax * 110 + 2}" rx="2" fill="currentColor" opacity="${v ? .8 : .12}"><title>${h}h: ${n(v)}</title></rect>`).join("");
+  $("acHorasTab").innerHTML = j.horas.map((v, h) => `<div><span>${h}h</span>${n(v)}</div>`).join("");
   const lista = (arr, vazio) => { const t = arr.reduce((s, o) => s + o[1], 0); return arr.map(([k, v]) => barra(k, v, t)).join("") || `<p>${vazio}</p>`; };
   $("acNav").innerHTML = lista(j.navegadores, "Ainda sem dados hoje."); $("acSis").innerHTML = lista(j.sistemas, "Ainda sem dados hoje."); $("acPag").innerHTML = lista(j.paginas, "Ainda sem visitas hoje.");
   const eps = Object.values(j.eps);
@@ -628,7 +661,7 @@ async function acessos() {
   const dMax = Math.max(1, ...dias.map(d => Math.max(d.unicos || 0, d.views || 0))), lg = 600 / dias.length;
   $("acDiario").innerHTML = dias.map((d, i) => `<rect x="${i * lg + lg * .12}" y="${118 - (d.views || 0) / dMax * 110}" width="${lg * .76}" height="${(d.views || 0) / dMax * 110 + 2}" rx="2" fill="currentColor" opacity=".18"><title>${dataCurta(d.dia)}: ${n(d.views)} visitas</title></rect><rect x="${i * lg + lg * .3}" y="${118 - (d.unicos || 0) / dMax * 110}" width="${lg * .4}" height="${(d.unicos || 0) / dMax * 110 + 2}" rx="2" fill="currentColor" opacity=".85"><title>${dataCurta(d.dia)}: ${n(d.unicos)} pessoas</title></rect>`).join("");
   $("acDiaIni").textContent = dataCurta(dias[0].dia);
-  $("acHist").innerHTML = j.historico.length ? `<div><span>Dia</span><span>Únicos</span><span>Visitas</span></div>` + j.historico.slice(-14).reverse().map(h => `<div><span>${new Date(h.dia + "T12:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" })}</span><span>${n(h.unicos)}</span><span>${n(h.views)}</span></div>`).join("") : "<p>O histórico começa amanhã.</p>";
+  $("acHist").innerHTML = j.historico.length ? `<div><span>Dia</span><span>Pessoas</span><span>Visitas</span><span>Pico</span></div>` + j.historico.slice(-30).reverse().map(h => `<div><span>${new Date(h.dia + "T12:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" })}</span><span>${n(h.unicos)}</span><span>${n(h.views)}</span><span>${n(h.pico)}</span></div>`).join("") : "<p>O histórico começa amanhã.</p>";
 }
 
 // ---------- feedbacks ----------
