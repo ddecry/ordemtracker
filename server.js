@@ -173,7 +173,16 @@ async function youtube() {
   if (!env.YOUTUBE_API_KEY) return null;
   if (!ytLive && Date.now() - ytUltimaBusca > 120_000) { ytUltimaBusca = Date.now(); await procuraLive(); }
   if (!ytLive) return { n: 0 };
-  const v = (await ytApi([ytLive]))[0];
+  let v;
+  try { v = (await ytApi([ytLive]))[0]; }
+  catch (e) {
+    // sem cota na API (HTTP 403): lê a página pública do vídeo, que mostra se está ao vivo e quantos assistem agora
+    if (!/HTTP 403/.test(e.message)) throw e;
+    const t = await (await fetch(`https://www.youtube.com/watch?v=${ytLive}`, { headers: { "Accept-Language": "en-US", "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(8000) })).text();
+    if (!/"isLive":true/.test(t)) throw e;
+    const n = +((t.match(/"originalViewCount":"(\d+)"/) || [])[1] || 0);
+    return { n, id: ytLive, title: records[ytLive]?.titulo || episodios.lista.find(x => x.id === ytLive)?.titulo || "", likes: null, inicio: records[ytLive]?.inicioLive || null };
+  }
   const ls = v?.liveStreamingDetails;
   if (!v || ls?.actualEndTime) {
     // a live acabou: guarda início e fim oficiais do YouTube para a duração
