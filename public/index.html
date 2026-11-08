@@ -1439,9 +1439,9 @@ async function gerarImagem() {
   const d = ultimo, r = d.records[d.ver];
   if (!r) throw new Error("sem episódio ao vivo");
   await document.fonts.ready;
-  // horizontal 16:9 (1600x900, o X mostra sem cortar); vertical 4:5 pro Instagram
-  // desenha em dobro (S) pra imagem sair nítida: 3200x1800 / 2160x2700
-  const W = V ? 1080 : 1600, H = V ? 1350 : 900, P = V ? 64 : 72, S = 2, cv = document.createElement("canvas");
+  // horizontal 1600x700 (o formato do post do X); vertical 4:5 pro Instagram
+  // desenha em dobro (S) pra imagem sair nítida: 3200x1400 / 2160x2700
+  const W = V ? 1080 : 1600, H = V ? 1350 : 700, P = V ? 64 : 64, S = 2, cv = document.createElement("canvas");
   cv.width = W * S; cv.height = H * S;
   const c = cv.getContext("2d");
   c.scale(S, S); c.imageSmoothingQuality = "high"; c.textBaseline = "alphabetic";
@@ -1475,31 +1475,23 @@ async function gerarImagem() {
   const site = () => txt("ordemtracker.site", W - P, H - P * .55, "500 17px Inter", "#5c5c5c", 1, "right");
 
   if (!V) {
-    // ---------- horizontal: capa grande à esquerda; à direita a logo, o nome do episódio e os números ----------
-    const cw = 900, ch = cw * 9 / 16, cy = (H - ch) / 2;
-    capaEm(P, cy, cw);
-    const X = P + cw + 60, CW = W - X - P;
-    // logo do Realitas na faixa vazia em cima da capa; a coluna da direita fica só com o episódio e os números, centrada na altura
-    let y = (H - 520) / 2 + 40;
-    // logo do Realitas à direita do nome do episódio, na mesma altura
-    const LA = 84, lw = LA / .63 * .9;
-    logo(W - P - lw, y - 62, LA);
-    txt(temporada, X, y, `800 ${cabe(temporada, 800, 52, 30, CW - lw - 24, -1)}px "Inter Tight", Inter`, "#ededed", -1);
-    y += 44;
-    { const q = quebra(ep, 600, 30, 22, CW); q.l.forEach((l, k) => txt(l, X, y + k * (q.fz + 6), `600 ${q.fz}px "Inter Tight", Inter`, "#9a9a9a")); y += (q.l.length - 1) * (q.fz + 6); }
-    y += 66;
-    txt("RECORDE DO EPISÓDIO" + (quando ? " ÀS " + quando : ""), X, y, "600 19px Inter", "#8a8a8a", 3);
-    y += 104;
-    txt(f(r.recorde), X - 3, y, `800 ${cabe(f(r.recorde), 800, 116, 60, CW, -4)}px "Inter Tight", Inter`, "#ededed", -4);
-    y += 26;
-    barra(X, y, CW, 16);
-    y += 84;
-    const col = CW / 2;
-    pk.forEach(([n, v, cor], k) => plataforma(X + col * (k % 2), y + (k < 2 ? 0 : 88), n, v, cor, 38));
-    y += 88 + 42;
-    c.fillStyle = "#2a2a2a"; c.fillRect(X, y - 30, CW, 2);
-    [["Média", f(r.media)], ["Duração", dur]].forEach(([n, v], k) => { txt(n, X + col * k, y + 10, "500 24px Inter", "#8a8a8a"); txt(v, X + col * k, y + 54, `700 38px "Inter Tight", Inter`, "#ededed", -1); });
-    void lw;
+    // ---------- horizontal (igual ao post do X): capa recortada à esquerda; à direita recorde, plataformas, média e duração, logo no canto ----------
+    const cw = 780, ch = H - P * 2;
+    c.save(); arred(c, P, P, cw, ch, 24); c.clip(); c.fillStyle = "#242424"; c.fillRect(P, P, cw, ch);
+    if (capa) { const k = Math.max(cw / capa.width, ch / capa.height), iw = capa.width * k, ih = capa.height * k; c.drawImage(capa, P + (cw - iw) / 2, P + (ch - ih) / 2, iw, ih); }
+    c.restore();
+    const X = P + cw + 72, CW = W - X - P;
+    txt("RECORDE DO EPISÓDIO" + (quando ? " ÀS " + quando : ""), X, 102, "500 24px Inter", "#8a8a8a", 4);
+    txt(f(r.recorde), X - 4, 232, `800 ${cabe(f(r.recorde), 800, 156, 80, CW, -5)}px "Inter Tight", Inter`, "#ededed", -5);
+    barra(X, 282, CW, 22);
+    // só as plataformas que tiveram público, lado a lado
+    const plats = pk.filter(p => p[1] > 0), col = Math.min(206, CW / Math.max(1, plats.length));
+    plats.forEach(([n, v, cor], k) => plataforma(X + col * k, 400, n, v, cor, 38));
+    c.fillStyle = "#2a2a2a"; c.fillRect(X, 464, CW, 2);
+    [["Média", f(r.media)], ["Duração", dur]].forEach(([n, v], k) => { txt(n, X + 206 * k, 524, "500 24px Inter", "#8a8a8a"); txt(v, X + 206 * k, 568, `700 38px "Inter Tight", Inter`, "#ededed", -1); });
+    // logo do Realitas grande no canto de baixo à direita; o site pequeno embaixo da média
+    const LA = 118; logo(W - P - LA / .63 * .9, H - P - LA - 4, LA);
+    txt("ordemtracker.site", X, H - P + 2, "500 18px Inter", "#5c5c5c", 1);
   } else {
     // ---------- vertical: logo e nome em cima, capa na largura toda, números embaixo ----------
     const CW = W - P * 2;
@@ -1525,7 +1517,7 @@ async function gerarImagem() {
     c.fillStyle = "#2a2a2a"; c.fillRect(P, y - 20, CW, 2);
     [["Média", f(r.media)], ["Duração", dur]].forEach(([n, v], k) => { txt(n, P + col * 2 * k, y + 22, "500 24px Inter", "#8a8a8a"); txt(v, P + col * 2 * k, y + 70, `700 44px "Inter Tight", Inter`, "#ededed", -1); });
   }
-  site();
+  if (V) site();
   return new Promise(ok => cv.toBlob(ok, "image/png"));
 }
 
