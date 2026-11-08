@@ -147,6 +147,14 @@ let ytLive = null, ytUltimaBusca = 0;
 const LIVE_ARQ = path.join(DADOS, "live-atual.json");
 try { const l = JSON.parse(fs.readFileSync(LIVE_ARQ, "utf8")); if (l.id && Date.now() - l.q < 12 * 3600e3) ytLive = l.id; } catch {}
 const guardaLive = id => { try { id ? fs.writeFileSync(LIVE_ARQ, JSON.stringify({ id, q: Date.now() })) : fs.rmSync(LIVE_ARQ, { force: true }); } catch {} };
+// a transmissão caiu e voltou com outro link (mesmo título, poucos minutos depois): o vídeo novo é lido, mas os números seguem no mesmo episódio
+const ytJunta = {}; // id do vídeo novo -> episódio
+function juntaLive(id, titulo) {
+  if (records[id] || ytJunta[id]) return id;
+  const ant = Object.entries(records).find(([k, r]) => k !== id && r.ultimaLeitura && Date.now() - new Date(r.ultimaLeitura) < 30 * 60e3 && slug(r.titulo, k) === slug(titulo, id));
+  if (ant) { ytJunta[id] = ant[0]; delete records[ant[0]].fimLive; console.log(`live ${id} voltou com outro link: segue no episódio ${ant[0]}`); }
+  return id;
+}
 async function procuraLive() {
   const rss = await (await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${YT_CANAL}`)).text();
   const ids = [...rss.matchAll(/<yt:videoId>([\w-]{11})</g)].slice(0, 8).map(m => m[1]);
@@ -154,9 +162,21 @@ async function procuraLive() {
   for (const e of [...episodios.lista].sort((a, b) => (b.data || "").localeCompare(a.data || ""))) if (/^[\w-]{11}$/.test(e.id) && !ids.includes(e.id)) ids.push(e.id);
   const cadastrados = new Set(episodios.lista.map(e => e.id));
   // conta só live cadastrada no /admin ou com cara de episódio (ex.: "A VIGÍLIA - EPISÓDIO 2 | Ordem Paranormal RPG")
-  const videos = await ytApi(ids.slice(0, 50));
+  let videos;
+  try { videos = await ytApi(ids.slice(0, 50)); }
+  catch (e) {
+    // sem cota na API: olha a página pública dos episódios cadastrados de hoje e dos vídeos mais novos do canal
+    if (!/HTTP 403/.test(e.message)) throw e;
+    const hoje = episodios.lista.filter(x => /^[\w-]{11}$/.test(x.id) && x.data && Math.abs(new Date(x.data) - Date.now()) < 12 * 3600e3).map(x => x.id);
+    for (const id of [...new Set([...hoje, ...ids.slice(0, 6)])]) {
+      const t = await (await fetch(`https://www.youtube.com/watch?v=${id}`, { headers: { "Accept-Language": "en-US", "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(8000) })).text();
+      const titulo = (t.match(/<meta name="title" content="([^"]*)"/) || [])[1] || "";
+      if (/"isLive":true/.test(t) && (cadastrados.has(id) || EPISODIO.test(titulo))) { ytLive = juntaLive(id, titulo); guardaLive(ytLive); console.log(`live achada pela página do vídeo: ${id}`); return; }
+    }
+    ytLive = null; return;
+  }
   const vivo = videos.find(v => v.snippet?.liveBroadcastContent === "live" && (cadastrados.has(v.id) || EPISODIO.test(v.snippet.title)));
-  ytLive = vivo?.id || null;
+  ytLive = vivo ? juntaLive(vivo.id, vivo.snippet.title) : null;
   guardaLive(ytLive);
   // live já agendada no YouTube (umas horas antes): troca o cadastro só da agenda pelo vídeo, pra ter capa e lembrete sem colar o link
   let mudou = false;
@@ -181,7 +201,7 @@ async function youtube() {
     const t = await (await fetch(`https://www.youtube.com/watch?v=${ytLive}`, { headers: { "Accept-Language": "en-US", "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(8000) })).text();
     if (!/"isLive":true/.test(t)) throw e;
     const n = +((t.match(/"originalViewCount":"(\d+)"/) || [])[1] || 0);
-    return { n, id: ytLive, title: records[ytLive]?.titulo || episodios.lista.find(x => x.id === ytLive)?.titulo || "", likes: null, inicio: records[ytLive]?.inicioLive || null };
+    return { n, id: ytJunta[ytLive] || ytLive, title: records[ytLive]?.titulo || episodios.lista.find(x => x.id === ytLive)?.titulo || "", likes: null, inicio: records[ytLive]?.inicioLive || null };
   }
   const ls = v?.liveStreamingDetails;
   if (!v || ls?.actualEndTime) {
@@ -190,7 +210,7 @@ async function youtube() {
     ytLive = null; guardaLive(null); return { n: 0 };
   }
   ytChat = ls?.activeLiveChatId || null;
-  return { n: +(ls?.concurrentViewers || 0), id: v.id, title: v.snippet.title, likes: +(v.statistics?.likeCount || 0) || null, inicio: ls?.actualStartTime };
+  return { n: +(ls?.concurrentViewers || 0), id: ytJunta[v.id] || v.id, title: v.snippet.title, likes: +(v.statistics?.likeCount || 0) || null, inicio: ls?.actualStartTime };
 }
 // chat do YouTube pela API oficial; a cada 20 s pra caber na cota diária junto com a contagem
 let ytChat = null, ytChatPagina = null;
