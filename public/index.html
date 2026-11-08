@@ -991,6 +991,8 @@ function mostraCena(t) {
 const tempos = [], brutos = [[], [], [], [], []], chatMin = [];
 const mediana = (arr, i) => { const j = arr.slice(Math.max(0, i - 3), i + 4).filter(v => v != null).sort((p, q) => p - q); return j.length ? j[j.length >> 1] : null; };
 function pontoNovo(hora, total, yt, tw, kk, tt, msgs) {
+// apaga os pontos desenhados (troca de episódio, ou a aba volta depois de um tempo escondida)
+const limpaPontos = () => { tempos.length = 0; brutos.forEach(b => b.length = 0); chatMin.length = 0; };
   tempos.push(new Date(hora).getTime());
   [total, yt, tw, kk, tt].forEach((v, i) => brutos[i].push(v));
   chatMin.push(msgs ?? null);
@@ -1274,8 +1276,9 @@ async function up() {
     pl.forEach((e, i) => e.classList.toggle("cheio", pl.length % 2 === 1 && i === pl.length - 1));
 
     // hist: [hora, twitch, kick, youtube, total]; encerrado não ganha pontos novos
-    if (carregou && carregou !== d.ver) { carregou = false; return up(); } // trocou de episódio: pede de novo com o histórico
-    if (!carregou) { carregou = d.ver; d.hist.forEach(h => pontoNovo(h[0], h[4], h[3], h[1], h[2], h[6], h[5])); redesenha(r.recorde); }
+    if (carregou && carregou !== d.ver) { carregou = false; limpaPontos(); return up(); } // trocou de episódio: pede de novo com o histórico
+    if (!carregou) { (window.requestIdleCallback || setTimeout)(() => { carregaUma("/rn-branco.png").catch(() => {}); carregaUma(`/capa/${d.ver}.jpg`).catch(() => {}); });
+      carregou = d.ver; d.hist.forEach(h => pontoNovo(h[0], h[4], h[3], h[1], h[2], h[6], h[5])); redesenha(r.recorde); }
     else if (vivo && a.hora !== ultHora) { pontoNovo(a.hora, a.total, a.youtube, a.twitch, a.kick, a.tiktok, a.extras?.msgsMin); redesenha(r.recorde); }
     ultHora = a.hora;
     if ($("eps").classList.contains("on")) listaEps();
@@ -1347,7 +1350,14 @@ setInterval(() => {
   const passo = ultimo?.aoVivo || futuroEp ? 5000 : 30000;
   if (Date.now() - ultimoPedido >= passo - 200) { ultimoPedido = Date.now(); up(); }
 }, 5000);
-document.addEventListener("visibilitychange", () => { if (!document.hidden && Date.now() - ultimoPedido > 5000) { ultimoPedido = Date.now(); up(); } });
+// com a aba escondida o navegador para os pedidos: na volta, se a live está no ar e passou mais de 15 s, pede o histórico inteiro de novo
+// (antes só entrava a leitura da volta e o gráfico ligava os dois pontos com uma reta)
+let escondeuEm = 0;
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { escondeuEm = Date.now(); return; }
+  if (ultimo?.aoVivo && carregou && Date.now() - escondeuEm > 15000) { carregou = false; limpaPontos(); }
+  if (Date.now() - ultimoPedido > 5000 || !carregou) { ultimoPedido = Date.now(); up(); }
+});
 
 // clique na capa: links das lives
 $("capa").onclick = e => { if (!e.target.closest("a")) $("capa").classList.toggle("aberta"); };
