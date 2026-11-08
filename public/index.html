@@ -646,6 +646,7 @@ button.ep-titulo:hover .seta{color:var(--tx)}
 @media (max-width:400px){body.encerrado .clockw{display:none}.top{gap:10px}}
 /* bem estreito: a contagem do próximo episódio sai do topo (ela continua no menu da página inicial) */
 @media (max-width:360px){.top .prox{display:none!important}}
+#prev.gerando{opacity:.35;filter:blur(2px);transition:opacity .2s,filter .2s}
 </style>
 </head>
 <body class="carregando">
@@ -1277,7 +1278,7 @@ async function up() {
 
     // hist: [hora, twitch, kick, youtube, total]; encerrado não ganha pontos novos
     if (carregou && carregou !== d.ver) { carregou = false; limpaPontos(); return up(); } // trocou de episódio: pede de novo com o histórico
-    if (!carregou) {
+    if (!carregou) { (window.requestIdleCallback || setTimeout)(() => { carregaUma("/rn-branco.png").catch(() => {}); carregaUma(`/capa/${d.ver}.jpg`).catch(() => {}); });
       carregou = d.ver; d.hist.forEach(h => pontoNovo(h[0], h[4], h[3], h[1], h[2], h[6], h[5]));
       // a leitura de agora entra no fim mesmo se o histórico do servidor terminou antes (assim a checagem de buraco abaixo não pede tudo de novo)
       if (vivo && a.hora && (!tempos.length || new Date(a.hora) - tempos.at(-1) > 10000)) pontoNovo(a.hora, a.total, a.youtube, a.twitch, a.kick, a.tiktok, a.extras?.msgsMin);
@@ -1447,6 +1448,16 @@ relogio(); setInterval(relogio, 1000);
 
 // ---------- compartilhar: PNG 1080x1350 (serve pro feed do Instagram e pro X) ----------
 const carrega = src => new Promise((ok, erro) => { const i = new Image(); i.onload = () => ok(i); i.onerror = erro; i.src = src; });
+// logo e capa da imagem de compartilhar: baixadas uma vez só e guardadas (o clique em Compartilhar não espera download)
+const imgsShare = new Map();
+const carregaUma = src => { if (!imgsShare.has(src)) imgsShare.set(src, carrega(src).catch(e => { imgsShare.delete(src); throw e; })); return imgsShare.get(src); };
+// imagem já gerada fica guardada enquanto os números não mudam (reabrir ou trocar de formato é na hora)
+const blobsShare = new Map();
+const chaveShare = () => { const r = ultimo?.records[ultimo.ver] || {}; return [formato, ultimo?.ver, r.recorde, r.media, r.fimLive || r.ultimaLeitura, r.nome].join("|"); };
+async function imagemShare() {
+  const k = chaveShare(); if (blobsShare.has(k)) return blobsShare.get(k);
+  const b = await gerarImagem(); if (blobsShare.size > 6) blobsShare.clear(); blobsShare.set(k, b); return b;
+}
 const arred = (c, x, y, w, h, r) => { c.beginPath(); c.roundRect(x, y, w, h, r); };
 let formato = "h";
 async function gerarImagem() {
@@ -1473,7 +1484,7 @@ async function gerarImagem() {
     let b = p.join(" "); while (b && mede(b, fz) > largura) b = b.replace(/\s*\S+$/, "") , b = b && b + "…";
     return { fz, l: [a, b].filter(Boolean) };
   };
-  const [rn, capa] = await Promise.all([carrega("/rn-branco.png").catch(() => null), carrega(`/capa/${d.ver}.jpg`).catch(() => null)]);
+  const [rn, capa] = await Promise.all([carregaUma("/rn-branco.png").catch(() => null), carregaUma(`/capa/${d.ver}.jpg`).catch(() => null)]);
   // a logo tem margem transparente: parte visível em 2–92% da largura e 20–83% da altura
   const logo = (x, y, alt) => { if (!rn) return 0; const t = alt / .63; c.drawImage(rn, x - t * .02, y - t * .2, t, t); return t * .9; };
   const temporada = $("epNome").textContent.trim();
@@ -1486,8 +1497,6 @@ async function gerarImagem() {
   const capaEm = (x, y, w) => { const h = w * 9 / 16; c.save(); arred(c, x, y, w, h, 22); c.clip(); c.fillStyle = "#242424"; c.fillRect(x, y, w, h); if (capa) c.drawImage(capa, x, y, w, h); c.restore(); return h; };
   const barra = (x, y, w, h) => { c.save(); arred(c, x, y, w, h, h / 2); c.clip(); c.fillStyle = "#242424"; c.fillRect(x, y, w, h); let bx = x; for (const [, v, cor] of pk) { const bw = (v || 0) / tot * w; c.fillStyle = cor; c.fillRect(bx, y, bw, h); bx += bw; } c.restore(); };
   const plataforma = (x, y, n, v, cor, tam) => { c.fillStyle = cor; c.beginPath(); c.arc(x + 7, y - tam - 10, 7, 0, 7); c.fill(); txt(n, x + 22, y - tam - 2, "500 24px Inter", "#8a8a8a"); txt(v ? f(v) : "-", x, y, `700 ${tam}px "Inter Tight", Inter`, "#ededed", -1); };
-  // o endereço do site fica pequeno e apagado no canto de baixo
-  const site = () => txt("ordemtracker.site", W - P, H - P * .55, "500 17px Inter", "#5c5c5c", 1, "right");
 
   if (!V) {
     // ---------- horizontal (igual ao post do X): capa recortada à esquerda; à direita recorde, plataformas, média e duração, logo no canto ----------
@@ -1531,8 +1540,9 @@ async function gerarImagem() {
     y += 76;
     c.fillStyle = "#2a2a2a"; c.fillRect(P, y - 20, CW, 2);
     [["Média", f(r.media)], ["Duração", dur]].forEach(([n, v], k) => { txt(n, P + col * 2 * k, y + 22, "500 24px Inter", "#8a8a8a"); txt(v, P + col * 2 * k, y + 70, `700 44px "Inter Tight", Inter`, "#ededed", -1); });
+    // o site fica logo abaixo da média e da duração, à direita (sem deixar um vão grande no pé)
+    txt("ordemtracker.site", W - P, Math.min(H - P * .55, y + 150), "500 17px Inter", "#5c5c5c", 1, "right");
   }
-  if (V) site();
   return new Promise(ok => cv.toBlob(ok, "image/png"));
 }
 
@@ -1541,11 +1551,11 @@ const nomeArq = () => "recorde-" + (ultimo?.ver || "live") + (formato === "v" ? 
 async function abrirShare() {
   const d = ultimo; if (!d) return;
   const r = d.records[d.ver];
-  $("shareBtn").lastChild.textContent = "Gerando…";
-  try { blobAtual = await gerarImagem(); }
-  catch (e) { $("shareBtn").lastChild.textContent = "Compartilhar"; alert("Não deu pra gerar a imagem: " + e.message); return; }
-  $("shareBtn").lastChild.textContent = "Compartilhar";
-  $("prev").src = URL.createObjectURL(blobAtual);
+  // a janela abre na hora; a prévia aparece assim que a imagem fica pronta
+  $("modal").classList.add("on"); $("prev").classList.add("gerando");
+  try { blobAtual = await imagemShare(); }
+  catch (e) { $("modal").classList.remove("on"); $("prev").classList.remove("gerando"); alert("Não deu pra gerar a imagem: " + e.message); return; }
+  $("prev").src = URL.createObjectURL(blobAtual); $("prev").classList.remove("gerando");
   // mesmo nome que aparece na página: "A Vigília Episódio 1"
   const titulo = [$("epNome").textContent, $("epNum").textContent].filter(Boolean).join(" - ");
   const plats = [["YouTube", r.youtube], ["Twitch", r.twitch], ["Kick", r.kick], ["TikTok", r.tiktok]].filter(p => p[1]).map(([n, v]) => `${n}: ${f(v)}`).join("\n");
@@ -1554,13 +1564,13 @@ async function abrirShare() {
   $("shareTxt").textContent = texto;
   $("sX").href = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(texto + "\n\n#OrdemParanormal") + "&url=" + encodeURIComponent(link);
   $("sDica").textContent = "";
-  $("modal").classList.add("on");
 }
 function baixar() { const l = document.createElement("a"); l.href = URL.createObjectURL(blobAtual); l.download = nomeArq(); l.click(); }
 $("shareBtn").onclick = abrirShare;
 for (const [id, fm] of [["fH", "h"], ["fV", "v"]]) $(id).onclick = async () => {
   formato = fm; $("fH").classList.toggle("on", fm === "h"); $("fV").classList.toggle("on", fm === "v");
-  blobAtual = await gerarImagem(); $("prev").src = URL.createObjectURL(blobAtual);
+  $("prev").classList.add("gerando");
+  blobAtual = await imagemShare(); $("prev").src = URL.createObjectURL(blobAtual); $("prev").classList.remove("gerando");
 };
 
 // ---------- lista de episódios ----------
