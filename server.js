@@ -169,7 +169,15 @@ async function procuraLive() {
   }
   if (mudou) salvaEps();
 }
+// a contagem do YouTube muda devagar: pergunta à API no máximo a cada 30 s e repete o último número entre uma e outra (economiza cota)
+let ytUltimo = null;
 async function youtube() {
+  if (ytUltimo && ytLive && ytUltimo.id === ytLive && Date.now() - ytUltimo.t < 30_000) return ytUltimo.r;
+  const r = await youtubeLer();
+  if (r?.id) ytUltimo = { id: r.id, t: Date.now(), r }; else ytUltimo = null;
+  return r;
+}
+async function youtubeLer() {
   if (!env.YOUTUBE_API_KEY) return null;
   if (!ytLive && Date.now() - ytUltimaBusca > 120_000) { ytUltimaBusca = Date.now(); await procuraLive(); }
   if (!ytLive) return { n: 0 };
@@ -199,7 +207,7 @@ async function chatYoutube() {
   const u = `https://www.googleapis.com/youtube/v3/liveChat/messages?liveChatId=${ytChat}&part=snippet${LAB ? ",authorDetails" : ""}&maxResults=2000${ytChatPagina ? "&pageToken=" + ytChatPagina : ""}&key=${env.YOUTUBE_API_KEY}`;
   const r = await fetch(u);
   if (!r.ok) { marca("Chat do YouTube", false, "HTTP " + r.status); if (r.status === 403 || r.status === 404) ytChat = null; return; }
-  marca("Chat do YouTube", true, "lendo a cada 20 s");
+  marca("Chat do YouTube", true, "lendo a cada 60 s");
   const j = await r.json();
   const primeira = !ytChatPagina;
   ytChatPagina = j.nextPageToken;
@@ -209,7 +217,8 @@ async function chatYoutube() {
     LAB?.youtube(epAtual, m);
   }
 }
-setInterval(() => safe(chatYoutube), 20_000);
+// chat do YouTube a cada 60 s: cada pedido traz até 2000 mensagens, então não perde nada e gasta 3 vezes menos cota
+setInterval(() => safe(chatYoutube), 60_000);
 
 // TikTok não tem API oficial de espectadores ao vivo: lê o mesmo endereço público que a página da live usa
 async function tiktok() {
