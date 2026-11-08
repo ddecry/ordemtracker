@@ -109,7 +109,6 @@ body.encerrado .clockw .dot{display:none}
 .linha-t button:hover{color:var(--tx)}
 .linha-t button{display:inline-flex;align-items:center;gap:.4em}
 .linha-t button[hidden]{display:none}
-.linha-t #linhaV .fora{color:var(--red);font-weight:700;margin-right:.5em;padding:.1em .5em;border:1px solid currentColor;border-radius:99px;font-size:.9em}
 /* espaço fixo pro momento: trocar ou esconder o cartão não mexe no gráfico embaixo do mouse */
 .cena-slot{position:relative;height:max(calc(clamp(128px,13vw,210px) * .5625), 7.6em);margin:1vh 0 .4vh}
 .cena-slot[hidden]{display:none}
@@ -1080,8 +1079,7 @@ $("linhaR").oninput = e => {
     const [total, youtube, twitch, kick, tiktok] = brutos.map(arr => mediana(arr, i));
     mostra({ total, youtube, twitch, kick, tiktok }, true);
     $("linhaH").textContent = hm(tempos[i]); $("linhaV").hidden = !ultimo?.aoVivo;
-    // ao vivo e olhando outro horário: aviso pequeno de que os números não estão mais contando, com o botão pra voltar
-    $("linhaV").innerHTML = ultimo?.aoVivo ? "<span class=\"fora\">Fora do ao vivo</span><span class=\"vivo\"></span>Voltar ao vivo" : "";
+    $("linhaV").innerHTML = ultimo?.aoVivo ? "<span class=\"vivo\"></span>Ao vivo" : "";
     // só redesenha a linha vertical, sem recalcular o gráfico
     ch.options.marca = tempos[i]; ch.draw();
     mostraCena(tempos[i]);
