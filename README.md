@@ -18,11 +18,19 @@ Acompanhe em tempo real a audiência das lives de **Ordem Paranormal**, somando 
 ## Estrutura do projeto
 
 ```
-server.js            servidor: coleta dos dados, API, painel e arquivos estáticos
+server.js            servidor: episódios, recordes, API, painel e arquivos estáticos
+src/
+  config.js          variáveis do .env, canais e pastas
+  plataformas.js     leitura da Twitch, da Kick e do TikTok
+  uso.js             pedidos de cada serviço e cota do YouTube
+  acessos.js         contagem anônima de quem usa o site
+  emotes.js          imagens dos emotes do chat
+  lab.js             dados em teste, só no computador
 public/              páginas e imagens servidas ao navegador
   index.html         página principal
   admin.html         painel de administração
   privacidade.html   política de privacidade
+  temporada.html     painel da temporada
   icones/            logos das plataformas
   temporadas/        artes de prévia de cada temporada
 dados/               criada durante o uso e ignorada pelo Git

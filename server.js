@@ -6,64 +6,11 @@ const path = require("path");
 const crypto = require("crypto");
 const zlib = require("zlib");
 
-try { process.loadEnvFile(path.join(__dirname, ".env")); } catch {}
-const env = process.env;
+require("./src/uso"); // conta os pedidos de cada serviço e a cota do YouTube
+const { RAIZ, env, TWITCH, KICK, YT_CANAL, TIKTOK, EPISODIO, temporadaDoTitulo, ADMIN, SENHA_CFG, SENHA_LOCAL, PORTA, INTERVALO, DADOS, PUBLICO, DB, EPS, HIST, CHATTERS, RESUMOS } = require("./src/config");
+const { token, twitchH, twitchId, twitch, twitchRapido, kickH, kick, tiktok } = require("./src/plataformas");
+const uso = require("./src/uso");
 
-const TWITCH = env.TWITCH_CANAL || "cellbit";
-const KICK = env.KICK_CANAL || "cellbit";
-const YT_CANAL = env.YOUTUBE_CANAL_ID || "UCMRaVyexv18FrJu3NiYsbgQ"; // @OrdemParanormal
-const TIKTOK = env.TIKTOK_CANAL ?? "ordemparanormal"; // vazio = desliga
-// lives que entram sozinhas, sem cadastro: episódios ("A VIGÍLIA - EPISÓDIO 2 | Ordem Paranormal RPG") e o quadro Transcendendo
-const EPISODIO = new RegExp(env.FILTRO_EPISODIO || "(EPIS[ÓO]DIO\\s*\\d+|Transcendendo).*Ordem Paranormal", "i");
-// temporada pelo título quando a live entrou sozinha, sem cadastro no painel
-const temporadaDoTitulo = t => /transcendendo/i.test(t || "") ? "Transcendendo" : null;
-// endereço secreto do painel, definido no .env (sem ele o painel fica desligado)
-// endereço do painel, ex.: /menu/admin (letras, números, - e /)
-const ADMIN = /^(\/[\w-]+)+$/.test(env.ADMIN_CAMINHO || "") && env.ADMIN_CAMINHO.length >= 6 ? env.ADMIN_CAMINHO : null;
-// senha do painel: de preferência só o hash (ADMIN_SENHA_HASH=scrypt$sal$hash), assim nem o servidor guarda a senha
-const SENHA_CFG = env.ADMIN_SENHA_HASH || env.ADMIN_SENHA || "";
-// senha simples só para testar no computador (ADMIN_SENHA_LOCAL no .env); no site publicado ela é ignorada
-const SENHA_LOCAL = env.NODE_ENV !== "production" && env.ADMIN_SENHA_LOCAL || null;
-const PORTA = +env.PORT || 3030;
-const INTERVALO = 10_000;
-const DADOS = env.DATA_DIR || path.join(__dirname, "dados");
-const PUBLICO = path.join(__dirname, "public");
-const DB = path.join(DADOS, "records.json");
-const EPS = path.join(DADOS, "episodios.json");
-const HIST = path.join(DADOS, "historico.csv");
-const CHATTERS = path.join(DADOS, "chatters");
-const RESUMOS = path.join(DADOS, "resumos");
-fs.mkdirSync(CHATTERS, { recursive: true });
-fs.mkdirSync(RESUMOS, { recursive: true });
-
-// ---------- tokens de app (client credentials), renovados sozinhos ----------
-const tokens = {};
-async function token(nome, url, id, segredo) {
-  const t = tokens[nome];
-  if (t && t.expira > Date.now() + 60_000) return t.valor;
-  const r = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ client_id: id, client_secret: segredo, grant_type: "client_credentials" }),
-  });
-  if (!r.ok) throw new Error(`${nome}: token HTTP ${r.status}`);
-  const j = await r.json();
-  tokens[nome] = { valor: j.access_token, expira: Date.now() + (j.expires_in || 3600) * 1000 };
-  return j.access_token;
-}
-
-// Twitch Helix (API oficial): https://dev.twitch.tv/docs/api/reference/#get-streams
-async function twitch() {
-  if (!env.TWITCH_CLIENT_ID) return null;
-  const tk = await token("twitch", "https://id.twitch.tv/oauth2/token", env.TWITCH_CLIENT_ID, env.TWITCH_CLIENT_SECRET);
-  const h = { "Client-Id": env.TWITCH_CLIENT_ID, Authorization: "Bearer " + tk };
-  const s = (await (await fetch(`https://api.twitch.tv/helix/streams?user_login=${TWITCH}`, { headers: h })).json())?.data?.[0];
-  if (!twitchId) twitchId = (await (await fetch(`https://api.twitch.tv/helix/users?login=${TWITCH}`, { headers: h })).json())?.data?.[0]?.id;
-  // com token de app a Twitch devolve só o total de seguidores, que é o que usamos
-  const seg = twitchId ? (await (await fetch(`https://api.twitch.tv/helix/channels/followers?broadcaster_id=${twitchId}&first=1`, { headers: h })).json())?.total : null;
-  return { n: s?.viewer_count ?? 0, title: s?.title, seguidores: seg, jogo: s?.game_name, jogoId: s?.game_id, inicio: s?.started_at, h };
-}
-let twitchId = null;
 
 // clipes da Twitch criados durante o episódio (do começo da live até 1 h depois do fim), mais vistos primeiro
 // https://dev.twitch.tv/docs/api/reference/#get-clips — guarda 5 min pra não pedir de novo a cada visita
@@ -75,13 +22,12 @@ async function clipes(id) {
   const c = clipesCache.get(id);
   // episódio encerrado quase não ganha clipe novo: guarda 12 h; ao vivo, 5 min
   if (c && Date.now() - c.q < (r.fimLive && id !== atual.episodio ? 12 * 3600e3 : 300_000)) return c.lista;
-  const tk = await token("twitch", "https://id.twitch.tv/oauth2/token", env.TWITCH_CLIENT_ID, env.TWITCH_CLIENT_SECRET);
-  const h = { "Client-Id": env.TWITCH_CLIENT_ID, Authorization: "Bearer " + tk };
-  if (!twitchId) twitchId = (await (await fetch(`https://api.twitch.tv/helix/users?login=${TWITCH}`, { headers: h })).json())?.data?.[0]?.id;
-  if (!twitchId) return [];
+  const h = await twitchH();
+  const twId = await twitchId(h);
+  if (!twId) return [];
   const ini = new Date(new Date(r.inicioLive || r.inicio).getTime() - 10 * 60e3).toISOString();
   const fim = new Date(r.fimLive ? new Date(r.fimLive).getTime() + 3600e3 : Date.now()).toISOString();
-  const j = await (await fetch(`https://api.twitch.tv/helix/clips?broadcaster_id=${twitchId}&started_at=${ini}&ended_at=${fim}&first=50`, { headers: h })).json();
+  const j = await (await fetch(`https://api.twitch.tv/helix/clips?broadcaster_id=${twId}&started_at=${ini}&ended_at=${fim}&first=50`, { headers: h })).json();
   const lista = (j.data || []).sort((a, b) => b.view_count - a.view_count).map(x => ({
     id: x.id, titulo: x.title, views: x.view_count, criador: x.creator_name, duracao: Math.round(x.duration), capa: x.thumbnail_url, quando: x.created_at,
   }));
@@ -96,15 +42,14 @@ async function achaVods() {
   if (!env.TWITCH_CLIENT_ID) return;
   const falta = Object.entries(records).filter(([id, r]) => !r.vods?.length && r.fimLive && id !== atual.episodio);
   if (!falta.length) return;
-  const tk = await token("twitch", "https://id.twitch.tv/oauth2/token", env.TWITCH_CLIENT_ID, env.TWITCH_CLIENT_SECRET);
-  const h = { "Client-Id": env.TWITCH_CLIENT_ID, Authorization: "Bearer " + tk };
-  if (!twitchId) twitchId = (await (await fetch(`https://api.twitch.tv/helix/users?login=${TWITCH}`, { headers: h })).json())?.data?.[0]?.id;
-  if (!twitchId) return;
+  const h = await twitchH();
+  const twId = await twitchId(h);
+  if (!twId) return;
   // vai voltando nas páginas até passar do episódio mais antigo que falta (no máximo 10 páginas)
   const maisAntigo = Math.min(...falta.map(([, r]) => new Date(r.inicioLive || r.inicio).getTime())) - 3600e3;
   const vids = []; let cur = "";
   for (let p = 0; p < 10; p++) {
-    const j = await (await fetch(`https://api.twitch.tv/helix/videos?user_id=${twitchId}&type=archive&first=100${cur ? "&after=" + cur : ""}`, { headers: h })).json();
+    const j = await (await fetch(`https://api.twitch.tv/helix/videos?user_id=${twId}&type=archive&first=100${cur ? "&after=" + cur : ""}`, { headers: h })).json();
     vids.push(...(j?.data || [])); cur = j?.pagination?.cursor;
     if (!cur || !j.data?.length || new Date(j.data.at(-1).created_at).getTime() < maisAntigo) break;
   }
@@ -119,20 +64,6 @@ async function achaVods() {
 setTimeout(() => achaVods().catch(() => {}), 15_000);
 setInterval(() => achaVods().catch(() => {}), 3600e3);
 
-// Kick Public API (oficial): https://docs.kick.com
-async function kick() {
-  if (!env.KICK_CLIENT_ID) return null;
-  const tk = await token("kick", "https://id.kick.com/oauth/token", env.KICK_CLIENT_ID, env.KICK_CLIENT_SECRET);
-  // a API da Kick às vezes derruba a conexão: tenta de novo até 3 vezes antes de dar erro
-  let r;
-  for (let i = 0; ; i++) {
-    try { r = await fetch(`https://api.kick.com/public/v1/channels?slug=${KICK}`, { headers: { Authorization: "Bearer " + tk, Accept: "application/json" }, signal: AbortSignal.timeout(6000) }); break; }
-    catch (e) { if (i >= 2) throw e; await new Promise(ok => setTimeout(ok, 800)); }
-  }
-  if (!r.ok) throw new Error(`kick HTTP ${r.status}`);
-  const s = (await r.json())?.data?.[0]?.stream;
-  return { n: s?.is_live ? s.viewer_count ?? 0 : 0, inicio: s?.is_live ? s.start_time : null };
-}
 
 // YouTube Data API v3 (oficial). Cota: videos.list custa 1 unidade; search.list (100) não é usado.
 // A live é achada pelo feed RSS público do canal + episódios cadastrados no /admin.
@@ -232,14 +163,6 @@ async function chatYoutube() {
 // chat do YouTube a cada 60 s: cada pedido traz até 2000 mensagens, então não perde nada e gasta 3 vezes menos cota
 setInterval(() => safe(chatYoutube), 60_000);
 
-// TikTok não tem API oficial de espectadores ao vivo: lê o mesmo endereço público que a página da live usa
-async function tiktok() {
-  if (!TIKTOK) return null;
-  const r = await fetch(`https://www.tiktok.com/api-live/user/room/?aid=1988&uniqueId=${TIKTOK}&sourceType=54`, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130 Safari/537.36" } });
-  const d = (await r.json())?.data;
-  const vivo = d?.liveRoom?.status === 2;
-  return { n: vivo ? d.liveRoom.liveRoomStats?.userCount ?? 0 : 0, seguidores: d?.stats?.followerCount, entradas: vivo ? d.liveRoom.liveRoomStats?.enterCount : null };
-}
 
 const safe = fn => fn().catch(e => { console.warn(e.message); return null; });
 // ---------- status de cada parte, para a aba Status do painel ----------
@@ -329,7 +252,7 @@ async function webhookKick(req, res) {
 async function assinaChatKick() {
   if (!env.KICK_CLIENT_ID) return;
   try {
-    const tk = await token("kick", "https://id.kick.com/oauth/token", env.KICK_CLIENT_ID, env.KICK_CLIENT_SECRET), H = { Authorization: "Bearer " + tk, "Content-Type": "application/json", Accept: "application/json" };
+    const H = { ...await kickH(), "Content-Type": "application/json" };
     const canal = (await (await fetch(`https://api.kick.com/public/v1/channels?slug=${KICK}`, { headers: H })).json())?.data?.[0];
     const r = await fetch("https://api.kick.com/public/v1/events/subscriptions", { method: "POST", headers: H,
       body: JSON.stringify({ broadcaster_user_id: canal?.broadcaster_user_id, events: [{ name: "chat.message.sent", version: 1 }], method: "webhook" }) });
@@ -344,7 +267,7 @@ setTimeout(assinaChatKick, 8000);
 let records = {};
 try { records = JSON.parse(fs.readFileSync(DB, "utf8")); } catch {}
 // laboratório (lab.js): dados extras em teste, só no computador; no site publicado fica desligado
-const LAB = env.NODE_ENV !== "production" && fs.existsSync(path.join(__dirname, "lab.js")) ? require("./lab")({ DADOS, HIST, records }) : null;
+const LAB = env.NODE_ENV !== "production" && fs.existsSync(path.join(__dirname, "src", "lab.js")) ? require("./src/lab")({ DADOS, HIST, records }) : null;
 let labRanking = 0;
 let episodios = { lista: [] };
 try { episodios = JSON.parse(fs.readFileSync(EPS, "utf8")); } catch {}
@@ -418,9 +341,8 @@ async function leituraRapida() {
   rapidoRodando = true;
   try {
     if (env.TWITCH_CLIENT_ID) {
-      const tk = await token("twitch", "https://id.twitch.tv/oauth2/token", env.TWITCH_CLIENT_ID, env.TWITCH_CLIENT_SECRET);
-      const s = (await (await fetch(`https://api.twitch.tv/helix/streams?user_login=${TWITCH}`, { headers: { "Client-Id": env.TWITCH_CLIENT_ID, Authorization: "Bearer " + tk }, signal: AbortSignal.timeout(4000) })).json())?.data?.[0];
-      if (s) rapido.twitch = { n: s.viewer_count, t: Date.now() };
+      const n = await twitchRapido();
+      if (n != null) rapido.twitch = { n, t: Date.now() };
     }
   } catch {}
   try { const k = await kick(); if (k?.n) rapido.kick = { n: k.n, t: Date.now() }; } catch {}
@@ -552,82 +474,8 @@ const proximos = () => episodios.lista
   .sort((a, b) => a.data.localeCompare(b.data))
   .map(({ id, titulo, temporada, data }) => ({ id, titulo, temporada, data, slug: slugEp(id, titulo, temporada) }));
 
-// ---------- acessos (anônimo: sem cookie; IP + navegador viram um código que muda todo dia) ----------
-const ACESSOS = path.join(DADOS, "acessos.json");
-let ac = { dia: "", sal: "", unicos: [], views: 0, pico: 0, celular: 0, computador: 0, origens: {}, eps: {}, serie: [], historico: [],
-  navegadores: {}, sistemas: {}, horas: Array(24).fill(0), paginas: {}, tempos: {}, visitas: {} };
-try { ac = { ...ac, ...JSON.parse(fs.readFileSync(ACESSOS, "utf8")) }; } catch {}
-const online = new Map(); // código -> último acesso
-const unicosHoje = new Set(ac.unicos);
-const unicosEp = {}; for (const [id, e] of Object.entries(ac.eps)) unicosEp[id] = new Set(e.codigos || []);
-const hojeSP = () => new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
-function viraDia() {
-  const d = hojeSP();
-  if (ac.dia === d) return;
-  if (ac.dia) ac.historico = [...ac.historico, { dia: ac.dia, unicos: unicosHoje.size, views: ac.views, pico: ac.pico }].slice(-60);
-  Object.assign(ac, { dia: d, sal: crypto.randomBytes(16).toString("hex"), views: 0, pico: 0, celular: 0, computador: 0, origens: {}, serie: [],
-    navegadores: {}, sistemas: {}, horas: Array(24).fill(0), paginas: {}, tempos: {}, visitas: {} });
-  unicosHoje.clear();
-}
-function registraAcesso(req, url) {
-  viraDia();
-  const ip = req.headers["x-forwarded-for"]?.split(",")[0].trim() || req.socket.remoteAddress || "";
-  const ua = req.headers["user-agent"] || "";
-  if (/bot|crawl|spider|preview|curl|wget/i.test(ua)) return;
-  const cod = crypto.createHash("sha256").update(ac.sal + ip + ua).digest("hex").slice(0, 16);
-  online.set(cod, Date.now());
-  // pico registrado na hora (antes só a cada minuto, e um pico curto podia passar despercebido)
-  const agoraOn = online.size;
-  if (agoraOn > ac.pico) ac.pico = onlineAgora();
-  if (atual.episodio && atual.total > 0 && agoraOn > (ac.eps[atual.episodio]?.pico || 0)) (ac.eps[atual.episodio] ||= { pico: 0 }).pico = onlineAgora();
-  // primeiro e último acesso do dia, pra saber quanto tempo a pessoa ficou
-  const agora = Date.now(), t = ac.tempos[cod] ||= [agora, agora]; t[1] = agora;
-  if (!unicosHoje.has(cod)) {
-    unicosHoje.add(cod); /Mobi|Android|iPhone/i.test(ua) ? ac.celular++ : ac.computador++;
-    const nav = /Edg\//.test(ua) ? "Edge" : /OPR\/|Opera/.test(ua) ? "Opera" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "Outro";
-    const sis = /Android/.test(ua) ? "Android" : /iPhone|iPad/.test(ua) ? "iOS" : /Windows/.test(ua) ? "Windows" : /Mac OS/.test(ua) ? "macOS" : /Linux/.test(ua) ? "Linux" : "Outro";
-    ac.navegadores[nav] = (ac.navegadores[nav] || 0) + 1; ac.sistemas[sis] = (ac.sistemas[sis] || 0) + 1;
-    ac.horas[+new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false }) % 24]++;
-  }
-  if (url.searchParams.get("nova") === "1") {
-    ac.views++;
-    ac.visitas[cod] = (ac.visitas[cod] || 0) + 1;
-    const pg = url.searchParams.get("ep") ? "Episódio " + String(url.searchParams.get("ep")).slice(0, 40) : "Início";
-    ac.paginas[pg] = (ac.paginas[pg] || 0) + 1;
-    const o = (url.searchParams.get("de") || "").replace(/^www\./, "").slice(0, 60) || "direto";
-    ac.origens[o] = (ac.origens[o] || 0) + 1;
-  }
-  if (atual.episodio && atual.total > 0) (unicosEp[atual.episodio] ||= new Set()).add(cod);
-}
-const onlineAgora = () => { const lim = Date.now() - 75_000; let n = 0; for (const [k, t] of online) t > lim ? n++ : online.delete(k); return n; };
-// a cada minuto: guarda quantos estavam online e salva no disco
-setInterval(() => {
-  viraDia();
-  const n = onlineAgora();
-  ac.pico = Math.max(ac.pico, n);
-  ac.serie = [...ac.serie, [Date.now(), n]].slice(-1440);
-  if (atual.episodio && atual.total > 0) { const e = ac.eps[atual.episodio] ||= { pico: 0 }; e.pico = Math.max(e.pico, n); }
-  ac.unicos = [...unicosHoje];
-  for (const [id, s] of Object.entries(unicosEp)) { ac.eps[id] ||= { pico: 0 }; ac.eps[id].codigos = [...s]; ac.eps[id].unicos = s.size; }
-  fs.writeFileSync(ACESSOS, JSON.stringify(ac));
-}, 60_000);
-const relatorio = () => ({
-  online: onlineAgora(), pico: Math.max(ac.pico, onlineAgora()), unicos: unicosHoje.size, views: ac.views, celular: ac.celular, computador: ac.computador,
-  origens: Object.entries(ac.origens).sort((a, b) => b[1] - a[1]).slice(0, 8), serie: ac.serie.slice(-360),
-  eps: Object.fromEntries(Object.entries(ac.eps).map(([id, e]) => [id, { titulo: records[id]?.titulo || id, unicos: unicosEp[id]?.size || e.unicos || 0, pico: e.pico || 0 }])),
-  historico: ac.historico.slice(-60), aoVivo: !!(atual.episodio && atual.total > 0),
-  navegadores: Object.entries(ac.navegadores).sort((a, b) => b[1] - a[1]), sistemas: Object.entries(ac.sistemas).sort((a, b) => b[1] - a[1]),
-  paginas: Object.entries(ac.paginas).sort((a, b) => b[1] - a[1]).slice(0, 8), horas: ac.horas, ...permanencia(),
-});
-// tempo no site: do primeiro ao último sinal do dia (a página avisa a cada 5 s enquanto está aberta)
-function permanencia() {
-  const dur = Object.values(ac.tempos).map(([a, b]) => b - a);
-  const ficaram = dur.filter(d => d > 0), voltaram = Object.values(ac.visitas).filter(v => v > 1).length;
-  return {
-    tempoMedio: ficaram.length ? ficaram.reduce((t, d) => t + d, 0) / ficaram.length : 0,
-    mais10: dur.filter(d => d >= 10 * 60e3).length, rapidos: dur.filter(d => d < 30e3).length, voltaram,
-  };
-}
+// ---------- acessos ----------
+const acessos = require("./src/acessos")({ atual: () => atual, titulo: id => records[id]?.titulo });
 
 // ---------- feedbacks e bugs enviados pelo site ----------
 const FEEDBACKS = path.join(DADOS, "feedbacks.json");
@@ -687,13 +535,13 @@ async function admin(req, res) {
       const e = episodios.lista.find(x => x.id === id) || {}, r = records[id];
       return { id, titulo: e.titulo || "", tituloYT: r?.titulo || "", video: e.video || "", nome: e.nome || "", teste: e.oculto && e.teste ? "/ep/" + id + "?teste=" + e.teste : "", temporada: e.temporada || "", data: e.data || r?.inicioLive || "", oculto: !!e.oculto, recorde: r?.recorde ?? null };
     }).sort((a, b) => (b.data || "").localeCompare(a.data || ""));
-    if (url.searchParams.get("acessos")) return json(res, 200, relatorio());
+    if (url.searchParams.get("acessos")) return json(res, 200, acessos.relatorio());
     // correções vêm com o texto atual do momento, pra comparar
     if (url.searchParams.get("status")) return json(res, 200, status());
     if (url.searchParams.get("feedbacks")) return json(res, 200, feedbacks.map(f => f.tipo === "correcao" ? { ...f, atual: leMomentos(f.ep).find(m => m.quando === f.momento) || null } : f));
     const mid = url.searchParams.get("momentos");
     // rascunhos com a reação real do chat (agito e o que mais gente mandou) e as imagens dos emotes, pra conferir o resumo da IA
-    if (mid && records[mid]) { const reac = reacoesChat(mid); return json(res, 200, { lista: leMomentos(mid).map(m => ({ ...m, reac: reac?.(m.quando) || null })), emotes: await emotesCanal() }); }
+    if (mid && records[mid]) { const reac = reacoesChat(mid); return json(res, 200, { lista: leMomentos(mid).map(m => ({ ...m, reac: reac?.(m.quando) || null })), emotes: await emotes.emotesCanal() }); }
     if (url.searchParams.get("pendentes")) return json(res, 200, { pendentes: Object.keys(records).reduce((t, id) => t + leMomentos(id).filter(m => !m.aprovado).length, 0) });
     // trecho de áudio do momento (só no painel)
     const au = url.searchParams.get("audio")?.match(/^([\w-]+)\/([\w-]+\.ogg)$/);
@@ -904,25 +752,10 @@ function corrige(texto) {
 }
 const salvaMomentos = (id, lista) => { momCache?.delete(id); fs.mkdirSync(path.join(MOMENTOS, id), { recursive: true }); fs.writeFileSync(path.join(MOMENTOS, id, "momentos.json"), JSON.stringify(lista, null, 2)); };
 // cada item da reação do chat leva a imagem oficial do emote, quando é um emote do canal (a lista se atualiza sozinha, 1 vez por dia)
-const comImagens = r => { if (!r) return null; emotesCanal(); const mapa = emotesCache.mapa;
-  for (const x of r.top) if (!mapa[x.p]) buscaEmote(x.p);
+const comImagens = r => { if (!r) return null; emotes.emotesCanal(); const mapa = emotes.mapa();
+  for (const x of r.top) if (!mapa[x.p]) emotes.buscaEmote(x.p);
   return { ...r, top: r.top.map(x => mapa[x.p] ? { ...x, img: mapa[x.p] } : x) }; };
-// emote pessoal do 7TV (quem assina o 7TV usa os próprios emotes em qualquer canal): busca pelo nome exato, uma vez por nome
-// no máximo 30 buscas por hora; o resultado (achou ou não) fica guardado
-const emotesBusca = {}; let buscas = { q: 0, n: 0 };
-function buscaEmote(nome) {
-  if (nome in emotesBusca || !/[a-z][A-Z]|[A-Z][a-z]/.test(nome) || nome.length > 25) return;
-  if (Date.now() - buscas.q > 3600e3) buscas = { q: Date.now(), n: 0 };
-  if (buscas.n >= 30) return;
-  buscas.n++; emotesBusca[nome] = null;
-  fetch("https://7tv.io/v3/gql", { method: "POST", headers: { "Content-Type": "application/json" }, signal: AbortSignal.timeout(8000),
-    body: JSON.stringify({ query: "query($q:String!){emotes(query:$q,limit:5,filter:{exact_match:true,case_sensitive:true}){items{id name}}}", variables: { q: nome } }) })
-    .then(r => r.json()).then(j => {
-      const e = j?.data?.emotes?.items?.find(x => x.name === nome); if (!e) return;
-      emotesBusca[nome] = emotesCache.mapa[nome] = `https://cdn.7tv.app/emote/${e.id}/2x.webp`;
-      momCache.clear();
-    }).catch(() => { delete emotesBusca[nome]; });
-}
+const emotes = require("./src/emotes")(() => momCache.clear());
 // momentos com a reação do chat: contar o chat de cada momento pesa; refaz no máximo a cada 30 s por episódio
 const momCache = new Map(); // id -> { q, lista }
 const momentosPublicos = id => { const c = momCache.get(id); if (c && Date.now() - c.q < 30_000) return c.lista;
@@ -930,43 +763,6 @@ const momentosPublicos = id => { const c = momCache.get(id); if (c && Date.now()
   .map(m => ({ quando: m.quando, titulo: m.titulo, contexto: m.contexto, tipo: m.tipo, captura: m.captura ? `/momento/${id}/${m.captura}` : null, chat: comImagens(reac?.(m.quando)), chatResumo: m.chatResumo || null }));
   momCache.set(id, { q: Date.now(), lista }); return lista; };
 
-// imagens dos emotes do canal (nome -> endereço), pela API da Twitch; guarda 1 dia
-let emotesCache = { q: 0, mapa: {} };
-async function emotesCanal() {
-  if (Date.now() - emotesCache.q < 86400e3 || !env.TWITCH_CLIENT_ID) return emotesCache.mapa;
-  try {
-    const tk = await token("twitch", "https://id.twitch.tv/oauth2/token", env.TWITCH_CLIENT_ID, env.TWITCH_CLIENT_SECRET);
-    const h = { "Client-Id": env.TWITCH_CLIENT_ID, Authorization: "Bearer " + tk };
-    if (!twitchId) twitchId = (await (await fetch(`https://api.twitch.tv/helix/users?login=${TWITCH}`, { headers: h })).json())?.data?.[0]?.id;
-    const j = await (await fetch(`https://api.twitch.tv/helix/chat/emotes?broadcaster_id=${twitchId}`, { headers: h })).json();
-    // endereço oficial da Twitch; a versão animada quando o emote tem animação (tema escuro, tamanho 2x)
-    const tpl = j.template || "https://static-cdn.jtvnw.net/emoticons/v2/{{id}}/{{format}}/{{theme_mode}}/{{scale}}";
-    const mapa = Object.fromEntries((j.data || []).map(e => [e.name,
-      tpl.replace("{{id}}", e.id).replace("{{format}}", e.format?.includes("animated") ? "animated" : "static").replace("{{theme_mode}}", "dark").replace("{{scale}}", "2.0")]));
-    // emotes das extensões que o chat usa (7TV, BTTV, FFZ), do canal e os globais; APIs públicas, sem login. Os da Twitch têm preferência
-    const pega = u => fetch(u, { signal: AbortSignal.timeout(10_000) }).then(r => r.ok ? r.json() : null).catch(() => null);
-    const [s7, s7g, bt, btg, fz, fzg, tg] = await Promise.all([pega(`https://7tv.io/v3/users/twitch/${twitchId}`), pega("https://7tv.io/v3/emote-sets/global"),
-      pega(`https://api.betterttv.net/3/cached/users/twitch/${twitchId}`), pega("https://api.betterttv.net/3/cached/emotes/global"), pega(`https://api.betterttv.net/3/cached/frankerfacez/users/twitch/${twitchId}`),
-      pega("https://api.betterttv.net/3/cached/frankerfacez/emotes/global"),
-      fetch("https://api.twitch.tv/helix/chat/emotes/global", { headers: h, signal: AbortSignal.timeout(10_000) }).then(r => r.ok ? r.json() : null).catch(() => null)]);
-    // 7TV: o conjunto ativo do canal às vezes fica vazio (o canal troca de conjunto); aí valem também os outros conjuntos do Cellbit
-    let sets7 = s7?.emote_set?.emotes || [];
-    if (!sets7.length && s7?.user?.id) {
-      const u = await pega(`https://7tv.io/v3/users/${s7.user.id}`);
-      for (const st of (u?.emote_sets || []).slice(0, 6)) sets7 = sets7.concat((await pega(`https://7tv.io/v3/emote-sets/${st.id}`))?.emotes || []);
-    }
-    for (const e of [...sets7, ...(s7g?.emotes || [])]) if (e.data?.host?.url) mapa[e.name] ??= `https:${e.data.host.url}/2x.webp`;
-    for (const e of [...(bt?.channelEmotes || []), ...(bt?.sharedEmotes || []), ...(btg || [])]) mapa[e.code] ??= `https://cdn.betterttv.net/emote/${e.id}/2x`;
-    for (const e of [...(fz || []), ...(fzg || [])]) if (e.images) mapa[e.code] ??= e.images["2x"] || e.images["1x"];
-    // globais da Twitch (Kappa, LUL, PogChamp...)
-    for (const e of tg?.data || []) mapa[e.name] ??= (tg.template || tpl).replace("{{id}}", e.id).replace("{{format}}", e.format?.includes("animated") ? "animated" : "static").replace("{{theme_mode}}", "dark").replace("{{scale}}", "2.0");
-    // emotes achados pela busca (pessoais do 7TV) continuam valendo
-    for (const [n, u] of Object.entries(emotesBusca)) if (u) mapa[n] ??= u;
-    emotesCache = { q: Date.now(), mapa };
-  } catch (e) { console.warn("emotes:", e.message); emotesCache.q = Date.now() - 86400e3 + 600e3; }
-  return emotesCache.mapa;
-}
-setTimeout(emotesCanal, 5000);
 
 // ---------- reação do chat em cada momento (episódios com o chat gravado inteiro) ----------
 // janela de 2 min a partir de 30 s antes do momento: quanto o chat agitou em relação à média da live
@@ -1013,7 +809,7 @@ function reacoesChat(id) {
       const palavras = new Set();
       for (let w of String(m.t).split(/\s+/)) {
         // emote conhecido (Twitch, 7TV, BTTV, FFZ) entra com o nome exato, mesmo sem maiúscula no meio (ex.: "D:", "catjam")
-        if (emotesCache.mapa[w]) { palavras.add(w); continue; }
+        if (emotes.mapa()[w]) { palavras.add(w); continue; }
         w = w.replace(/^:|:$/g, "").replace(/[!?.,;"'()]+/g, "");
         if (!w || w.length < 2 || /^https?:/i.test(w) || /^\d+$/.test(w)) continue;
         if (RISADA.test(w)) { palavras.add("KKKK"); continue; }
@@ -1345,13 +1141,10 @@ function status() {
     itens: Object.entries(itens).map(([nome, v]) => ({ nome, ...v })),
     servidor: { ligadoHa: process.uptime() * 1000, memoriaLivre: os.freemem(), memoriaTotal: os.totalmem(), disco },
     // quem usa o site: agora, hoje e desde o começo (pico = mais pessoas ao mesmo tempo, medido a cada minuto)
-    publico: (() => {
-      const dias = [...ac.historico, { dia: ac.dia, unicos: unicosHoje.size, views: ac.views, pico: Math.max(ac.pico, onlineAgora()) }];
-      const maior = dias.reduce((m, d) => (d.pico || 0) > (m.pico || 0) ? d : m, dias[0]);
-      return { online: onlineAgora(), picoHoje: Math.max(ac.pico, onlineAgora()), picoGeral: maior.pico || 0, picoGeralDia: maior.dia,
-        unicosHoje: unicosHoje.size, visitasHoje: ac.views, visitasTotal: dias.reduce((t, d) => t + (d.views || 0), 0),
-        mediaDia: Math.round(dias.reduce((t, d) => t + (d.unicos || 0), 0) / dias.length) };
-    })(),
+    // pedidos de cada serviço e cota do YouTube
+    uso: uso.resumo(),
+    // quem usa o site
+    publico: acessos.publico(),
   };
 }
 
@@ -1511,7 +1304,7 @@ http.createServer(async (req, res) => {
   if (LAB && url.pathname === "/api/lab") return json(res, 200, LAB.relatorio(url.searchParams.get("ep") || epAtual || ""));
   if (LAB && url.pathname === "/lab") return html(res, "lab.html");
   if (url.pathname === "/api") {
-    registraAcesso(req, url);
+    acessos.registraAcesso(req, url);
     // a mesma resposta serve todo mundo que pede o mesmo episódio no mesmo instante: monta uma vez a cada 2 s
     const tenho = url.searchParams.get("tenho") || "";
     const chave = (url.searchParams.get("ep") || "") + "|" + (url.searchParams.get("teste") || "") + "|" + tenho;

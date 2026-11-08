@@ -2,3 +2,5 @@
 dados
 .git
 README.md
+src/lab.js
+*.log

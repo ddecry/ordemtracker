@@ -3,6 +3,7 @@ FROM node:24-alpine
 RUN apk add --no-cache ffmpeg python3 py3-pip && pip install --no-cache-dir --break-system-packages yt-dlp
 WORKDIR /app
 COPY server.js ./
+COPY src ./src
 COPY public ./public
 COPY ref ./ref
 ENV DATA_DIR=/dados NODE_ENV=production
