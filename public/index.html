@@ -1277,7 +1277,7 @@ async function up() {
 
     // hist: [hora, twitch, kick, youtube, total]; encerrado não ganha pontos novos
     if (carregou && carregou !== d.ver) { carregou = false; limpaPontos(); return up(); } // trocou de episódio: pede de novo com o histórico
-    if (!carregou) { (window.requestIdleCallback || setTimeout)(() => { carregaUma("/rn-branco.png").catch(() => {}); carregaUma(`/capa/${d.ver}.jpg`).catch(() => {}); });
+    if (!carregou) {
       carregou = d.ver; d.hist.forEach(h => pontoNovo(h[0], h[4], h[3], h[1], h[2], h[6], h[5]));
       // a leitura de agora entra no fim mesmo se o histórico do servidor terminou antes (assim a checagem de buraco abaixo não pede tudo de novo)
       if (vivo && a.hora && (!tempos.length || new Date(a.hora) - tempos.at(-1) > 10000)) pontoNovo(a.hora, a.total, a.youtube, a.twitch, a.kick, a.tiktok, a.extras?.msgsMin);
