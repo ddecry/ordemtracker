@@ -4,7 +4,7 @@
 <title>Painel | Ordem Tracker</title>
 <link rel="icon" type="image/png" href="/rn-preto.png" media="(prefers-color-scheme: light)">
 <link rel="icon" type="image/png" href="/rn-branco.png" media="(prefers-color-scheme: dark)">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script>
 // mesmo tema escolhido no site (claro ou escuro); sem escolha, segue o sistema
 (() => { let t = null; try { t = localStorage.getItem("tema"); } catch {}
@@ -234,49 +234,40 @@ button.icone svg{width:16px;height:16px}
   .tab div{grid-template-columns:1fr 70px 70px}
 }
 
-/* ===== tema do site (o mesmo do painel público): títulos e números em Inter Tight, linhas finas no lugar de cartões, abas no topo ===== */
-h2{font:700 26px/1.15 "Inter Tight",Inter,sans-serif;letter-spacing:-.02em;margin:0 0 6px}
-h3{font-size:12px;letter-spacing:.08em;font-weight:600}
-.stat b{font-family:"Inter Tight",Inter,sans-serif;font-weight:800;letter-spacing:-.03em;font-size:34px;line-height:1.05}
-.stat.destaque b{font-size:44px}
-.stat span{text-transform:uppercase;letter-spacing:.08em;font-size:11px}
-/* sem cartões: cada bloco é separado por uma linha fina, como no site */
-.card,.grafico,.item,.wiki,.mo-lote{background:none;border:0;border-radius:0;border-top:1px solid var(--line);padding:16px 0}
-.item{margin:0}
-.mo:not(.no-site){border-top-style:dashed}
-.grafico{padding:12px 0 0}
-.lista-eps{padding:0}
-.opcao{border:0;border-top:1px solid var(--line);border-radius:0;padding:14px 0;background:none}
-.opcao:has(input:checked){background:none}.opcao:has(input:checked) b{text-decoration:underline;text-underline-offset:4px}
-.sd svg{background:none;border-radius:0;border-bottom:1px solid var(--line)}
-.mo-lote{border-bottom:1px solid var(--line);padding:10px 0;margin-bottom:0}
-/* selos e etiquetas: texto pequeno em maiúsculas, sem pílula */
-.chip,.selo2{background:none;border:0;border-radius:0;padding:0;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
-.chip.azul{background:none;color:#7fb0ff}.chip.verm{background:none;color:var(--red)}
-.selo2.vivo{background:none;color:var(--red)}
-.chips span{border-radius:8px}
-.player{border-radius:8px;background:none}
-.ep img,.mo-midia img{border-radius:8px}
-/* abas no topo, como os filtros do site: texto simples, a aba aberta sublinhada */
-@media (min-width:761px){
-  #app{display:block;min-height:0}
-  nav{position:sticky;top:61px;z-index:4;height:auto;flex-direction:row;align-items:center;gap:26px;border-right:0;border-bottom:1px solid var(--line);padding:0 max(32px,calc((100% - 1120px) / 2 + 32px));background:var(--bg)}
-  nav h1{display:none}
-  nav button{padding:15px 0 13px;border-radius:0;background:none!important;border:0;border-bottom:2px solid transparent;margin-bottom:-1px}
-  nav button.on{border-bottom-color:var(--tx)}
-  nav .vivo{margin:0 0 0 auto;padding:0}
-  main{margin:0 auto;max-width:1120px;padding:32px 32px 64px}
-}
-@media (max-width:760px){
-  .card,.item{padding:14px 0}
-  /* abas numa linha só, sublinhadas como no computador; arrasta de lado se não couber */
-  nav{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:20px;padding:0 14px;scrollbar-width:none}
-  nav::-webkit-scrollbar{display:none}
-  nav button{flex:none;padding:13px 0 11px;border-radius:0;background:none!important;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;font-size:14px;overflow:visible}
-  nav button.on{border-bottom-color:var(--tx)}
-  h2{font-size:22px}
-  .stat b,.stat.destaque b{font-size:26px}
-}
+/* compacto: menos espaço em volta de tudo, pra ver mais coisa de uma vez sem rolar */
+main{padding:18px 24px 48px;max-width:1180px}
+h2{font-size:18px}
+h3{margin:16px 0 8px}
+p{margin:0 0 10px}
+.topo{margin-bottom:12px}
+.stats{gap:8px}
+.stat{padding:8px 0}
+.stat b{font-size:22px;margin-top:2px}
+.stat.destaque b{font-size:26px}
+.grafico{padding:8px 10px;margin-top:8px}.grafico svg{height:90px}
+.card{padding:12px 14px}
+.item{padding:10px 12px;margin-bottom:6px;border-radius:10px}
+.item-topo{margin-bottom:4px}
+.ep{grid-template-columns:96px 1fr auto;gap:10px;padding:8px 0}.ep img{width:96px}
+.mo{grid-template-columns:150px 1fr;gap:12px}
+.mo textarea.campo{min-height:0;height:2.9em;font-size:13px;line-height:1.4}.mo textarea.campo:focus{height:5.6em}
+.mo .tit{font-size:14px}.mo input.campo[data-c="chatResumo"]{font-size:13px;color:var(--mut)}.mo-midia img{border-radius:8px}
+/* status em colunas: cada parte numa linha só (bolinha, nome, situação) */
+.st-lista{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0 20px}
+.st{grid-template-columns:auto 1fr auto;gap:0 10px;padding:7px 0}
+.st i{grid-column:1;grid-row:1/3;width:8px;height:8px}
+.st b{grid-column:2;grid-row:1;font-size:13px;white-space:nowrap}
+.st small{grid-column:2;grid-row:2;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st span{grid-column:3;grid-row:1/3;text-align:right;font-size:11px}
+.campo{padding:4px 8px}
+.st{padding:8px 0}
+.sd svg{height:28px}
+.mo-lote{padding:6px 10px;margin-bottom:8px}
+input,select,textarea{padding:8px 10px}
+select{height:calc(1.5em + 18px)}
+button{padding:8px 14px}
+@media (min-width:761px){nav{padding:16px 10px}nav button{padding:7px 10px}}
+@media (max-width:760px){#app{align-content:start}.st{grid-template-columns:auto 1fr auto;padding:7px 0}main{padding:12px 12px 40px}.mo{grid-template-columns:1fr}.ep{grid-template-columns:72px 1fr}.ep img{width:72px}}
 </style></head>
 <body>
 <header class="top">
