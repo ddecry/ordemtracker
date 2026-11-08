@@ -990,9 +990,9 @@ function mostraCena(t) {
 // leituras cruas; o gráfico mostra a mediana de 7 pra sumir com os "buracos" de leitura falha
 const tempos = [], brutos = [[], [], [], [], []], chatMin = [];
 const mediana = (arr, i) => { const j = arr.slice(Math.max(0, i - 3), i + 4).filter(v => v != null).sort((p, q) => p - q); return j.length ? j[j.length >> 1] : null; };
-function pontoNovo(hora, total, yt, tw, kk, tt, msgs) {
 // apaga os pontos desenhados (troca de episódio, ou a aba volta depois de um tempo escondida)
 const limpaPontos = () => { tempos.length = 0; brutos.forEach(b => b.length = 0); chatMin.length = 0; };
+function pontoNovo(hora, total, yt, tw, kk, tt, msgs) {
   tempos.push(new Date(hora).getTime());
   [total, yt, tw, kk, tt].forEach((v, i) => brutos[i].push(v));
   chatMin.push(msgs ?? null);
@@ -1278,7 +1278,12 @@ async function up() {
     // hist: [hora, twitch, kick, youtube, total]; encerrado não ganha pontos novos
     if (carregou && carregou !== d.ver) { carregou = false; limpaPontos(); return up(); } // trocou de episódio: pede de novo com o histórico
     if (!carregou) { (window.requestIdleCallback || setTimeout)(() => { carregaUma("/rn-branco.png").catch(() => {}); carregaUma(`/capa/${d.ver}.jpg`).catch(() => {}); });
-      carregou = d.ver; d.hist.forEach(h => pontoNovo(h[0], h[4], h[3], h[1], h[2], h[6], h[5])); redesenha(r.recorde); }
+      carregou = d.ver; d.hist.forEach(h => pontoNovo(h[0], h[4], h[3], h[1], h[2], h[6], h[5]));
+      // a leitura de agora entra no fim mesmo se o histórico do servidor terminou antes (assim a checagem de buraco abaixo não pede tudo de novo)
+      if (vivo && a.hora && (!tempos.length || new Date(a.hora) - tempos.at(-1) > 10000)) pontoNovo(a.hora, a.total, a.youtube, a.twitch, a.kick, a.tiktok, a.extras?.msgsMin);
+      redesenha(r.recorde); }
+    // ficou sem leituras (aba escondida, internet caiu, computador suspenso, celular em segundo plano): pede o histórico inteiro em vez de ligar os pontos com uma reta
+    else if (vivo && tempos.length && new Date(a.hora) - tempos.at(-1) > 30000) { carregou = false; limpaPontos(); return up(); }
     else if (vivo && a.hora !== ultHora) { pontoNovo(a.hora, a.total, a.youtube, a.twitch, a.kick, a.tiktok, a.extras?.msgsMin); redesenha(r.recorde); }
     ultHora = a.hora;
     if ($("eps").classList.contains("on")) listaEps();
