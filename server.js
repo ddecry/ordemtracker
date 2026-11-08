@@ -711,7 +711,8 @@ async function atualizaWiki(forcar) {
 setTimeout(() => atualizaWiki().catch(() => {}), 5000);
 setInterval(() => atualizaWiki().catch(() => {}), 3600e3);
 // glossário usado: o da wiki + as correções aprendidas ("Gwen => Gwayne") + as escritas no painel
-const glossario = () => [...Object.values(gloWiki).map(g => g.texto).filter(Boolean),
+// com a temporada, só os nomes dela (o glossário de todas as temporadas passa do limite de tamanho do pedido na Groq)
+const glossario = temporada => [...Object.entries(gloWiki).filter(([t]) => !temporada || t.startsWith(String(temporada).toLowerCase())).map(([, g]) => g.texto).filter(Boolean),
   ...Object.entries(config().apelidos || {}).map(([de, para]) => `${de} => ${para}`), config().glossario || ""].join("\n").trim();
 // aprende correções comparando o texto antes e depois de uma edição: se uma palavra fora da wiki virou um nome da wiki, guarda o par
 function aprende(antes, depois) {
@@ -961,7 +962,7 @@ async function geminiAudio(arq, chat = "", ep = {}) {
   let f = (await up.json()).file;
   while (f?.state === "PROCESSING") { await new Promise(r => setTimeout(r, 5000)); f = await (await fetch(`${GEMINI}/v1beta/${f.name}`, { headers: k })).json(); }
   if (f?.state !== "ACTIVE") throw new Error("gemini: arquivo não ficou pronto");
-  const corpo = JSON.stringify({ contents: [{ parts: [{ fileData: { fileUri: f.uri, mimeType: f.mimeType } }, { text: PEDIDO_MOMENTOS.replace("TIPO_LIVE", tipoLive(ep)) + (glossario() ? "\nUse exatamente a grafia oficial destes nomes (o áudio pode soar diferente):\n" + glossario() : "") + (chat ? PEDIDO_CHAT.replace("EMOTES_DO_TRECHO", emotesDoChat(chat)) + chat : "") }] }], generationConfig: { responseMimeType: "application/json", responseSchema: ESQUEMA_MOMENTOS } });
+  const corpo = JSON.stringify({ contents: [{ parts: [{ fileData: { fileUri: f.uri, mimeType: f.mimeType } }, { text: PEDIDO_MOMENTOS.replace("TIPO_LIVE", tipoLive(ep)) + (glossario(ep.temporada) ? "\nUse exatamente a grafia oficial destes nomes (o áudio pode soar diferente):\n" + glossario(ep.temporada) : "") + (chat ? PEDIDO_CHAT.replace("EMOTES_DO_TRECHO", emotesDoChat(chat)) + chat : "") }] }], generationConfig: { responseMimeType: "application/json", responseSchema: ESQUEMA_MOMENTOS } });
   // só o modelo principal; um reserva (GEMINI_RESERVA) entra só se for definido no .env, porque os resumos dele são piores
   let j;
   for (const modelo of [env.GEMINI_MODELO || "gemini-3.8-flash", env.GEMINI_RESERVA].filter(Boolean)) {
@@ -998,18 +999,18 @@ async function groqAudio(arq, chat = "", ep = {}) {
   }
   const falas = (tr.segments || []).map(s => [Math.round(s.start), s.text.trim()]).filter(f => f[1]);
   if (!falas.length) return [];
-  // o grátis aceita ~8 mil tokens por minuto (pedido + resposta): a transcrição vai em pedaços de ~8 mil letras, cada um com o chat do mesmo trecho, e 65 s entre eles
+  // o grátis aceita ~8 mil tokens por minuto (pedido + resposta): a transcrição vai em pedaços de ~5 mil letras, cada um com o chat do mesmo trecho, e 65 s entre eles
   const chatL = (chat ? chat.split("\n") : []).map(l => [+l.split(" ")[0], l]);
   const pedacos = []; let atual = [], tam = 0;
-  for (const f of falas) { if (tam > 8000) { pedacos.push(atual); atual = []; tam = 0; } atual.push(f); tam += f[1].length + 6; }
+  for (const f of falas) { if (tam > 5000) { pedacos.push(atual); atual = []; tam = 0; } atual.push(f); tam += f[1].length + 6; }
   if (atual.length) pedacos.push(atual);
-  const glos = glossario();
+  const glos = glossario(ep.temporada);
   const todos = [];
   for (const [i, p] of pedacos.entries()) {
     if (i) await new Promise(r => setTimeout(r, 65_000));
     const de = p[0][0], ate = pedacos[i + 1]?.[0][0] ?? Infinity;
-    const doTrecho = chatL.filter(([s]) => s >= de && s < ate), passo = Math.max(1, doTrecho.length / 60);
-    const amostra = Array.from({ length: Math.min(doTrecho.length, 60) }, (_, k) => doTrecho[Math.floor(k * passo)][1]).join("\n");
+    const doTrecho = chatL.filter(([s]) => s >= de && s < ate), passo = Math.max(1, doTrecho.length / 30);
+    const amostra = Array.from({ length: Math.min(doTrecho.length, 30) }, (_, k) => doTrecho[Math.floor(k * passo)][1]).join("\n");
     const pedido = PEDIDO_MOMENTOS.replace("TIPO_LIVE", tipoLive(ep)).replace("Este é um trecho de áudio", "Esta é a transcrição de um trecho de áudio (cada linha: segundo do trecho e a fala)")
       + (glos ? "\nUse exatamente a grafia oficial destes nomes (a transcrição pode ter errado):\n" + glos : "")
       + (amostra ? PEDIDO_CHAT.replace("EMOTES_DO_TRECHO", emotesDoChat(amostra)) + amostra : "")
@@ -1020,7 +1021,7 @@ async function groqAudio(arq, chat = "", ep = {}) {
     for (const modoJson of [true, false]) {
       if (!modoJson) await new Promise(r => setTimeout(r, 65_000));
       const j = await fetch(`${GROQ}/chat/completions`, { method: "POST", headers: { ...h, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: env.GROQ_MODELO || "openai/gpt-oss-120b", temperature: .3, reasoning_effort: "low", max_completion_tokens: 2500, ...(modoJson ? { response_format: { type: "json_object" } } : {}), messages: [{ role: "user", content: pedido }] }) })
+        body: JSON.stringify({ model: env.GROQ_MODELO || "openai/gpt-oss-120b", temperature: .3, reasoning_effort: "low", max_completion_tokens: 1500, ...(modoJson ? { response_format: { type: "json_object" } } : {}), messages: [{ role: "user", content: pedido }] }) })
         .then(r => r.json()).catch(e => ({ error: { code: 503, message: e.message } }));
       if (j.error && !/json/i.test(j.error.message || "")) throw Object.assign(new Error("groq: " + (j.error.message || j.error)), { codigo: j.error.code === "rate_limit_exceeded" ? 429 : j.error.code });
       try { const t = j.choices[0].message.content; lista = JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1)).momentos || []; break; } catch { console.warn("groq: JSON quebrado no pedaço " + (i + 1) + (modoJson ? ", tentando de novo" : ", pulando")); }
