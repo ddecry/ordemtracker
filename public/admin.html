@@ -4,7 +4,7 @@
 <title>Painel | Ordem Tracker</title>
 <link rel="icon" type="image/png" href="/rn-preto.png" media="(prefers-color-scheme: light)">
 <link rel="icon" type="image/png" href="/rn-branco.png" media="(prefers-color-scheme: dark)">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700;800&display=swap" rel="stylesheet">
 <script>
 // mesmo tema escolhido no site (claro ou escuro); sem escolha, segue o sistema
 (() => { let t = null; try { t = localStorage.getItem("tema"); } catch {}
@@ -122,7 +122,7 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
 /* status */
 .st-lista{display:grid;gap:8px}
 .mo-lote{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px}
-.mo-lote label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}.mo-lote .sp{flex:1}
+.mo-lote label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;margin:0;color:var(--tx)}.mo-lote label input{width:auto}.mo-lote .sp{flex:1}
 .mo-lote .perigo:not(:disabled){color:var(--red);border-color:var(--red)}
 .mo-sel{display:inline-flex;align-items:center;margin-right:2px;cursor:pointer}.mo.sel{outline:2px solid var(--tx);outline-offset:2px}
 .saude{display:grid;gap:10px;margin-bottom:8px}
@@ -232,6 +232,50 @@ button.icone svg{width:16px;height:16px}
   .st{grid-template-columns:auto 1fr;padding:10px 12px}
   .st small{grid-row:2}.st span{grid-row:3;grid-column:2;text-align:left;font-size:11px}.st i{grid-row:1}
   .tab div{grid-template-columns:1fr 70px 70px}
+}
+
+/* ===== tema do site (o mesmo do painel público): títulos e números em Inter Tight, linhas finas no lugar de cartões, abas no topo ===== */
+h2{font:700 26px/1.15 "Inter Tight",Inter,sans-serif;letter-spacing:-.02em;margin:0 0 6px}
+h3{font-size:12px;letter-spacing:.08em;font-weight:600}
+.stat b{font-family:"Inter Tight",Inter,sans-serif;font-weight:800;letter-spacing:-.03em;font-size:34px;line-height:1.05}
+.stat.destaque b{font-size:44px}
+.stat span{text-transform:uppercase;letter-spacing:.08em;font-size:11px}
+/* sem cartões: cada bloco é separado por uma linha fina, como no site */
+.card,.grafico,.item,.wiki,.mo-lote{background:none;border:0;border-radius:0;border-top:1px solid var(--line);padding:16px 0}
+.item{margin:0}
+.mo:not(.no-site){border-top-style:dashed}
+.grafico{padding:12px 0 0}
+.lista-eps{padding:0}
+.opcao{border:0;border-top:1px solid var(--line);border-radius:0;padding:14px 0;background:none}
+.opcao:has(input:checked){background:none}.opcao:has(input:checked) b{text-decoration:underline;text-underline-offset:4px}
+.sd svg{background:none;border-radius:0;border-bottom:1px solid var(--line)}
+.mo-lote{border-bottom:1px solid var(--line);padding:10px 0;margin-bottom:0}
+/* selos e etiquetas: texto pequeno em maiúsculas, sem pílula */
+.chip,.selo2{background:none;border:0;border-radius:0;padding:0;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+.chip.azul{background:none;color:#7fb0ff}.chip.verm{background:none;color:var(--red)}
+.selo2.vivo{background:none;color:var(--red)}
+.chips span{border-radius:8px}
+.player{border-radius:8px;background:none}
+.ep img,.mo-midia img{border-radius:8px}
+/* abas no topo, como os filtros do site: texto simples, a aba aberta sublinhada */
+@media (min-width:761px){
+  #app{display:block;min-height:0}
+  nav{position:sticky;top:61px;z-index:4;height:auto;flex-direction:row;align-items:center;gap:26px;border-right:0;border-bottom:1px solid var(--line);padding:0 max(32px,calc((100% - 1120px) / 2 + 32px));background:var(--bg)}
+  nav h1{display:none}
+  nav button{padding:15px 0 13px;border-radius:0;background:none!important;border:0;border-bottom:2px solid transparent;margin-bottom:-1px}
+  nav button.on{border-bottom-color:var(--tx)}
+  nav .vivo{margin:0 0 0 auto;padding:0}
+  main{margin:0 auto;max-width:1120px;padding:32px 32px 64px}
+}
+@media (max-width:760px){
+  .card,.item{padding:14px 0}
+  /* abas numa linha só, sublinhadas como no computador; arrasta de lado se não couber */
+  nav{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:20px;padding:0 14px;scrollbar-width:none}
+  nav::-webkit-scrollbar{display:none}
+  nav button{flex:none;padding:13px 0 11px;border-radius:0;background:none!important;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;font-size:14px;overflow:visible}
+  nav button.on{border-bottom-color:var(--tx)}
+  h2{font-size:22px}
+  .stat b,.stat.destaque b{font-size:26px}
 }
 </style></head>
 <body>
@@ -445,10 +489,16 @@ async function carrega() {
   const prox = dados.map((e, i) => [e, i]).filter(([e]) => e.recorde == null).sort((p, q) => (p[0].data || "").localeCompare(q[0].data || ""));
   $("listaProx").innerHTML = prox.map(([e, i]) => item(e, i)).join("") || `<p style="margin:12px 0">Nenhum próximo episódio. Use "Adicionar episódio" para cadastrar.</p>`;
   $("lista").innerHTML = dados.map((e, i) => [e, i]).filter(([e]) => e.recorde != null).map(([e, i]) => item(e, i)).join("") || `<p style="margin:12px 0">Nenhum episódio gravado ainda.</p>`;
-  // episódios gravados no seletor de momentos
-  const sel = $("moEp"), atual = sel.value;
-  sel.innerHTML = dados.filter(e => e.recorde != null).map(e => `<option value="${esc(e.id)}">${esc(titulo(e))}</option>`).join("");
-  if (atual) sel.value = atual;
+  // seletor de momentos: só os episódios que têm momentos (ou áudio esperando análise), do mais novo pro mais antigo, agrupados por temporada
+  const sel = $("moEp"), atual = sel.value, cm = j.comMomentos || {};
+  const comMo = dados.filter(e => cm[e.id]).sort((p, q) => (q.data || "").localeCompare(p.data || ""));
+  const grupos = new Map(); for (const e of comMo) { const t = e.temporada || "Outros"; (grupos.get(t) || grupos.set(t, []).get(t)).push(e); }
+  const rotulo = e => { const c = cm[e.id], d = e.data ? new Date(e.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) : "";
+    const t0 = e.temporada || "", tt = titulo(e), nome = t0 && tt.toLowerCase().startsWith(t0.toLowerCase()) ? tt.slice(t0.length).replace(/^\s*-\s*/, "") : tt;
+    const info = c.total ? `${c.total} momentos${c.rascunhos ? `, ${c.rascunhos} em rascunho` : ""}` : "esperando análise";
+    return `${nome} - ${d} (${info}${c.esperando && c.total ? ", com áudio esperando" : ""})`; };
+  sel.innerHTML = [...grupos].map(([t, l]) => `<optgroup label="${esc(t)}">${l.map(e => `<option value="${esc(e.id)}">${esc(rotulo(e))}</option>`).join("")}</optgroup>`).join("");
+  if (atual && comMo.some(e => e.id === atual)) sel.value = atual;
   acessos(); feedbacks(); contaMomentos(); status();
   abre(["agora","publico"].includes(sessionStorage.getItem("aba")) ? "site" : sessionStorage.getItem("aba") || "site");
 }

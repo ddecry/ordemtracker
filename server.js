@@ -663,7 +663,11 @@ async function admin(req, res) {
       previaTokens.set(token, { id: pv, ate: Date.now() + 5 * 60e3 });
       return json(res, 200, { token, url: "/ep/" + slugEp(pv, records[pv].titulo, temporadaDe(pv)) + "#previa=" + token });
     }
-    return json(res, 200, { lista, aoVivo: atual.episodio, config: config(), wiki: gloWiki });
+    // episódios com momentos (análise da live) ou com áudio esperando análise: só eles entram no seletor de momentos do painel
+    const comMomentos = {};
+    try { for (const id of fs.readdirSync(MOMENTOS)) { const l = leMomentos(id); if (l.length) comMomentos[id] = { total: l.length, rascunhos: l.filter(m => !m.aprovado).length }; } } catch {}
+    try { for (const id of fs.readdirSync(GRAVACAO)) if (fs.readdirSync(path.join(GRAVACAO, id)).some(f => f.endsWith(".ogg"))) (comMomentos[id] ||= { total: 0, rascunhos: 0 }).esperando = true; } catch {}
+    return json(res, 200, { lista, aoVivo: atual.episodio, config: config(), wiki: gloWiki, comMomentos });
   }
   if (req.method === "POST") {
     const b = await corpo(req).catch(() => null);
