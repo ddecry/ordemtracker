@@ -128,6 +128,7 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
 .mo-lote .perigo:not(:disabled){color:var(--red);border-color:var(--red)}
 .mo-sel{display:inline-flex;align-items:center;margin-right:2px;cursor:pointer}.mo.sel{outline:2px solid var(--tx);outline-offset:2px}
 .saude{display:grid;gap:10px;margin-bottom:8px}
+.duvidas{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:13px;color:var(--mut)}.duvida{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}.duvida b{color:var(--tx)}.duvida button{padding:3px 10px;font-size:12px;min-height:0}
 .sd{display:grid;grid-template-columns:76px minmax(0,1fr) 90px;align-items:center;gap:10px}
 .sd b{font-size:.9em}.sd span{text-align:right;font-variant-numeric:tabular-nums;font-size:.9em}
 .sd svg{width:100%;height:34px;display:block;background:var(--panel2);border-radius:6px}
@@ -716,7 +717,7 @@ async function momentos() {
   mo = j.lista; emotesImg = j.emotes || {}; sel.clear();
   desenhaMomentos();
 }
-const resumoMo = () => { const ok = mo.filter(m => m.aprovado).length; $("moResumo").textContent = mo.length ? `${mo.length} momentos, ${ok} no site, ${mo.length - ok} esperando` : ""; };
+const resumoMo = () => { const ok = mo.filter(m => m.aprovado).length, dv = mo.reduce((t, m) => t + (m.duvidas || []).length, 0); $("moResumo").textContent = mo.length ? `${mo.length} momentos, ${ok} no site, ${mo.length - ok} esperando` + (dv ? `, ${dv} ${dv > 1 ? "dúvidas" : "dúvida"} de nome` : "") : ""; };
 // o que o chat mandou de verdade logo depois do momento (do log do chat, não da IA): pra conferir o resumo
 let emotesImg = {};
 function reacaoChat(r) {
@@ -725,6 +726,9 @@ function reacaoChat(r) {
   const itens = r.top.map(({ p, n }) => `<span class="rc-item" title="${n} pessoas">${emotesImg[p] ? `<img src="${esc(emotesImg[p])}" alt="${esc(p)}">` : `<b>${esc(p === "KKKK" ? "kkkk" : p.toLowerCase())}</b>`}<small>${n}</small></span>`).join("");
   return `<div class="reac-chat"><span class="rc-ritmo${forte}">Chat ${String(r.ritmo).replace(".", ",")}x ${r.ritmo >= 1 ? "mais" : "menos"} agitado</span>${itens}</div>`;
 }
+// dúvidas de nomes: palavra do texto parecida com um nome da temporada. Trocar põe o nome (e ensina a troca pros próximos); Manter deixa como a IA escreveu
+const duvidas = (m, i) => (m.duvidas || []).length ? `<div class="duvidas">${m.duvidas.map((d, k) => `<span class="duvida"><span>A IA escreveu <b>${esc(d.de)}</b>, parece <b>${esc(d.para)}</b></span><button type="button" class="sec peq" data-troca="${i}:${k}">Trocar</button><button type="button" class="sec peq" data-mantem="${i}:${k}">Manter</button></span>`).join("")}</div>` : "";
+const palavra = de => new RegExp(`(?<![\\p{L}])${de.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}])`, "gu");
 function desenhaMomentos() {
   const id = $("moEp").value;
   resumoMo(); lote();
@@ -741,6 +745,7 @@ function desenhaMomentos() {
       <textarea class="campo" data-i="${i}" data-c="contexto" maxlength="240" rows="3" aria-label="Descrição">${esc(m.contexto)}</textarea>
       <input class="campo" data-i="${i}" data-c="chatResumo" value="${esc(m.chatResumo || "")}" maxlength="160" placeholder="O que o chat falava (vazio: não mostra)" aria-label="Reação do chat">
       ${reacaoChat(m.reac)}
+      ${duvidas(m, i)}
     </div>
   </article>`).join("") : '<p class="vazio">Ainda não tem momentos para este episódio. Eles aparecem aqui depois da análise da live.</p>';
   // capturas de rascunho só com a senha: busca com o cabeçalho e mostra como blob
@@ -764,6 +769,13 @@ $("moLista").onchange = e => {
 $("moLista").onclick = async e => {
   const b = e.target.closest("button"); if (!b) return;
   if (b.classList.contains("pp")) return tocar(b.closest(".player"));
+  const dv = b.dataset.troca || b.dataset.mantem;
+  if (dv) {
+    const [i, k] = dv.split(":").map(Number), m = mo[i], d = m.duvidas[k];
+    if (b.dataset.troca) { m.titulo = m.titulo.replace(palavra(d.de), d.para); m.contexto = m.contexto.replace(palavra(d.de), d.para); }
+    else m.mantidos = [...(m.mantidos || []), d.de];
+    m.duvidas.splice(k, 1); desenhaMomentos(); return;
+  }
   if (b.dataset.rm != null && confirm("Apagar este momento?")) { mo.splice(b.dataset.rm, 1); desenhaMomentos(); }
 };
 // player do trecho: o áudio só baixa quando você aperta play; tocar um pausa o outro

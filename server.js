@@ -593,7 +593,8 @@ async function admin(req, res) {
       const lista = b.lista.slice(0, 500).map(m => ({ quando: new Date(m.quando).toISOString(), segundoVideo: Number.isFinite(+m.segundoVideo) && m.segundoVideo !== null && m.segundoVideo !== "" ? +m.segundoVideo : undefined,
         titulo: String(m.titulo || "").slice(0, 80), contexto: String(m.contexto || "").slice(0, 240), tipo: m.tipo === "mesa" ? "mesa" : "historia",
         captura: /^[\w-]+\.jpg$/.test(m.captura || "") ? m.captura : null, audio: /^[\w-]+\.ogg$/.test(m.audio || "") ? m.audio : undefined,
-        chatResumo: m.chatResumo ? String(m.chatResumo).slice(0, 160) : undefined, aprovado: !!m.aprovado }));
+        chatResumo: m.chatResumo ? String(m.chatResumo).slice(0, 160) : undefined, aprovado: !!m.aprovado,
+        mantidos: Array.isArray(m.mantidos) && m.mantidos.length ? m.mantidos.slice(0, 30).map(x => String(x).slice(0, 40)) : undefined }));
       // nomes trocados à mão viram correção automática para os próximos momentos
       const antes = Object.fromEntries(leMomentos(b.momentos).map(m => [m.quando, m]));
       for (const m of lista) if (antes[m.quando]) { aprende(antes[m.quando].titulo, m.titulo); aprende(antes[m.quando].contexto, m.contexto); }
@@ -654,7 +655,12 @@ const leMomentosArq = (id, arq) => {
   for (const m of lista) if (!m.audio && m.segundoVideo != null && fs.existsSync(path.join(MOMENTOS, id, "audio", m.segundoVideo + ".ogg"))) m.audio = m.segundoVideo + ".ogg";
   // rascunho até aprovar no painel; nomes corrigidos pelo glossário
   const temp = records[id]?.temporada || episodios.lista.find(e => e.id === id)?.temporada;
-  for (const m of lista) { m.aprovado ??= false; m.titulo = corrigeNomes(m.titulo, temp); m.contexto = corrigeNomes(m.contexto, temp); }
+  for (const m of lista) {
+    m.aprovado ??= false; m.titulo = corrigeNomes(m.titulo, temp); m.contexto = corrigeNomes(m.contexto, temp);
+    // palavra parecida com um nome da temporada: não troca, mostra no painel pra decidir (as que você mandou manter não voltam)
+    const d = duvidasNomes(m.titulo + " " + m.contexto, temp).filter(x => !(m.mantidos || []).includes(x.de));
+    if (d.length) m.duvidas = d;
+  }
   return lista;
 };
 // corrige nomes escritos como soam no áudio: apelidos do glossário ("Gwen => Gwayne") e nomes parecidos (até 2 letras de diferença)
@@ -752,13 +758,24 @@ function corrigeNomes(texto, temporada) {
 function corrige(texto, gloCache) {
   let t = texto;
   for (const [de, para] of gloCache.apelidos) t = t.replace(new RegExp(`(?<![\\p{L}])${de.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}])`, "gu"), para);
-  return t.replace(/\p{Lu}[\p{L}']{4,}/gu, p => {
-    const k = semAcento(p); if (gloCache.chave.has(k)) return p;
+  return t;
+}
+// palavras com letra maiúscula parecidas com um nome da temporada (1 letra de diferença; 2 em palavras de 9 letras ou mais)
+// não troca sozinho: "Dentro" é parecido com "Dentado", mas é palavra comum. O painel mostra e você decide
+function duvidasNomes(texto, temporada) {
+  if (!texto || !glossario(temporada)) return [];
+  corrigeNomes("Inicio", temporada); // garante a lista de nomes da temporada carregada
+  const c = temporada ? gloCaches.get(String(temporada).toLowerCase()) : gloCache;
+  if (!c?.nomes) return [];
+  const vistas = new Set(), lista = [];
+  for (const p of texto.match(/\p{Lu}[\p{L}']{4,}/gu) || []) {
+    const k = semAcento(p); if (c.chave.has(k) || vistas.has(p)) continue; vistas.add(p);
     // mesma inicial, ou as duas começando com vogal (Aileen ≈ Eileen)
     const inicio = n => semAcento(n)[0] === k[0] || (/[aeiou]/.test(semAcento(n)[0]) && /[aeiou]/.test(k[0]));
-    const perto = gloCache.nomes.map(n => [n, distancia(k, semAcento(n))]).filter(([n, d]) => d <= (k.length >= 9 ? 2 : 1) && inicio(n)).sort((a, b) => a[1] - b[1])[0];
-    return perto ? perto[0] : p;
-  });
+    const perto = c.nomes.map(n => [n, distancia(k, semAcento(n))]).filter(([n, d]) => d <= (k.length >= 9 ? 2 : 1) && inicio(n)).sort((a, b) => a[1] - b[1])[0];
+    if (perto) lista.push({ de: p, para: perto[0] });
+  }
+  return lista;
 }
 const salvaMomentos = (id, lista) => { momCache?.delete(id); fs.mkdirSync(path.join(MOMENTOS, id), { recursive: true }); fs.writeFileSync(path.join(MOMENTOS, id, "momentos.json"), JSON.stringify(lista, null, 2)); };
 // cada item da reação do chat leva a imagem oficial do emote, quando é um emote do canal (a lista se atualiza sozinha, 1 vez por dia)
