@@ -653,7 +653,8 @@ const leMomentosArq = (id, arq) => {
   // trecho de áudio do momento (gravado ao vivo, ou tirado do vídeo: audio/<segundo do vídeo>.ogg)
   for (const m of lista) if (!m.audio && m.segundoVideo != null && fs.existsSync(path.join(MOMENTOS, id, "audio", m.segundoVideo + ".ogg"))) m.audio = m.segundoVideo + ".ogg";
   // rascunho até aprovar no painel; nomes corrigidos pelo glossário
-  for (const m of lista) { m.aprovado ??= false; m.titulo = corrigeNomes(m.titulo); m.contexto = corrigeNomes(m.contexto); }
+  const temp = records[id]?.temporada || episodios.lista.find(e => e.id === id)?.temporada;
+  for (const m of lista) { m.aprovado ??= false; m.titulo = corrigeNomes(m.titulo, temp); m.contexto = corrigeNomes(m.contexto, temp); }
   return lista;
 };
 // corrige nomes escritos como soam no áudio: apelidos do glossário ("Gwen => Gwayne") e nomes parecidos (até 2 letras de diferença)
@@ -665,6 +666,7 @@ const distancia = (a, b) => {
   return d[a.length][b.length];
 };
 let gloCache = { texto: null };
+const gloCaches = new Map(); // temporada -> cache da lista de nomes dela
 // ---------- glossário automático: nomes oficiais da Ordem Paranormal Wiki ----------
 // lê a página de cada temporada pela API pública da wiki (elenco, personagens, monstros e locais) e atualiza a cada 12 h
 const GLOWIKI = path.join(DADOS, "glossario-wiki.json");
@@ -706,7 +708,7 @@ async function atualizaWiki(forcar) {
     try { gloWiki[t] = await leWiki(t); } catch (e) { gloWiki[t] = { ...gloWiki[t], erro: e.message, quando: Date.now() }; }
   }
   fs.writeFileSync(GLOWIKI, JSON.stringify(gloWiki, null, 2));
-  gloCache = { texto: null };
+  gloCache = { texto: null }; gloCaches.clear();
 }
 setTimeout(() => atualizaWiki().catch(() => {}), 5000);
 setInterval(() => atualizaWiki().catch(() => {}), 3600e3);
@@ -730,27 +732,31 @@ function aprende(antes, depois) {
   console.log("correções aprendidas:", novos);
 }
 
-function corrigeNomes(texto) {
-  const g = glossario();
+// com a temporada, só os nomes dela: "Escalada" não vira "Escarlata" (Hexatombe) num episódio da Vigília
+function corrigeNomes(texto, temporada) {
+  const g = glossario(temporada);
   if (!g || !texto) return texto;
-  if (gloCache.texto !== g) {
+  const chaveT = temporada ? String(temporada).toLowerCase() : "";
+  let c = chaveT ? gloCaches.get(chaveT) : gloCache;
+  if (!c || c.texto !== g) {
     const apelidos = [...g.matchAll(/^\s*(.+?)\s*(?:=>|→)\s*(.+?)\s*$/gm)].map(m => [m[1], m[2]]);
     const nomes = [...new Set(g.replace(/^.*(?:=>|→).*$/gm, "").match(/\p{Lu}[\p{L}']{2,}/gu) || [])];
-    gloCache = { texto: g, apelidos, nomes, chave: new Set(nomes.map(semAcento)), memo: new Map() };
+    c = { texto: g, apelidos, nomes, chave: new Set(nomes.map(semAcento)), memo: new Map() };
+    if (chaveT) gloCaches.set(chaveT, c); else gloCache = c;
   }
   // comparar cada palavra com todos os nomes pesa: cada texto é corrigido uma vez e o resultado fica guardado até o glossário mudar
-  const pronto = gloCache.memo.get(texto); if (pronto != null) return pronto;
-  if (gloCache.memo.size > 5000) gloCache.memo.clear();
-  const r = corrige(texto); gloCache.memo.set(texto, r); return r;
+  const pronto = c.memo.get(texto); if (pronto != null) return pronto;
+  if (c.memo.size > 5000) c.memo.clear();
+  const r = corrige(texto, c); c.memo.set(texto, r); return r;
 }
-function corrige(texto) {
+function corrige(texto, gloCache) {
   let t = texto;
   for (const [de, para] of gloCache.apelidos) t = t.replace(new RegExp(`(?<![\\p{L}])${de.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}])`, "gu"), para);
   return t.replace(/\p{Lu}[\p{L}']{4,}/gu, p => {
     const k = semAcento(p); if (gloCache.chave.has(k)) return p;
     // mesma inicial, ou as duas começando com vogal (Aileen ≈ Eileen)
     const inicio = n => semAcento(n)[0] === k[0] || (/[aeiou]/.test(semAcento(n)[0]) && /[aeiou]/.test(k[0]));
-    const perto = gloCache.nomes.map(n => [n, distancia(k, semAcento(n))]).filter(([n, d]) => d <= 2 && inicio(n)).sort((a, b) => a[1] - b[1])[0];
+    const perto = gloCache.nomes.map(n => [n, distancia(k, semAcento(n))]).filter(([n, d]) => d <= (k.length >= 9 ? 2 : 1) && inicio(n)).sort((a, b) => a[1] - b[1])[0];
     return perto ? perto[0] : p;
   });
 }
