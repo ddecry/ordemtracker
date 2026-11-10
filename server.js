@@ -457,6 +457,8 @@ function mediaSemFim(id, r) {
   medias.set(id, { chave: r.ultimaLeitura, media });
   return media;
 }
+// cortes achados sozinhos (o PC compara o áudio do vídeo com o da live e grava dados/cortes/<id>.json); vale só pro mesmo vídeo
+const cortesAuto = (id, video) => { try { const c = JSON.parse(fs.readFileSync(path.join(DADOS, "cortes", id + ".json"))); return c.video === video ? c.cortes : null; } catch { return null; } };
 // teste = id de um episódio escondido que o link de teste (com a chave certa) pode ver
 function publicos(teste) {
   const out = {};
@@ -465,7 +467,7 @@ function publicos(teste) {
     if (e?.oculto && id !== teste) continue;
     out[id] = { ...so({ ...r, titulo: e?.titulo || r.titulo, temporada: e?.temporada || temporadaDoTitulo(r.titulo), media: mediaSemFim(id, r) }, CAMPOS), slug: slugEp(id, e?.titulo || r.titulo, temporadaDe(id)),
       // vídeo completo (sem membros), nome do episódio e trechos cortados da live, pra os momentos abrirem no ponto certo
-      video: e?.video || null, nome: e?.nome || null, cortes: e?.video ? e.cortes || null : null,
+      video: e?.video || null, nome: e?.nome || null, cortes: e?.video ? e.cortes || cortesAuto(id, e.video) : null,
       // a faixa de chat no gráfico só aparece quando o chat do episódio foi gravado inteiro (do Ep 2 em diante)
       chatCompleto: fs.existsSync(path.join(CHATLOG, id.replace(/[^\w-]/g, "_") + ".jsonl")) };
   }
@@ -884,9 +886,9 @@ function foraDaLive(f) {
 }
 const GRAVACAO = path.join(DADOS, "gravacao");
 const PARTE_MIN = 30;
-// áudio já analisado: guardado 7 dias e depois apagado
+// áudio já analisado: guardado 30 dias (o vídeo editado sai dias depois e os cortes são achados comparando com ele) e depois apagado
 const FEITOS = path.join(DADOS, "gravacao-feitos");
-setInterval(() => { try { for (const id of fs.readdirSync(FEITOS)) for (const f of fs.readdirSync(path.join(FEITOS, id))) { const a = path.join(FEITOS, id, f); if (Date.now() - fs.statSync(a).mtimeMs > 7 * 86400e3) fs.rmSync(a, { force: true }); } } catch {} }, 6 * 3600e3); // partes de 30 min (a cota grátis da IA é de 20 pedidos por dia); a IA marca um momento a cada uns 5 min
+setInterval(() => { try { for (const id of fs.readdirSync(FEITOS)) for (const f of fs.readdirSync(path.join(FEITOS, id))) { const a = path.join(FEITOS, id, f); if (Date.now() - fs.statSync(a).mtimeMs > 30 * 86400e3) fs.rmSync(a, { force: true }); } } catch {} }, 6 * 3600e3); // partes de 30 min (a cota grátis da IA é de 20 pedidos por dia); a IA marca um momento a cada uns 5 min
 let gravando = null; // { id, proc }
 const hora14 = d => d.toISOString().replace(/[-:]/g, "").slice(0, 15); // 20261107T210000
 const deHora14 = s => new Date(s.replace(/^(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)$/, "$1-$2-$3T$4:$5:$6Z"));
@@ -1126,7 +1128,7 @@ async function analisaPartes() {
           delete m.seg;
         }
         salvaMomentos(id, [...leMomentos(id), ...novos].sort((a, b) => a.quando.localeCompare(b.quando)));
-        // o áudio analisado vai pra feitos/ e fica 7 dias (dá pra refazer os momentos de um trecho); a transcrição temporária sai
+        // o áudio analisado vai pra feitos/ e fica 30 dias (dá pra refazer os momentos de um trecho); a transcrição temporária sai
         fs.mkdirSync(path.join(FEITOS, id), { recursive: true });
         fs.renameSync(path.join(dir, p), path.join(FEITOS, id, p)); fs.rmSync(path.join(dir, p.replace(/\.ogg$/, ".transcricao.json")), { force: true });
         console.log("momentos:", id, p, novos.length);
