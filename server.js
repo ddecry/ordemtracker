@@ -1227,8 +1227,8 @@ function temporadaApi(t) {
   const resumo = (k, l) => ({ slug: k, nome: l[0].temporada, ano: l[0].data.slice(0, 4), fimAno: l.at(-1).data.slice(0, 4), eps: l.length,
     pico: Math.max(...l.map(e => e.pico || 0)), media: Math.round(soma(l, "media") / l.length), horas: soma(l, "horas"),
     capa: l[0].id, plataformas: [...new Set(l.flatMap(e => Object.entries(e.picos || {}).filter(([, v]) => v > 0).map(([p]) => p)))] });
-  // o Transcendendo (podcast) não entra na comparação entre temporadas
-  const todas = [...por].filter(([k]) => k === t || !/transcend/.test(k)).map(([k, l]) => resumo(k, l)).sort((a, b) => a.ano.localeCompare(b.ano) || a.nome.localeCompare(b.nome));
+  // o Transcendendo (podcast) e as lives Revelando (não são RPG) não entram na comparação entre temporadas
+  const todas = [...por].filter(([k]) => k === t || !/transcend|revelando/.test(k)).map(([k, l]) => resumo(k, l)).sort((a, b) => a.ano.localeCompare(b.ano) || a.nome.localeCompare(b.nome));
   const l = por.get(t);
   if (!l) return null;
   return { temporada: resumo(t, l), episodios: l, todas };
