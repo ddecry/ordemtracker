@@ -605,5 +605,46 @@ async function clipes(novo) {
 document.addEventListener("click", e => { if (e.target.id === "clipesMais") clipes(false); });
 carrega();
 </script>
+<script>
+// dicas no tema do site: troca a caixinha padrão do navegador (atributo title) por uma do site
+// uma caixinha só pra página inteira, posta por cima de tudo (não é cortada por cartão com overflow) e que não sai da tela
+(() => {
+  if (!matchMedia("(hover:hover)").matches) return; // no celular não tem mouse em cima: fica o comportamento normal
+  const st = document.createElement("style");
+  st.textContent = `.dica-flut{position:fixed;z-index:9999;max-width:min(320px,calc(100vw - 16px));padding:.5em .8em;border-radius:8px;background:var(--panel,#1b1b1b);border:1px solid var(--line,#333);
+    box-shadow:0 8px 24px rgba(0,0,0,.25);color:var(--tx,#eee);font:500 12px/1.35 Inter,sans-serif;pointer-events:none;opacity:0;transform:translateY(-4px);transition:opacity .15s,transform .15s}
+    .dica-flut.on{opacity:1;transform:none}`;
+  document.head.appendChild(st);
+  const caixa = document.createElement("div"); caixa.className = "dica-flut"; caixa.setAttribute("role", "tooltip");
+  let alvo = null, espera = 0;
+  const some = () => {
+    clearTimeout(espera); caixa.classList.remove("on");
+    // devolve o title pro elemento (leitor de tela e quem copia continuam vendo)
+    if (alvo?.dataset.dicaT != null) { alvo.title = alvo.dataset.dicaT; delete alvo.dataset.dicaT; }
+    alvo = null;
+  };
+  const mostra = () => {
+    if (!alvo?.isConnected) return some();
+    if (!caixa.isConnected) document.body.appendChild(caixa);
+    caixa.textContent = alvo.dataset.dicaT;
+    const r = alvo.getBoundingClientRect(), c = caixa.getBoundingClientRect(), m = 8;
+    let x = r.left + r.width / 2 - c.width / 2, y = r.bottom + 10;
+    if (y + c.height > innerHeight - m) y = r.top - c.height - 10; // sem espaço embaixo: abre em cima
+    x = Math.max(m, Math.min(x, innerWidth - c.width - m));
+    caixa.style.left = x + "px"; caixa.style.top = y + "px"; caixa.classList.add("on");
+  };
+  document.addEventListener("pointerover", e => {
+    if (alvo && alvo.contains(e.target)) return; // andando dentro do mesmo elemento (o title dele já foi tirado)
+    const el = e.target.closest?.("[title]");
+    some();
+    if (!el || !el.title) return;
+    alvo = el; el.dataset.dicaT = el.title; el.removeAttribute("title"); // tira o title pra não aparecer a dica do navegador junto
+    espera = setTimeout(mostra, 250);
+  });
+  document.addEventListener("pointerout", e => { if (alvo && !alvo.contains(e.relatedTarget)) some(); });
+  addEventListener("scroll", some, { passive: true, capture: true });
+  document.addEventListener("pointerdown", some);
+})();
+</script>
 </body>
 </html>
