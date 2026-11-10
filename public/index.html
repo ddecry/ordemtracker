@@ -160,7 +160,16 @@ body.encerrado .clockw .dot{display:none}
 .cena-reac{gap:.7em}.cena-reac.quente .cena-agit{color:var(--red)}.cena-reac.quente .cena-emt small{color:var(--mut)}
 .cena .cena-chat b{color:var(--tx);font-weight:700}.cena .cena-chat{color:var(--mut);-webkit-line-clamp:2}
 .cena-agit{margin-right:.4em}
-.cena-pico{margin-right:.5em;padding:.15em .55em;border-radius:99px;background:var(--gold,#e8b64a);color:#141414;font-weight:700;font-size:.95em;white-space:nowrap}
+/* selo do pico: contorno dourado com brilho que passa devagar, ícone de subida e o número do recorde */
+.cena-pico{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:.4em;margin-right:.5em;padding:.2em .7em .2em .5em;border-radius:99px;
+  border:1px solid color-mix(in srgb,var(--gold,#e8b64a) 70%,transparent);background:linear-gradient(135deg,color-mix(in srgb,var(--gold,#e8b64a) 22%,transparent),color-mix(in srgb,var(--gold,#e8b64a) 6%,transparent));
+  color:var(--gold,#e8b64a);font-weight:700;font-size:.95em;white-space:nowrap;box-shadow:0 0 .9em color-mix(in srgb,var(--gold,#e8b64a) 25%,transparent)}
+.cena-pico svg{width:1.05em;height:1.05em;flex:none}
+.cena-pico b{color:var(--tx);font-weight:800;font-variant-numeric:tabular-nums}
+.cena-pico::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,color-mix(in srgb,var(--gold,#e8b64a) 35%,transparent) 50%,transparent 70%);transform:translateX(-100%);animation:picoBrilho 3.5s ease-in-out infinite}
+:root[data-tema="claro"] .cena-pico{color:#8a5a00;border-color:#c9952e;background:linear-gradient(135deg,#f7e3b4,#fbf1d9);box-shadow:none}
+@keyframes picoBrilho{0%,55%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+@media (prefers-reduced-motion:reduce){.cena-pico::after{animation:none;display:none}}
 /* descrição curta: o texto fica centrado na altura da imagem, com o rodapé logo abaixo, em vez de um buraco no meio */
 .cena-txt{justify-content:center}.cena-pe{margin-top:.35em}
 .cena .cena-txt p#cenaC{-webkit-line-clamp:4}
@@ -168,7 +177,7 @@ body.encerrado .clockw .dot{display:none}
 .cena-pe.aperta .e3{display:none}.cena-pe.aperta2 .longo{display:none}.cena-pe.aperta2 .curto{display:inline}
 @media (max-width:800px),(max-aspect-ratio:1/1){.cena-pe.aperta2{flex-wrap:wrap;row-gap:.35em}.cena-pe.aperta2 .cena-reac{margin-left:0;flex-basis:100%}}
 /* celular: rótulos curtos e só os emotes no rodapé, pra caber na largura do texto */
-@media (max-width:800px),(max-aspect-ratio:1/1){.cena-pe{gap:0 .65em}.cena-pe .longo{display:none}.cena-pe .curto{display:inline}.cena-reac{font-size:11px;gap:.6em}.cena-reac img{width:20px;height:20px}.cena-reac .e3{display:none}}
+@media (max-width:800px),(max-aspect-ratio:1/1){.cena-pe{gap:0 .65em}.cena-pe .longo{display:none}.cena-pe .curto{display:inline}.cena-reac{font-size:11px;gap:.6em}.cena-reac img{width:20px;height:20px}.cena-reac .e3{display:none}.cena-pico b{display:none}}
 .cena b{font-size:1.05em}
 .cena p{margin:.25em 0 .4em;color:var(--mut);font-size:.92em;line-height:1.4}
 .cena a,.cena-corr{color:var(--tx);font-size:.8em;font-weight:600}
@@ -970,7 +979,7 @@ function mostraCena(t) {
   const agit = agitado ? `<span class="cena-agit" title="${f(ch.porMin)} mensagens por minuto neste trecho"><span class="longo">${ch.ritmo.toLocaleString("pt-BR")}x mais agitado</span><span class="curto">${ch.ritmo.toLocaleString("pt-BR")}x</span></span>` : "";
   $("cenaReac").hidden = !agitado && !emts && !ehPico;
   $("cenaReac").className = "cena-reac" + (ch?.ritmo >= 1.5 ? " quente" : "");
-  $("cenaReac").innerHTML = (ehPico ? `<span class="cena-pico" title="A live bateu o recorde de viewers (${(rp.recorde || 0).toLocaleString("pt-BR")}) às ${hm(pk)}, durante este momento">Pico da live</span>` : "") + agit + emts;
+  $("cenaReac").innerHTML = (ehPico ? `<span class="cena-pico" title="A live bateu o recorde de viewers (${(rp.recorde || 0).toLocaleString("pt-BR")}) às ${hm(pk)}, durante este momento"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span class="longo">Pico da live</span><span class="curto">Pico</span>${rp.recorde ? ` <b>${rp.recorde.toLocaleString("pt-BR")}</b>` : ""}</span>` : "") + agit + emts;
   ajustaCena();
   $("cenaImg").hidden = !c.captura; if (c.captura) $("cenaImg").src = c.captura;
   // link pro mesmo ponto no vídeo do YouTube, pelo horário real do momento
