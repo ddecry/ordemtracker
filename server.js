@@ -446,7 +446,8 @@ const achaEp = (pub, p) => pub[p] ? p : Object.keys(pub).find(k => pub[k].slug =
 // corta do fim pra trás as leituras abaixo de 90% da mediana dos 10 minutos anteriores (só aparecem no gráfico)
 const medias = new Map(); // id -> { chave, media }
 function mediaSemFim(id, r) {
-  if (id === atual.episodio) return r.media;
+  // média oficial da fonte (ex.: Streams Charts) quando o gráfico guardado tem poucos pontos (10 em 10 min)
+  if (id === atual.episodio || r.mediaFixa) return r.media;
   const m = medias.get(id);
   if (m && m.chave === r.ultimaLeitura) return m.media;
   const tot = fs.readFileSync(HIST, "utf8").split("\n").map(l => l.split(",")).filter(c => c[1] === id && +c[5] > 0).map(c => +c[5]);
@@ -1383,6 +1384,13 @@ http.createServer(async (req, res) => {
   // capa do vídeo servida daqui, pra página poder desenhar ela no PNG de compartilhar
   // /capa/<id>-p.jpg: versão dos cartões e listas (640 px, leve); /capa/<id>.jpg: a grande, pro destaque e o PNG de compartilhar
   // guardadas na memória por 6 h, pra não pedir ao YouTube a cada visita
+  // live sem vídeo no YouTube (Revelando de 2020 e 2021, só na Twitch): usa a imagem da temporada guardada em public/temporadas
+  const capaLocal = url.pathname.match(/^\/capa\/([\w-]{6,40}?)(?:-p)?\.jpg$/), temCapa = capaLocal && records[capaLocal[1]]?.capa;
+  if (temCapa && /^[a-z0-9-]+$/.test(temCapa) && fs.existsSync(path.join(PUBLICO, "temporadas", temCapa + ".jpg"))) {
+    const k = "temporadas/" + temCapa + ".jpg";
+    if (!imgsCache.has(k)) imgsCache.set(k, { buf: fs.readFileSync(path.join(PUBLICO, k)) });
+    return enviaImg(req, res, imgsCache.get(k).buf, "image/jpeg", 86400);
+  }
   const capa = url.pathname.match(/^\/capa\/([\w-]{11})(-p)?\.jpg$/);
   if (capa) {
     const chave = capa[1] + (capa[2] || ""), c = capasCache.get(chave);
