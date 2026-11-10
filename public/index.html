@@ -423,6 +423,8 @@ body.modo-espera .main,body.modo-espera .strip,body.modo-espera .prox{display:no
 .esp-capa{aspect-ratio:16/9;width:100%;max-height:70vh;border-radius:18px;background:var(--panel2) center/cover no-repeat;box-shadow:var(--sombra)}
 .esp-info{display:flex;flex-direction:column;gap:1.4vh;align-items:center;justify-content:center;text-align:center;align-self:center}.esp-info .esp-acoes{align-self:stretch}
 .esp-tit{margin:0;font:700 clamp(19px,3.4vh,32px)/1.1 "Inter Tight",Inter,sans-serif;letter-spacing:-.01em}
+/* título longo quebra em linhas equilibradas em vez de alargar a coluna (a capa ficava longe e fora do centro) */
+.esp-tit{max-width:14em;text-wrap:balance}
 .esp-cont{display:flex;gap:1.4vw;margin:1vh 0}
 .esp-cont div{display:flex;flex-direction:column;align-items:center;min-width:2.2em}
 .esp-cont b{font:800 clamp(20px,3.1vh,32px)/1 "Inter Tight",Inter,sans-serif;letter-spacing:-.02em}
@@ -1207,6 +1209,8 @@ async function up() {
     ondeAssistir(r, vivo);
     $("epNome").dataset.temp = r.temporada ? kebab(r.temporada) : "";
     proximo = vivo ? null : (d.proximos || []).find(p => new Date(p.data) > Date.now()) || null;
+    // relógio do topo do painel: só o próximo episódio da temporada aberta; sem próximo dela, some
+    proxTemp = vivo || !r.temporada ? null : (d.proximos || []).find(p => new Date(p.data) > Date.now() && p.temporada === r.temporada) || null;
     const cfg = d.config || {};
     // página inicial é sempre o menu; com live no ar, ela fica em destaque no meio e o painel abre clicando
     const anterior = Object.entries(d.records).filter(([id, o]) => id !== d.ver && o.fimLive).sort((p, q) => (q[1].inicioLive || "").localeCompare(p[1].inicioLive || ""))[0]?.[0];
@@ -1371,7 +1375,7 @@ $("capa").onkeydown = e => { if (e.key === "Enter") $("capa").classList.toggle("
 document.addEventListener("click", e => { if (!e.target.closest("#capa")) $("capa").classList.remove("aberta"); });
 
 // contagem para o próximo episódio cadastrado no /admin
-let proximo = null, espera = null;
+let proximo = null, proxTemp = null, espera = null;
 // logo de cada temporada para a prévia (nome da temporada sem acento)
 // capas das campanhas (página Categoria:Campanhas da wiki), usadas nos episódios ainda sem link
 const CAPAS_TEMP = ["a-ordem-paranormal","o-segredo-na-floresta","desconjuracao","calamidade","o-segredo-na-ilha","sinais-do-outro-lado","quarentena","natal-macabro","hexatombe","a-vigilia"];
@@ -1434,13 +1438,13 @@ function contagem() {
       c.classList.remove("previa", "abre"); c.dataset.img = ""; c.dataset.href = "";
     }
   }
-  $("prox").hidden = !proximo;
-  if (!proximo) return;
-  const s = Math.max(0, Math.floor((new Date(proximo.data) - Date.now()) / 1000)), d = Math.floor(s / 86400);
+  $("prox").hidden = !proxTemp;
+  if (!proxTemp) return;
+  const s = Math.max(0, Math.floor((new Date(proxTemp.data) - Date.now()) / 1000)), d = Math.floor(s / 86400);
   const hms = [Math.floor(s / 3600) % 24, Math.floor(s / 60) % 60, s % 60].map(n => String(n).padStart(2, "0")).join(":");
-  $("proxT").textContent = proximo.titulo || "Próximo episódio";
+  $("proxT").textContent = proxTemp.titulo || "Próximo episódio";
   $("proxC").textContent = (d ? d + (d > 1 ? " dias e " : " dia e ") : "") + hms;
-  $("prox").href = "/ep/" + (proximo.slug || proximo.id);
+  $("prox").href = "/ep/" + (proxTemp.slug || proxTemp.id);
 }
 $("espCapa").onclick = () => { const h = $("espCapa").dataset.href; if (h) location.href = h; };
 const relogio = () => { $("clock").textContent = new Date().toLocaleTimeString("pt-BR"); contagem(); };
