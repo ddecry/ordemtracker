@@ -79,6 +79,10 @@ a{color:inherit}
 .menu a{display:flex;justify-content:space-between;gap:16px;padding:.6em .8em;border-radius:9px;text-decoration:none;white-space:nowrap}
 .menu a:hover,.menu a.atual{background:var(--panel2)}
 .menu a small{color:var(--mut)}
+.menu .grupo{padding:.7em .8em .3em;color:var(--mut);font:600 .75em Inter,sans-serif;text-transform:uppercase;letter-spacing:.06em;border-top:1px solid var(--line);margin-top:4px}
+/* o menu abre por cima da outra coluna e da faixa de baixo (as animações criam camadas separadas) */
+.main{position:relative;z-index:3}
+.main>.col:first-child{position:relative;z-index:2}
 /* pico da temporada */
 .pico{padding-top:1.2vh}
 .pico .cap{line-height:1.2}
@@ -384,18 +388,22 @@ function monta() {
   const ord = n => n + "ª";
   const plat = Object.keys(PLAT).map(p => [p, eps.reduce((a, e) => a + (e.noPico?.[p] || 0), 0)]).filter(([, v]) => v > 0);
   const totPlat = plat.reduce((a, [, v]) => a + v, 0) || 1, pp = v => (v / totPlat * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "%";
-  document.title = `${t.nome}: painel da temporada | Ordem Tracker`;
+  // Revelando e Transcendendo são programas à parte: sem ranking contra as temporadas de RPG
+  const prog = D.programa, T = prog ? "programa" : "temporada";
+  if (prog && metrica === "temporadas") metrica = "media";
+  const itemMenu = x => `<a href="/temporada/${esc(x.slug)}" class="${x.slug === t.slug ? "atual" : ""}">${esc(x.nome)}<small>${x.ano}</small></a>`;
+  document.title = `${t.nome}: painel do ${T} | Ordem Tracker`.replace("do temporada", "da temporada");
 
   $("conteudo").innerHTML = `
     <div class="col">
       <div class="capa" style="background-image:url(/temporadas/${esc(t.slug)}.jpg),url(/capa/${esc(t.capa)}.jpg)"></div>
       <div class="seletor">
         <button class="ep-titulo" id="tempSel" aria-haspopup="listbox" aria-expanded="false"><span>${esc(t.nome)}</span><svg class="seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
-        <p class="ep-sub">Temporada de ${anos}, ${eps.length} ${eps.length > 1 ? "episódios" : "episódio"}</p>
-        <div class="menu" id="menuTemp" role="listbox">${[...D.todas].sort((a, b) => b.ano.localeCompare(a.ano)).map(x => `<a href="/temporada/${esc(x.slug)}" class="${x.slug === t.slug ? "atual" : ""}">${esc(x.nome)}<small>${x.ano}</small></a>`).join("")}</div>
+        <p class="ep-sub">${prog ? "Programa" : "Temporada"} de ${anos}, ${eps.length} ${eps.length > 1 ? "episódios" : "episódio"}</p>
+        <div class="menu" id="menuTemp" role="listbox">${[...D.todas].sort((a, b) => b.ano.localeCompare(a.ano)).map(itemMenu).join("")}${D.programas?.length ? `<div class="grupo">Programas</div>${D.programas.map(itemMenu).join("")}` : ""}</div>
       </div>
       <div class="pico">
-        <div class="cap">Pico da temporada</div>
+        <div class="cap">Pico ${prog ? "do programa" : "da temporada"}</div>
         <div class="big num" id="picoN" data-v="${t.pico}">0</div>
         <div class="onde-pico"><a href="${link(topo)}">${esc(rotulo(topo))}</a><span>${dia(topo.data)}</span></div>
       </div>
@@ -411,18 +419,18 @@ function monta() {
     <div class="col">
       <div class="g-top"><span class="lbl">Audiência por episódio</span>
         <div class="filtro" role="group" aria-label="O que mostrar no gráfico">
-          <button data-m="media" class="on">Média</button><button data-m="pico">Pico</button><button data-m="horas">Horas</button><button data-m="duracaoMin">Duração</button><button data-m="temporadas">Temporadas</button>
+          <button data-m="media" class="on">Média</button><button data-m="pico">Pico</button><button data-m="horas">Horas</button><button data-m="duracaoMin">Duração</button>${prog ? "" : `<button data-m="temporadas">Temporadas</button>`}
         </div></div>
       <div class="leg" id="leg"></div>
       <div class="cw"><canvas id="graf"></canvas></div>
       <div class="lado">
-        <div><div class="cap">Média da temporada</div><b class="v num">${f(t.media)}</b></div>
+        <div><div class="cap">Média ${prog ? "do programa" : "da temporada"}</div><b class="v num">${f(t.media)}</b></div>
       </div>
     </div>`;
   $("strip").innerHTML = `
     <div class="st"><small>Tempo de live</small><b>${dur(minutos)}</b><small>${dur(Math.round(minutos / eps.length))} por episódio</small></div>
-    <div class="st"><small>Horas assistidas</small><b>${f(soma("horas"))}</b><small>${ord(pos("horas"))} entre as temporadas</small></div>
-    <div class="st"><small>Pico</small><b>${ord(pos("pico"))}</b><small>entre ${D.todas.length} temporadas</small></div>
+    <div class="st"><small>Horas assistidas</small><b>${f(soma("horas"))}</b><small>${prog ? "somando os episódios" : ord(pos("horas")) + " entre as temporadas"}</small></div>
+    ${prog ? `<div class="st"><small>Média</small><b>${f(t.media)}</b><small>por episódio</small></div>` : `<div class="st"><small>Pico</small><b>${ord(pos("pico"))}</b><small>entre ${D.todas.length} temporadas</small></div>`}
     <div class="st"><small>Live mais longa</small><b>${dur(Math.max(...com("duracaoMin").map(e => e.duracaoMin)))}</b><small>${esc(curto(com("duracaoMin").sort((a, b) => b.duracaoMin - a.duracaoMin)[0] || eps[0]))}</small></div>
     <div class="st"><small>Episódios</small><b>${eps.length}</b><small>${dia(eps[0].data).replace(/^\d+ de /, "")} a ${dia(eps.at(-1).data).replace(/^\d+ de /, "")}</small></div>`;
 
@@ -535,7 +543,7 @@ function desenhaGrafico() {
     plugins: [marcas]
   });
   const L = (c, t, cls = "") => `<span><i class="${cls}" style="--c:${c}"></i>${t}</span>`;
-  $("leg").innerHTML = [L(tx, nome, "p"), metrica === "media" ? L(mut + "66", "Pico") : "", L(mut, "Média da temporada", "tr"),
+  $("leg").innerHTML = [L(tx, nome, "p"), metrica === "media" ? L(mut + "66", "Pico") : "", L(mut, D.programa ? "Média do programa" : "Média da temporada", "tr"),
     iAlta >= 0 ? L(verde, "Maior alta", "p") : "", iQueda >= 0 ? L(verm, "Maior queda", "p") : ""].join("");
 }
 // comparação entre temporadas: barras deitadas com o nome inteiro, da maior média pra menor;

@@ -1228,14 +1228,17 @@ function temporadaApi(t) {
   const eps = resumoEps(), por = new Map();
   for (const e of eps) { const k = kebab(e.temporada); if (!por.has(k)) por.set(k, []); por.get(k).push(e); }
   const soma = (l, k) => l.reduce((a, e) => a + (e[k] || 0), 0);
+  // capa: a do último episódio exibido (vale pra temporada sem capa própria, ex.: Transcendendo)
   const resumo = (k, l) => ({ slug: k, nome: l[0].temporada, ano: l[0].data.slice(0, 4), fimAno: l.at(-1).data.slice(0, 4), eps: l.length,
     pico: Math.max(...l.map(e => e.pico || 0)), media: Math.round(soma(l, "media") / l.length), horas: soma(l, "horas"),
-    capa: l[0].id, plataformas: [...new Set(l.flatMap(e => Object.entries(e.picos || {}).filter(([, v]) => v > 0).map(([p]) => p)))] });
+    capa: l.at(-1).id, plataformas: [...new Set(l.flatMap(e => Object.entries(e.picos || {}).filter(([, v]) => v > 0).map(([p]) => p)))] });
   // o Transcendendo (podcast) e as lives Revelando (não são RPG) não entram na comparação entre temporadas
-  const todas = [...por].filter(([k]) => k === t || !/transcend|revelando/.test(k)).map(([k, l]) => resumo(k, l)).sort((a, b) => a.ano.localeCompare(b.ano) || a.nome.localeCompare(b.nome));
+  const prog = k => /transcend|revelando/.test(k), ord = (a, b) => a.ano.localeCompare(b.ano) || a.nome.localeCompare(b.nome);
+  const todas = [...por].filter(([k]) => !prog(k)).map(([k, l]) => resumo(k, l)).sort(ord);
+  const programas = [...por].filter(([k]) => prog(k)).map(([k, l]) => resumo(k, l)).sort(ord);
   const l = por.get(t);
   if (!l) return null;
-  return { temporada: resumo(t, l), episodios: l, todas };
+  return { temporada: resumo(t, l), episodios: l, todas, programas, programa: prog(t) };
 }
 
 function og(caminho) {
