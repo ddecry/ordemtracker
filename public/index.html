@@ -1700,8 +1700,8 @@ function montaInicio(d) {
     const temps = new Map();
     for (const [id, e] of eps) { const t = e.temporada || "Outros"; if (!temps.has(t)) temps.set(t, []); temps.get(t).push([id, e]); }
     const setas = `<div class="f-setas"><button type="button" data-d="-1" aria-label="Voltar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button><button type="button" data-d="1" aria-label="Avançar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button></div>`;
-    // a temporada principal (A Vigília) fica sempre em cima, o Transcendendo (podcast) sempre por último; as outras seguem pela mais recente
-    const peso = t => t === "A Vigília" ? 0 : /transcend/i.test(t) ? 2 : 1;
+    // a temporada principal (A Vigília) fica sempre em cima; no fim, as lives Revelando e depois o Transcendendo (podcast); as outras seguem pela mais recente
+    const peso = t => t === "A Vigília" ? 0 : /transcend/i.test(t) ? 3 : /^revelando$/i.test(t) ? 2 : 1;
     $("imFileiras").innerHTML = [...temps].sort((p, q) => peso(p[0]) - peso(q[0])).map(([t, lista]) => {
       let ci = 0;
       const cartoes = [...lista].reverse().map(([id, e]) => {
