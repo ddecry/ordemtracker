@@ -1152,6 +1152,10 @@ async function analisaPartes() {
   analisando = false;
 }
 setInterval(analisaPartes, 120_000);
+// cortes do vídeo completo (Groq transcreve a live, Gemini lê trechos do vídeo pelo link): um passo a cada 10 min, só sem live e sem análise de momentos
+const cortesIA = require("./src/cortes")({ DADOS, env, R: () => records, E: () => episodios,
+  ocupado: () => !!gravando || analisando || (atual.episodio && atual.total > 0) || (fs.existsSync(GRAVACAO) && fs.readdirSync(GRAVACAO).some(id => { try { return fs.readdirSync(path.join(GRAVACAO, id)).some(f => f.endsWith(".ogg")); } catch { return false; } })) });
+setInterval(() => cortesIA.passo(), 10 * 60e3);
 
 // relatório da aba Status
 function status() {

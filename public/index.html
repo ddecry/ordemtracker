@@ -941,6 +941,14 @@ const cenaEm = t => {
 };
 // segundo da live -> vídeo completo (sem membros): desconta os trechos cortados antes daquele ponto
 // cortes = [[segundo da live a partir do qual vale, segundos a descontar], ...]; sem cortes, fica na live
+// trecho da live que ficou fora do vídeo completo: antes do primeiro corte (a contagem) e o pedaço tirado antes de cada corte seguinte
+function foraDoVideo(r, seg) {
+  if (!r?.video || !r.cortes?.length) return false;
+  if (seg < r.cortes[0][1] - 45) return true;
+  // folga de 45 s nas bordas: o ponto exato do corte tem margem de erro, e momento perto da borda pode estar no vídeo
+  for (let i = 1; i < r.cortes.length; i++) { const [de, d] = r.cortes[i], tirado = d - r.cortes[i - 1][1]; if (seg >= de - tirado + 45 && seg < de - 45) return true; }
+  return false;
+}
 function noVideo(r, id, seg) {
   if (!r?.video || !r.cortes) return [id, Math.max(0, Math.round(seg))];
   const desc = r.cortes.filter(([de]) => de <= seg).at(-1)?.[1] || 0;
@@ -1192,7 +1200,9 @@ async function up() {
     const d = await (await fetch("/api" + (q.size ? "?" + q : ""))).json();
     const a = d.atual, x = a.extras || {}, r = d.records[d.ver], vivo = d.aoVivo;
     ultimo = d;
-    cenas = (d.momentos || []).map(c => ({ ...c, t: new Date(c.quando).getTime() })).sort((p, q) => p.t - q.t);
+    // com o vídeo completo e os cortes: momento que caiu num trecho cortado (contagem do começo, intervalo) não existe no vídeo e some
+    const iniR = r?.inicioLive && Date.parse(r.inicioLive);
+    cenas = (d.momentos || []).map(c => ({ ...c, t: new Date(c.quando).getTime() })).filter(c => !(iniR && foraDoVideo(r, (c.t - iniR) / 1000))).sort((p, q) => p.t - q.t);
     preCarrega();
     const fx = cenas.filter(c => c.captura).map(c => c.t).join();
     if ($("cenaThumbs").dataset.fx !== fx) {

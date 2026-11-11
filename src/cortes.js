@@ -1,120 +1,173 @@
-// cortes do vídeo completo: o vídeo postado depois da live não tem a contagem do começo nem os intervalos
-// pra achar o que saiu, compara o volume do áudio do vídeo com o do áudio gravado da live, a cada 30 s
-// resultado: [[segundo da live a partir do qual vale, segundos a descontar], ...] (o formato que o site já usa)
-const { spawn } = require("child_process");
+// cortes do vídeo completo: o vídeo postado depois da live (ex.: A Vigília) não tem a contagem do começo nem os intervalos
+// tudo no servidor, sem baixar o vídeo (o YouTube barra download feito de servidor):
+// 1. depois da live, o Groq transcreve o áudio gravado da live (uma parte de 30 min por vez, acelerada 2x pra gastar metade da cota)
+// 2. com o link do vídeo no admin, o Gemini transcreve trechos curtos do vídeo, lendo direto pelo link do YouTube
+// 3. a mesma fala nas duas transcrições dá a diferença de tempo; onde a diferença muda, houve um corte
+// resultado em dados/cortes/<id>.json: { video, cortes: [[segundo da live a partir do qual vale, segundos a descontar], ...] } (o formato que o site já usa)
+const fs = require("fs"), path = require("path"), { execFile } = require("child_process");
 
-const HZ = 10; // 10 leituras de volume por segundo
+const TRECHO = 40, PASSO = 600, POR_PEDIDO = 8; // trechos de 40 s, um a cada 10 min do vídeo, 8 por pedido ao Gemini
+const sem = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const palavras = s => sem(s).replace(/[^a-z0-9 ]+/g, " ").split(/\s+/).filter(Boolean);
+const le = (f, padrao) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return padrao; } };
+const grava = (f, o) => { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, JSON.stringify(o)); };
+const iso8601 = d => { const m = String(d || "").match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/); return m ? (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0) : 0; };
 
-// volume do áudio, 10 vezes por segundo (em escala log, que é como o ouvido percebe)
-function volumes(arq) {
+// ---------- 1. transcrição da live (Groq) ----------
+// devolve [[segundo desde o início da parte, texto], ...]
+function acelera(arq) {
   return new Promise((ok, falha) => {
-    // no servidor, com prioridade baixa pra não atrapalhar o site; no Windows não tem nice
-    const args = ["-v", "error", "-i", arq, "-ac", "1", "-ar", "8000", "-f", "s16le", "-"];
-    const p = process.platform === "win32" ? spawn("ffmpeg", args) : spawn("nice", ["-n", "15", "ffmpeg", ...args]);
-    const vals = [], passo = 8000 / HZ; let soma = 0, n = 0, resto = Buffer.alloc(0);
-    p.stdout.on("data", d => {
-      const b = resto.length ? Buffer.concat([resto, d]) : d, fim = b.length - (b.length % 2);
-      for (let i = 0; i < fim; i += 2) { const s = b.readInt16LE(i); soma += s * s; if (++n === passo) { vals.push(Math.log10(soma / n + 1)); soma = 0; n = 0; } }
-      resto = b.subarray(fim);
-    });
-    p.on("error", falha);
-    p.on("close", c => c === 0 ? ok(Float32Array.from(vals)) : falha(new Error("ffmpeg saiu com " + c)));
+    const saida = arq.replace(/\.ogg$/, ".2x.ogg");
+    execFile("nice", ["-n", "15", "ffmpeg", "-v", "error", "-y", "-i", arq, "-filter:a", "atempo=2", "-ac", "1", "-c:a", "libopus", "-b:a", "24k", saida], e => e ? falha(e) : ok(saida));
   });
 }
-
-// parecença entre um trecho do vídeo e a live num ponto (correlação de -1 a 1); trecho da live sem gravação = NaN
-function parece(v, vi, live, li, tam) {
-  if (li < 0 || li + tam > live.length) return NaN;
-  let sa = 0, sb = 0, saa = 0, sbb = 0, sab = 0;
-  for (let k = 0; k < tam; k++) {
-    const a = v[vi + k], b = live[li + k]; if (Number.isNaN(b)) return NaN;
-    sa += a; sb += b; saa += a * a; sbb += b * b; sab += a * b;
-  }
-  const cov = sab - sa * sb / tam, va = saa - sa * sa / tam, vb = sbb - sb * sb / tam;
-  return va > 1e-6 && vb > 1e-6 ? cov / Math.sqrt(va * vb) : NaN;
-}
-// melhor ponto da live entre de e ate
-function procura(v, vi, live, de, ate, tam) {
-  let melhor = -2, onde = -1;
-  for (let li = Math.max(0, de); li <= Math.min(ate, live.length - tam); li++) { const c = parece(v, vi, live, li, tam); if (c > melhor) { melhor = c; onde = li; } }
-  return [onde, melhor];
+async function groqTranscreve(env, arq) {
+  const rapido = await acelera(arq);
+  try {
+    const form = new FormData();
+    form.append("file", new Blob([fs.readFileSync(rapido)], { type: "audio/ogg" }), path.basename(rapido));
+    form.append("model", env.GROQ_TRANSCRICAO || "whisper-large-v3"); form.append("language", "pt"); form.append("response_format", "verbose_json");
+    const j = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", { method: "POST", headers: { Authorization: "Bearer " + env.GROQ_API_KEY }, body: form }).then(r => r.json());
+    if (j.error) throw Object.assign(new Error("groq: " + (j.error.message || j.error)), { cota: j.error.code === "rate_limit_exceeded" });
+    return (j.segments || []).map(s => [Math.round(s.start * 2 * 10) / 10, s.text.trim()]); // de volta ao tempo real (o áudio foi 2x)
+  } finally { fs.rmSync(rapido, { force: true }); }
 }
 
-const JANELA = 30 * HZ, PASSO = 30 * HZ, BOM = 0.85;
-// média de cada segundo (pra busca rápida na live inteira); segundo com buraco na gravação = NaN
-const porSegundo = a => { const r = new Float32Array(Math.floor(a.length / HZ)); for (let i = 0; i < r.length; i++) { let s = 0; for (let k = 0; k < HZ; k++) s += a[i * HZ + k]; r[i] = s / HZ; } return r; };
-// v e live: volumes; live com NaN onde não tem gravação. Devolve os cortes e o resumo
-function alinha(v, live) {
-  const v1 = porSegundo(v), l1 = porSegundo(live), J1 = JANELA / HZ;
-  let pontos = []; // [décimo no vídeo, desconto em décimos, parecença]
-  for (let vi = 0; vi + JANELA <= v.length; vi += PASSO) {
-    // cada trecho procura na live inteira, segundo a segundo; depois acerta o décimo em volta
-    const [o1, c1] = procura(v1, vi / HZ, l1, 0, l1.length, J1);
-    if (!(c1 >= BOM - 0.1)) continue;
-    const [onde, c] = procura(v, vi, live, o1 * HZ - 2 * HZ, o1 * HZ + 2 * HZ, JANELA);
-    if (c >= BOM) pontos.push([vi, onde - vi, c]);
-  }
-  // trecho que bateu num lugar que nenhum vizinho confirma é coincidência: sai
-  pontos = pontos.filter((p, i) => [pontos[i - 1], pontos[i + 1]].some(q => q && Math.abs(q[1] - p[1]) <= 2 * HZ));
-  if (!pontos.length) return { cortes: null, achados: 0, total: Math.floor(v.length / PASSO) };
-  // junta os pontos em blocos de desconto igual (diferença até 2 s)
-  const blocos = [];
-  for (const p of pontos) { const u = blocos.at(-1); if (u && Math.abs(p[1] - u.desc) <= 2 * HZ) u.fim = p[0]; else blocos.push({ desc: p[1], ini: p[0], fim: p[0] }); }
-  // bloco de um ponto só (30 s) é engano da comparação: some
-  const firmes = blocos.filter(b => b.fim > b.ini);
-  const lista = firmes.length ? firmes : blocos;
-  const cortes = [[0, Math.round(lista[0].desc / HZ)]];
-  for (let i = 1; i < lista.length; i++) {
-    const a = lista[i - 1], b = lista[i];
-    // desconto que diminui não existe (seria trecho repetido); diferença de poucos segundos é só atraso da gravação
-    if (b.desc - a.desc < 5 * HZ) { b.desc = a.desc; continue; }
-    // acha o segundo exato da emenda no vídeo: entre o fim do bloco de antes e o começo deste, qual desconto bate melhor a cada segundo
-    let emenda = b.ini;
-    const t = 5 * HZ;
-    for (let vi = a.fim; vi <= b.ini + JANELA - t; vi += HZ) {
-      const ca = parece(v, vi, live, vi + a.desc, t), cb = parece(v, vi, live, vi + b.desc, t);
-      if (cb > ca + 0.1 && cb >= BOM) { emenda = vi; break; }
-    }
-    cortes.push([Math.round((emenda + b.desc) / HZ), Math.round(b.desc / HZ)]);
-  }
-  return { cortes, achados: pontos.length, total: Math.floor(v.length / PASSO) };
+// ---------- 2. transcrição de trechos do vídeo (Gemini, pelo link do YouTube) ----------
+async function geminiTrechos(env, video, inicios) {
+  const parts = inicios.flatMap((s, i) => [
+    { text: `Trecho ${i + 1}:` },
+    { file_data: { file_uri: "https://www.youtube.com/watch?v=" + video }, video_metadata: { start_offset: s + "s", end_offset: s + TRECHO + "s" } },
+  ]);
+  parts.push({ text: `Transcreva as falas de cada um dos ${inicios.length} trechos, em português, como foram ditas. Responda só em JSON: {"trechos":[{"n":1,"falas":[{"s":3,"t":"texto da fala"}]}]}, com "s" em segundos contados a partir do começo de cada trecho. Trecho sem fala: "falas": [].` });
+  const corpo = { contents: [{ parts }], generationConfig: { mediaResolution: "MEDIA_RESOLUTION_LOW", temperature: 0, responseMimeType: "application/json" } };
+  const modelo = env.GEMINI_MODELO || "gemini-3.8-flash";
+  const j = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, { method: "POST", headers: { "x-goog-api-key": env.GEMINI_API_KEY, "content-type": "application/json" }, body: JSON.stringify(corpo) }).then(r => r.json());
+  if (j.error) throw Object.assign(new Error("gemini: " + j.error.message), { cota: j.error.code === 429 || j.error.code === 503 || /demand|overload|unavailable/i.test(j.error.message) });
+  const t = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("");
+  const r = JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1));
+  const out = {};
+  for (const tr of r.trechos || []) { const s = inicios[(tr.n || 0) - 1]; if (s != null) out[s] = (tr.falas || []).map(f => [+f.s || 0, String(f.t || "")]); }
+  for (const s of inicios) out[s] ??= [];
+  return out;
 }
 
-// volume da live inteira, das partes gravadas: partes = [{ arq, inicio (ms) }], ini = início da live (ms)
-async function volumesLive(partes, ini) {
-  const pedacos = [];
-  for (const p of partes) pedacos.push([Math.round((p.inicio - ini) / 1000 * HZ), await volumes(p.arq)]);
-  const tam = Math.max(...pedacos.map(([o, v]) => o + v.length));
-  const live = new Float32Array(Math.max(0, tam)).fill(NaN);
-  for (const [o, v] of pedacos) for (let k = 0; k < v.length; k++) if (o + k >= 0) live[o + k] = v[k];
-  return live;
+// ---------- 3. comparação ----------
+// live: palavras com o segundo (desde o início da live) de cada uma
+function palavrasDaLive(live) {
+  const lista = [];
+  for (const [t, txt] of live) { const p = palavras(txt); p.forEach((w, i) => lista.push([w, t + i * 0.35])); }
+  return lista;
+}
+// onde a fala aparece na live (pelo menos 70% das palavras, na ordem, perto umas das outras): devolve os segundos da live
+function achaFala(lw, idx, fala) {
+  const p = palavras(fala); if (p.length < 4) return [];
+  const achados = [];
+  for (const i of idx.get(p[0]) || []) {
+    let k = 1, j = i + 1, bate = 1;
+    const fim = i + Math.ceil(p.length * 1.6) + 2;
+    for (; k < p.length && j < Math.min(fim, lw.length); j++) if (lw[j][0] === p[k]) { bate++; k++; } else if (lw[j][0] === p[k + 1]) { bate++; k += 2; }
+    if (bate / p.length >= .7) achados.push(lw[i][1]);
+  }
+  return achados;
+}
+// desconto de cada trecho do vídeo: a mediana das falas achadas uma vez só na live, se pelo menos 2 concordarem (5 s)
+function descontos(live, trechos) {
+  const lw = palavrasDaLive(live), idx = new Map();
+  lw.forEach(([w], i) => { if (!idx.has(w)) idx.set(w, []); idx.get(w).push(i); });
+  const pontos = [];
+  for (const [ini, falas] of Object.entries(trechos)) {
+    const ds = [];
+    for (const [s, t] of falas) { const a = achaFala(lw, idx, t); if (a.length === 1) ds.push(a[0] - (+ini + s)); }
+    if (ds.length < 2) continue;
+    ds.sort((a, b) => a - b);
+    const med = ds[ds.length >> 1], perto = ds.filter(d => Math.abs(d - med) <= 5);
+    if (perto.length >= 2) pontos.push([+ini, perto.reduce((a, b) => a + b) / perto.length]);
+  }
+  return pontos.sort((a, b) => a[0] - b[0]);
+}
+// pontos [segundo do vídeo, desconto] -> blocos de desconto igual; ponto sozinho que desmente os vizinhos sai
+function blocos(pontos) {
+  const bons = pontos.filter((p, i) => [pontos[i - 1], pontos[i + 1]].some(q => q && Math.abs(q[1] - p[1]) <= 8) || pontos.length < 3);
+  const bl = [];
+  for (const [v, d] of bons) { const u = bl.at(-1); if (u && Math.abs(d - u.d) <= 8) { u.fim = v; u.ds.push(d); } else bl.push({ d, ini: v, fim: v, ds: [d] }); }
+  for (const b of bl) { b.ds.sort((a, c) => a - c); b.d = b.ds[b.ds.length >> 1]; }
+  // corte só tira trecho: desconto que diminui é engano de comparação
+  return bl.filter((b, i) => i === 0 || b.d > bl[i - 1].d - 8);
 }
 
-module.exports = { volumes, volumesLive, alinha, procura, parece, HZ };
+module.exports = ({ DADOS, env, R, E, ocupado }) => {
+  // R() e E(): records e episodios atuais do servidor (as variáveis podem ser trocadas inteiras)
+  const PASTA = path.join(DADOS, "cortes"), FEITOS = path.join(DADOS, "gravacao-feitos");
+  const arqLive = id => path.join(PASTA, id + ".live.json"), arqVideo = id => path.join(PASTA, id + ".video.json"), arqFim = id => path.join(PASTA, id + ".json");
+  let rodando = false, pausaAte = 0;
+  const partesDe = id => { try { return fs.readdirSync(path.join(FEITOS, id)).filter(f => /^audio-\d{8}T\d{6}\.ogg$/.test(f)).sort(); } catch { return []; } };
+  const inicioDe = f => { const m = f.match(/(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)/); return Date.UTC(m[1], m[2] - 1, m[3], m[4], m[5], m[6]); };
 
-// pelo terminal, dentro do container: node src/cortes.js <id da live> <id do vídeo>
-// usa o volume do vídeo que o PC mandou (dados/cortes/<id>.video.bin) e grava dados/cortes/<id>.json, que o site lê sozinho
-if (require.main === module) (async () => {
-  const fs = require("fs"), path = require("path");
-  const [id, video] = process.argv.slice(2), D = process.env.DADOS || "/dados", pasta = path.join(D, "cortes");
-  if (!/^[\w-]{11}$/.test(id || "") || !/^[\w-]{11}$/.test(video || "")) throw new Error("uso: node src/cortes.js <id da live> <id do vídeo>");
-  const le = f => { const b = fs.readFileSync(f); return new Float32Array(b.buffer.slice(b.byteOffset, b.byteOffset + b.length)); };
-  const ini = new Date(JSON.parse(fs.readFileSync(path.join(D, "records.json")))[id]?.inicioLive).getTime();
-  if (!ini) throw new Error("live sem horário de início");
-  // volume da live: calcula uma vez (leva uns minutos) e guarda
-  const cacheLive = path.join(pasta, id + ".live.bin");
-  let live;
-  if (fs.existsSync(cacheLive)) live = le(cacheLive);
-  else {
-    const dir = path.join(D, "gravacao-feitos", id);
-    const partes = fs.readdirSync(dir).filter(f => f.endsWith(".ogg")).map(f => {
-      const m = f.match(/(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)/); return { arq: path.join(dir, f), inicio: Date.UTC(m[1], m[2] - 1, m[3], m[4], m[5], m[6]) };
-    });
-    if (!partes.length) throw new Error("a gravação da live já foi apagada");
-    live = await volumesLive(partes, ini); fs.writeFileSync(cacheLive, Buffer.from(live.buffer));
+  // a live inteira em [[segundo desde o início da live, texto]]
+  const liveTexto = id => {
+    const c = le(arqLive(id), { partes: {} }), ini = Date.parse(R()[id].inicioLive);
+    return Object.entries(c.partes).flatMap(([f, l]) => l.map(([s, t]) => [(inicioDe(f) - ini) / 1000 + s, t])).sort((a, b) => a[0] - b[0]);
+  };
+
+  // um passo por vez (chamado a cada 10 min): transcreve uma parte da live, ou pede um lote de trechos do vídeo, ou fecha os cortes
+  async function passo() {
+    if (rodando || Date.now() < pausaAte || ocupado()) return;
+    rodando = true;
+    try {
+      // 1. lives já acabadas com áudio gravado e ainda sem transcrição completa (só episódios que podem ganhar vídeo editado: os de temporada com vídeo depois)
+      for (const id of fs.existsSync(FEITOS) ? fs.readdirSync(FEITOS) : []) {
+        const r = R()[id]; if (!r?.fimLive || !env.GROQ_API_KEY || fs.existsSync(arqFim(id))) continue; // já tem cortes: não gasta cota
+        const ep = E().lista.find(e => e.id === id); if (/transcend/i.test(ep?.temporada || r.temporada || "")) continue; // o Transcendendo fica com a própria live
+        const c = le(arqLive(id), { partes: {} }), falta = partesDe(id).find(f => !c.partes[f]);
+        if (!falta) continue;
+        c.partes[falta] = await groqTranscreve(env, path.join(FEITOS, id, falta)); grava(arqLive(id), c);
+        console.log(`cortes: ${id} live transcrita, ${falta}`);
+        return;
+      }
+      // 2. episódios com vídeo completo e sem cortes
+      for (const e of E().lista) {
+        if (!e.video || e.cortes || !R()[e.id]?.inicioLive || !env.GEMINI_API_KEY) continue;
+        if (le(arqFim(e.id), {}).video === e.video) continue;
+        const partes = partesDe(e.id), cl = le(arqLive(e.id), { partes: {} });
+        if (!partes.length) { grava(arqFim(e.id), { video: e.video, cortes: null, erro: "a gravação da live já foi apagada" }); continue; }
+        if (partes.some(f => !cl.partes[f])) continue; // espera a live terminar de ser transcrita
+        let cv = le(arqVideo(e.id), {}); if (cv.video !== e.video) cv = { video: e.video, trechos: {}, refinos: 0 };
+        // duração do vídeo pela API do YouTube (1 unidade)
+        if (!cv.dur) {
+          const v = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${e.video}&key=${env.YOUTUBE_API_KEY}`).then(r => r.json());
+          cv.dur = iso8601(v.items?.[0]?.contentDetails?.duration); if (!cv.dur) continue; grava(arqVideo(e.id), cv);
+        }
+        let pedir = [];
+        for (let s = 60; s + TRECHO < cv.dur; s += PASSO) if (!cv.trechos[s]) pedir.push(s);
+        // depois da primeira volta: perto de cada corte, mais trechos pra achar o ponto (até 2 vezes)
+        if (!pedir.length && cv.refinos < 2) {
+          const bl = blocos(descontos(liveTexto(e.id), cv.trechos));
+          for (let i = 1; i < bl.length; i++) {
+            const a = bl[i - 1].fim, b = bl[i].ini, n = 4;
+            if (b - a <= 90) continue;
+            for (let k = 1; k <= n; k++) { const s = Math.round(a + (b - a) * k / (n + 1)); if (!cv.trechos[s]) pedir.push(s); }
+          }
+          if (!pedir.length) cv.refinos = 2; else cv.refinos++;
+        }
+        if (pedir.length) {
+          Object.assign(cv.trechos, await geminiTrechos(env, e.video, pedir.slice(0, POR_PEDIDO))); grava(arqVideo(e.id), cv);
+          console.log(`cortes: ${e.id} ${Object.keys(cv.trechos).length} trechos do vídeo transcritos`);
+          return;
+        }
+        // 3. fecha: cada mudança de desconto vira um corte, no meio entre o último trecho de antes e o primeiro de depois
+        const pts = descontos(liveTexto(e.id), cv.trechos), bl = blocos(pts);
+        if (!bl.length) { grava(arqFim(e.id), { video: e.video, cortes: null, erro: "as falas do vídeo não bateram com a live" }); continue; }
+        const cortes = [[0, Math.round(bl[0].d)]];
+        for (let i = 1; i < bl.length; i++) { const vb = (bl[i - 1].fim + TRECHO + bl[i].ini) / 2; cortes.push([Math.round(vb + bl[i].d), Math.round(bl[i].d)]); }
+        grava(arqFim(e.id), { video: e.video, cortes, trechos: Object.keys(cv.trechos).length, achados: pts.length, quando: new Date().toISOString() });
+        console.log(`cortes: ${e.id} prontos`, JSON.stringify(cortes));
+        return;
+      }
+    } catch (err) {
+      console.warn("cortes:", err.message);
+      if (err.cota) pausaAte = Date.now() + 30 * 60e3; // limite da cota grátis: tenta de novo em meia hora
+    } finally { rodando = false; }
   }
-  const r = alinha(le(path.join(pasta, id + ".video.bin")), live);
-  if (!r.cortes) throw new Error("o áudio do vídeo não bateu com a live");
-  fs.writeFileSync(path.join(pasta, id + ".json"), JSON.stringify({ video, cortes: r.cortes, achados: r.achados, total: r.total, quando: new Date().toISOString() }));
-  console.log(JSON.stringify(r));
-})().catch(e => { console.error(e.message); process.exit(1); });
+  return { passo, descontos, blocos };
+};
