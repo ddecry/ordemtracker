@@ -9,6 +9,14 @@
 <link rel="icon" type="image/png" href="/rn-branco.png" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=Inter+Tight:wght@700;800&display=swap" rel="stylesheet">
+<script>
+// capa que não carregou (vídeo sem miniatura, live sem vídeo): troca pela logo de Ordem Paranormal borrada
+document.addEventListener("error", e => {
+  const i = e.target;
+  if (i.tagName !== "IMG" || i.dataset.capaOp || !/\/capa\/|\/temporadas\//.test(i.src)) return;
+  i.dataset.capaOp = "1"; i.classList.add("capa-op"); i.src = "/temporadas/a-ordem-paranormal.jpg";
+}, true);
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
 <script>
 try { document.documentElement.dataset.tema = localStorage.getItem("tema") || (matchMedia("(prefers-color-scheme: light)").matches ? "claro" : "escuro"); } catch { document.documentElement.dataset.tema = "escuro"; }
@@ -238,6 +246,9 @@ td .nm{color:var(--mut)}
   .trio>a{padding:0 10px}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* capa que não carregou: logo de Ordem Paranormal borrada e escura no lugar */
+img.capa-op{filter:blur(5px) brightness(.45)!important;transform:scale(1.12);object-fit:cover}
 </style>
 </head>
 <body>

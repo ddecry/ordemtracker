@@ -650,7 +650,18 @@ button.ep-titulo:hover .seta{color:var(--tx)}
 /* bem estreito: a contagem do próximo episódio sai do topo (ela continua no menu da página inicial) */
 @media (max-width:360px){.top .prox{display:none!important}}
 #prev.gerando{opacity:.35;filter:blur(2px);transition:opacity .2s,filter .2s}
+/* capa que não carregou: logo de Ordem Paranormal borrada e escura no lugar */
+img.capa-op{filter:blur(5px) brightness(.45)!important;transform:scale(1.12);object-fit:cover}
+.ep img.capa-op{transform:none}
 </style>
+<script>
+// capa que não carregou (vídeo sem miniatura, live sem vídeo): troca pela logo de Ordem Paranormal borrada
+document.addEventListener("error", e => {
+  const i = e.target;
+  if (i.tagName !== "IMG" || i.dataset.capaOp || !/\/capa\/|\/temporadas\//.test(i.src)) return;
+  i.dataset.capaOp = "1"; i.classList.add("capa-op"); i.src = "/temporadas/a-ordem-paranormal.jpg";
+}, true);
+</script>
 </head>
 <body class="carregando">
 <div class="top">
@@ -1314,12 +1325,14 @@ function modoFuturo(d) {
   const nome = s => s.toLowerCase().replace(/(^|\s)\p{L}/gu, c => c.toUpperCase());
   const m = (e.titulo || "").match(/^(.*?)\s*-\s*(EPIS[ÓO]DIO\s*\d+)/i);
   $("epNome").textContent = e.temporada || nome(m ? m[1] : e.titulo || "Próximo episódio");
-  $("epNum").textContent = m ? nome(m[2]) : "";
+  // sem "Episódio N" no título (ex.: "Revelando - A Vigília"): mostra o que vem depois do traço
+  $("epNum").textContent = m ? nome(m[2]) : (e.titulo || "").split(/\s+-\s+/)[1] || "";
   // capa: a do vídeo agendado no YouTube; sem link ainda, a arte da temporada
   const img = temLink ? `/capa/${e.id}.jpg` : capaTemp(e.temporada);
   if (img && $("capa").dataset.id !== img) {
     $("capa").dataset.id = img;
-    const im = new Image(); im.onload = () => { $("capa").style.backgroundImage = `url(${im.src})`; $("capa").classList.add("on"); }; im.src = img;
+    const poe = u => { const im = new Image(); im.onload = () => { $("capa").style.backgroundImage = `url(${im.src})`; $("capa").classList.add("on"); }; im.src = u; };
+    img === LOGO_OP ? logoBorrada().then(poe) : poe(img);
   }
   $("lYT").href = temLink ? "https://www.youtube.com/watch?v=" + e.id : "https://cellbit.live/";
   ondeAssistir(null, true);
@@ -1379,7 +1392,15 @@ let proximo = null, proxTemp = null, espera = null;
 // logo de cada temporada para a prévia (nome da temporada sem acento)
 // capas das campanhas (página Categoria:Campanhas da wiki), usadas nos episódios ainda sem link
 const CAPAS_TEMP = ["a-ordem-paranormal","o-segredo-na-floresta","desconjuracao","calamidade","o-segredo-na-ilha","sinais-do-outro-lado","quarentena","natal-macabro","hexatombe","a-vigilia"];
-const capaTemp = t => { const k = (t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); if (CAPAS_TEMP.includes(k)) return `/temporadas/${k}.jpg`;
+// sem capa própria (Revelando): a logo de Ordem Paranormal, borrada e escura (feita aqui no navegador, a arte original não muda)
+const LOGO_OP = "/temporadas/a-ordem-paranormal.jpg";
+let logoBorr = null;
+const logoBorrada = () => logoBorr ??= new Promise(ok => {
+  const i = new Image();
+  i.onload = () => { const c = document.createElement("canvas"); c.width = 640; c.height = 360; const x = c.getContext("2d"); x.filter = "blur(7px) brightness(.45)"; x.drawImage(i, -24, -14, 688, 388); ok(c.toDataURL("image/jpeg", .85)); };
+  i.onerror = () => ok(LOGO_OP); i.src = LOGO_OP;
+});
+const capaTemp = t => { const k = (t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); if (k === "revelando") return LOGO_OP; if (CAPAS_TEMP.includes(k)) return `/temporadas/${k}.jpg`;
   // sem capa na wiki (ex.: Transcendendo): a capa do primeiro episódio da temporada, que aparece borrada
   const prim = Object.entries(ultimo?.records || {}).filter(([, r]) => (r.temporada || "") === t).sort((p, q) => (p[1].inicioLive || p[1].inicio || "").localeCompare(q[1].inicioLive || q[1].inicio || ""))[0];
   return prim ? `/capa/${prim[0]}.jpg` : null; };
@@ -1427,7 +1448,7 @@ function contagem() {
       // sem link ainda: prévia com a arte da temporada, borrada
       const previa = !temLink && capaTemp(proximo.temporada);
       const img = previa || `/capa/${capaId}.jpg`;
-      const c = $("espCapa"); if (c.dataset.img !== img) { c.dataset.img = img; c.dataset.id = ""; c.style.setProperty("--fundo", `url(${img})`); }
+      const c = $("espCapa"); if (c.dataset.img !== img) { c.dataset.img = img; c.dataset.id = ""; img === LOGO_OP ? logoBorrada().then(u => c.dataset.img === img && c.style.setProperty("--fundo", `url(${u})`)) : c.style.setProperty("--fundo", `url(${img})`); }
       c.classList.toggle("previa", !temLink);
       // clicar na capa abre o painel do episódio, ainda zerado
       c.dataset.href = "/ep/" + (proximo.slug || proximo.id); c.classList.add("abre");
@@ -1608,7 +1629,7 @@ function listaEps() {
   const prox = (d.proximos || []).map(e => {
     const q = new Date(e.data), temLink = !e.id.startsWith("ag-");
     const previa = capaTemp(e.temporada);
-    const capa = temLink ? `<img src="/capa/${e.id}.jpg" alt="" loading="lazy">` : previa ? `<img class="borrada" src="${previa}" alt="">` : `<div class="sem-capa"></div>`;
+    const capa = temLink ? `<img src="/capa/${e.id}.jpg" alt="" loading="lazy">` : previa ? `<img class="${previa === LOGO_OP ? "capa-op" : "borrada"}" src="${previa}" alt="">` : `<img class="capa-op" src="${LOGO_OP}" alt="">`;
     const acao = temLink ? `<a href="https://www.youtube.com/watch?v=${e.id}" target="_blank" rel="noopener">Lembrete no YouTube</a>` : `<a href="https://cellbit.live/" target="_blank" rel="noopener">Agenda de lives</a>`;
     return `<div class="ep">${capa}
       <div><h4>${esc(e.titulo || "Próximo episódio")}</h4>
@@ -1687,7 +1708,7 @@ function montaInicio(d) {
         const vivo = d.aoVivo && id === d.ver;
         return `<a class="cartao" style="--i:${ci++}" href="/ep/${e.slug || id}"><img src="/capa/${id}-p.jpg?v=3" alt="" loading="lazy" decoding="async"><span class="selo${vivo ? " vivo" : ""}">${vivo ? "AO VIVO, " + f(d.atual?.total) : "Pico " + f(e.recorde)}</span>
           <span class="c-info"><b>${esc(nomeEp(id, e).replace(t + " - ", ""))}${e.nome ? ": “" + esc(e.nome) + "”" : ""}</b><small>${dia(e)}</small></span></a>`; });
-      const prox = (d.proximos || []).filter(p => p.temporada === t).map(p => `<a class="cartao" href="/ep/${esc(p.slug || p.id)}"><img src="${p.id.startsWith("ag-") ? `/capa/${lista[0][0]}-p.jpg?v=3` : `/capa/${p.id}-p.jpg?v=3`}" alt="" loading="lazy" decoding="async" style="filter:blur(1.2px) brightness(.7)"><span class="selo">Em breve</span>
+      const prox = (d.proximos || []).filter(p => p.temporada === t).map(p => `<a class="cartao" href="/ep/${esc(p.slug || p.id)}">${p.id.startsWith("ag-") && capaTemp(t) === LOGO_OP ? `<img class="capa-op" src="${LOGO_OP}" alt="" loading="lazy" decoding="async">` : `<img src="${p.id.startsWith("ag-") ? `/capa/${lista[0][0]}-p.jpg?v=3` : `/capa/${p.id}-p.jpg?v=3`}" alt="" loading="lazy" decoding="async" style="filter:blur(1.2px) brightness(.7)">`}<span class="selo">Em breve</span>
           <span class="c-info"><b>${esc((p.titulo || "Próximo episódio").replace(new RegExp("^" + t + "\\s*-\\s*", "i"), ""))}</b><small>${new Date(p.data).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })} às ${hm(new Date(p.data))}</small></span></a>`);
       const tl = "/temporada/" + kebab(t);
       return `<div class="fileira"><div class="f-top"><h2><a href="${tl}">${esc(t)}</a></h2><small>${lista.length} ${lista.length > 1 ? "episódios" : "episódio"}</small>${setas}</div><div class="f-trilho">${cartoes.join("") + prox.join("")}</div></div>`;
