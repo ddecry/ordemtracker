@@ -651,7 +651,7 @@ button.ep-titulo:hover .seta{color:var(--tx)}
 @media (max-width:360px){.top .prox{display:none!important}}
 #prev.gerando{opacity:.35;filter:blur(2px);transition:opacity .2s,filter .2s}
 /* capa que não carregou: logo de Ordem Paranormal borrada e escura no lugar */
-img.capa-op{filter:blur(5px) brightness(.45)!important;transform:scale(1.12);object-fit:cover}
+img.capa-op{filter:blur(2px) brightness(.7)!important;transform:scale(1.03);object-fit:cover}
 .ep img.capa-op{transform:none}
 </style>
 <script>
@@ -659,7 +659,7 @@ img.capa-op{filter:blur(5px) brightness(.45)!important;transform:scale(1.12);obj
 document.addEventListener("error", e => {
   const i = e.target;
   if (i.tagName !== "IMG" || i.dataset.capaOp || !/\/capa\/|\/temporadas\//.test(i.src)) return;
-  i.dataset.capaOp = "1"; i.classList.add("capa-op"); i.src = "/temporadas/a-ordem-paranormal.jpg";
+  i.dataset.capaOp = "1"; i.classList.add("capa-op"); i.src = "/temporadas/sem-capa.jpg";
 }, true);
 </script>
 </head>
@@ -1393,11 +1393,11 @@ let proximo = null, proxTemp = null, espera = null;
 // capas das campanhas (página Categoria:Campanhas da wiki), usadas nos episódios ainda sem link
 const CAPAS_TEMP = ["a-ordem-paranormal","o-segredo-na-floresta","desconjuracao","calamidade","o-segredo-na-ilha","sinais-do-outro-lado","quarentena","natal-macabro","hexatombe","a-vigilia"];
 // sem capa própria (Revelando): a logo de Ordem Paranormal, borrada e escura (feita aqui no navegador, a arte original não muda)
-const LOGO_OP = "/temporadas/a-ordem-paranormal.jpg";
+const LOGO_OP = "/temporadas/sem-capa.jpg"; // logo oficial de Ordem Paranormal no meio de um fundo escuro
 let logoBorr = null;
 const logoBorrada = () => logoBorr ??= new Promise(ok => {
   const i = new Image();
-  i.onload = () => { const c = document.createElement("canvas"); c.width = 640; c.height = 360; const x = c.getContext("2d"); x.filter = "blur(7px) brightness(.45)"; x.drawImage(i, -24, -14, 688, 388); ok(c.toDataURL("image/jpeg", .85)); };
+  i.onload = () => { const c = document.createElement("canvas"); c.width = 640; c.height = 360; const x = c.getContext("2d"); x.filter = "blur(2px) brightness(.7)"; x.drawImage(i, -8, -5, 656, 370); ok(c.toDataURL("image/jpeg", .85)); };
   i.onerror = () => ok(LOGO_OP); i.src = LOGO_OP;
 });
 const capaTemp = t => { const k = (t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); if (k === "revelando") return LOGO_OP; if (CAPAS_TEMP.includes(k)) return `/temporadas/${k}.jpg`;

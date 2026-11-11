@@ -14,7 +14,7 @@
 document.addEventListener("error", e => {
   const i = e.target;
   if (i.tagName !== "IMG" || i.dataset.capaOp || !/\/capa\/|\/temporadas\//.test(i.src)) return;
-  i.dataset.capaOp = "1"; i.classList.add("capa-op"); i.src = "/temporadas/a-ordem-paranormal.jpg";
+  i.dataset.capaOp = "1"; i.classList.add("capa-op"); i.src = "/temporadas/sem-capa.jpg";
 }, true);
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
@@ -248,7 +248,7 @@ td .nm{color:var(--mut)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 /* capa que não carregou: logo de Ordem Paranormal borrada e escura no lugar */
-img.capa-op{filter:blur(5px) brightness(.45)!important;transform:scale(1.12);object-fit:cover}
+img.capa-op{filter:blur(2px) brightness(.7)!important;transform:scale(1.03);object-fit:cover}
 </style>
 </head>
 <body>
