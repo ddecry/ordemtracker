@@ -653,6 +653,8 @@ button.ep-titulo:hover .seta{color:var(--tx)}
 /* capa que não carregou: logo de Ordem Paranormal borrada e escura no lugar */
 img.capa-op{filter:blur(2px) brightness(.7)!important;transform:scale(1.03);object-fit:cover}
 .ep img.capa-op{transform:none}
+/* ícone do YouTube: nunca menor que 20 px de altura (regras de marca da API do YouTube) */
+img[src*="/icones/youtube"]{height:20px!important;min-height:20px;width:auto!important;object-fit:contain}
 </style>
 <script>
 // capa que não carregou (vídeo sem miniatura, live sem vídeo): troca pela logo de Ordem Paranormal borrada

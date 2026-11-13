@@ -548,6 +548,7 @@ async function admin(req, res) {
     const mid = url.searchParams.get("momentos");
     // rascunhos com a reação real do chat (agito e o que mais gente mandou) e as imagens dos emotes, pra conferir o resumo da IA
     if (mid && records[mid]) { const reac = reacoesChat(mid); return json(res, 200, { lista: leMomentos(mid).map(m => ({ ...m, reac: reac?.(m.quando) || null })), emotes: await emotes.emotesCanal() }); }
+    if (url.searchParams.get("studio")) return json(res, 200, { link: "/envio/" + studio.token(), fila: studio.fila() });
     if (url.searchParams.get("pendentes")) return json(res, 200, { pendentes: Object.keys(records).reduce((t, id) => t + leMomentos(id).filter(m => !m.aprovado).length, 0) });
     // trecho de áudio do momento (só no painel)
     const au = url.searchParams.get("audio")?.match(/^([\w-]+)\/([\w-]+\.ogg)$/);
@@ -578,6 +579,8 @@ async function admin(req, res) {
   }
   if (req.method === "POST") {
     const b = await corpo(req).catch(() => null);
+    if (b?.studioNovoLink) { studio.novoToken(); return json(res, 200, { link: "/envio/" + studio.token() }); }
+    if (b?.studioDecide) { try { studio.decide(b.studioDecide, !!b.aprova); return json(res, 200, { ok: true }); } catch (er) { return json(res, 400, { erro: er.message }); } }
     if (b?.atualizaWiki) { await atualizaWiki(true); return json(res, 200, { wiki: gloWiki }); }
     if (b?.apagaFeedback) {
       feedbacks = feedbacks.filter(f => f.id !== b.apagaFeedback); salvaFb();
@@ -1156,6 +1159,10 @@ setInterval(analisaPartes, 120_000);
 const cortesIA = require("./src/cortes")({ DADOS, env, R: () => records, E: () => episodios,
   ocupado: () => !!gravando || analisando || (atual.episodio && atual.total > 0) || (fs.existsSync(GRAVACAO) && fs.readdirSync(GRAVACAO).some(id => { try { return fs.readdirSync(path.join(GRAVACAO, id)).some(f => f.endsWith(".ogg")); } catch { return false; } })) });
 setInterval(() => cortesIA.passo(), 10 * 60e3);
+// CSVs do YouTube Studio mandados pela equipe e limpeza dos dados da API do YouTube com mais de 30 dias (src/studio.js)
+const studio = require("./src/studio")({ DADOS, HIST, DB, env, R: () => records, E: () => episodios, aoVivo: () => atual.episodio || null,
+  limpaCache: id => { medias.delete(id); temporadaCache.chave = ""; } });
+setTimeout(() => studio.diario(), 60e3); setInterval(() => studio.diario(), 24 * 3600e3);
 
 // relatório da aba Status
 function status() {
@@ -1382,6 +1389,17 @@ http.createServer(async (req, res) => {
   }
   if (url.pathname === "/feedback" && req.method === "POST") return feedback(req, res);
   if (ADMIN && url.pathname === ADMIN + "/api") return admin(req, res);
+  // página da equipe do canal pra mandar os CSVs do YouTube Studio: /envio/<código>
+  const envio = url.pathname.match(/^\/envio\/([\w-]{10,64})(\/api)?$/);
+  if (envio) {
+    if (!studio.tokenOk(envio[1])) { res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8", "X-Robots-Tag": "noindex" }); return res.end("Link inválido ou trocado. Peça o link novo pra quem administra o site."); }
+    if (!envio[2]) return html(res, "envio.html", { "X-Robots-Tag": "noindex", "Referrer-Policy": "no-referrer", "Cache-Control": "no-store" });
+    if (req.method === "GET") return json(res, 200, { episodios: studio.episodiosEnvio() });
+    if (req.method === "POST") {
+      let s = ""; for await (const p of req) { s += p; if (s.length > 2.2e6) { req.destroy(); return; } }
+      try { return json(res, 200, studio.recebe(JSON.parse(s))); } catch (er) { return json(res, 400, { erro: er instanceof SyntaxError ? "Envio inválido." : er.message }); }
+    }
+  }
   if (url.pathname === "/privacidade") {
     return html(res, "privacidade.html");
   }

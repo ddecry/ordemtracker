@@ -159,6 +159,13 @@ main{padding:28px 32px 64px;max-width:1080px;width:100%}
 .rc-item small{font-variant-numeric:tabular-nums}
 .chip{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.02em;padding:3px 9px;border-radius:99px;background:var(--panel2);color:var(--mut);border:1px solid var(--line)}
 .chip.azul{background:#3b82f61f;color:#7fb0ff;border-color:#3b82f640}
+.stu-link{display:flex;gap:8px;margin:6px 0}
+.stu-link input{flex:1;min-width:0}
+.stu-num{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.stu-num div{background:var(--panel2);border-radius:10px;padding:8px 10px}
+.stu-num small{display:block;color:var(--mut);font-size:12px}
+.stu-num b{font-size:15px}
+.stu-num .sobe{color:var(--verde);font-size:12px;margin-left:4px}
 .chip.verm{background:#ef44441f;color:#ff8a8a;border-color:#ef444440}
 .rot{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin-bottom:4px}
 .comp{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -205,7 +212,7 @@ button.icone svg{width:16px;height:16px}
   nav{position:sticky;top:0;z-index:5;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;align-content:flex-start;gap:4px;border-right:0;border-bottom:1px solid var(--line);padding:8px 10px;background:var(--bg)}
   nav h1,nav .vivo{display:none}
   nav button{white-space:nowrap;padding:7px 10px;font-size:13px}
-  /* 6 abas em 2 linhas de 3, todas do mesmo tamanho */
+  /* abas em linhas de 3, todas do mesmo tamanho */
   nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
   nav button{justify-content:center;gap:5px;padding:7px 4px;overflow:hidden;text-overflow:ellipsis}
   main{padding:16px 14px 48px}
@@ -289,6 +296,7 @@ button{padding:8px 14px}
   <button data-aba="episodios">Episódios</button>
   <button data-aba="momentos">Momentos <span class="qtd" id="moQtd"></span></button>
   <button data-aba="feedbacks">Feedbacks <span class="qtd" id="fbQtd"></span></button>
+  <button data-aba="studio">Studio <span class="qtd" id="stuQtd"></span></button>
   <button data-aba="config">Configurações</button>
   <div class="vivo"><i class="pulso off" id="navPulso"></i><span id="navVivo">Sem live agora</span></div>
 </nav>
@@ -396,6 +404,15 @@ button{padding:8px 14px}
   <div id="fbLista"></div>
 </section>
 
+<section class="aba" id="aba-studio" hidden>
+  <div class="topo"><div><h2>CSVs do YouTube Studio</h2><p>A equipe do canal manda pelo link abaixo; cada envio só vai pro site quando você aprovar. Os números da API do YouTube somem depois de 30 dias (regra da API), os do Studio ficam.</p></div></div>
+  <div class="item"><span class="rot">Link da equipe</span>
+    <div class="stu-link"><input id="stuLink" readonly><button class="peq" id="stuCopia">Copiar</button><button class="sec peq" id="stuNovo">Trocar link</button></div>
+    <small class="mut">Trocar o link desativa o antigo na hora (use se ele vazar).</small></div>
+  <h3>Fila</h3>
+  <div id="stuFila"></div>
+</section>
+
 <section class="aba" id="aba-config" hidden>
   <div class="topo"><div><h2>Configurações</h2></div></div>
   <div class="card">
@@ -452,6 +469,7 @@ function abre(nome) {
   try { sessionStorage.setItem("aba", nome); } catch {}
   if (nome === "momentos") momentos();
   if (nome === "status") status();
+  if (nome === "studio") studio();
 }
 document.querySelectorAll("nav button[data-aba]").forEach(b => b.onclick = () => abre(b.dataset.aba));
 
@@ -499,7 +517,7 @@ async function carrega() {
     return `${nome} - ${d} (${info}${c.esperando && c.total ? ", com áudio esperando" : ""})`; };
   sel.innerHTML = [...grupos].map(([t, l]) => `<optgroup label="${esc(t)}">${l.map(e => `<option value="${esc(e.id)}">${esc(rotulo(e))}</option>`).join("")}</optgroup>`).join("");
   if (atual && comMo.some(e => e.id === atual)) sel.value = atual;
-  acessos(); feedbacks(); contaMomentos(); status();
+  acessos(); feedbacks(); contaMomentos(); status(); studio();
   abre(["agora","publico"].includes(sessionStorage.getItem("aba")) ? "site" : sessionStorage.getItem("aba") || "site");
 }
 $("entrar").onclick = async () => {
@@ -696,6 +714,35 @@ $("fbLista").onclick = async e => {
   if (!b.dataset.fb || !confirm("Apagar este feedback?")) return;
   await api("POST", { apagaFeedback: b.dataset.fb }).catch(() => {}); fbVisto = ""; feedbacks();
 };
+
+// ---------- CSVs do YouTube Studio: link da equipe e fila de aprovação ----------
+async function studio() {
+  let j; try { j = await api("GET", null, "studio=1"); } catch { return; }
+  $("stuQtd").textContent = j.fila.length || "";
+  $("stuLink").value = location.origin + j.link;
+  const n = v => v == null ? "-" : Number(v).toLocaleString("pt-BR"), dif = (a, b) => a && b && b !== a ? `<span class="sobe">${b > a ? "+" : ""}${((b - a) / a * 100).toFixed(1)}%</span>` : "";
+  const quando = iso => new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  $("stuFila").innerHTML = j.fila.length ? j.fila.map(x => `<article class="item">
+    <div class="item-topo"><span class="chip azul">CSV do Studio</span><small class="meta">${quando(x.quando)}${x.nome ? ", " + esc(x.nome) : ""}</small></div>
+    <p class="item-tit">${esc(titulo(x))}</p>
+    ${x.minutosLive && x.minutosCsv < x.minutosLive * .9 ? `<p class="mut">Atenção: o arquivo tem ${x.minutosCsv} minutos e a live teve ${x.minutosLive}.</p>` : `<small class="mut">${x.minutosCsv} minutos no arquivo${x.minutosLive ? `, live de ${x.minutosLive}` : ""}</small>`}
+    <div class="stu-num">
+      <div><small>Pico do YouTube</small><b>${n(x.antes.youtube)} → ${n(x.depois.youtube)}</b>${dif(x.antes.youtube, x.depois.youtube)}</div>
+      <div><small>Pico total</small><b>${n(x.antes.pico)} → ${n(x.depois.pico)}</b>${dif(x.antes.pico, x.depois.pico)}</div>
+      <div><small>Média</small><b>${n(x.antes.media)} → ${n(x.depois.media)}</b>${dif(x.antes.media, x.depois.media)}</div>
+    </div>
+    <div class="item-acoes"><button class="peq" data-stu="${esc(x.id)}" data-ok="1">Aprovar</button><button class="sec peq" data-stu="${esc(x.id)}">Recusar</button></div>
+  </article>`).join("") : '<p class="vazio">Nenhum CSV esperando.</p>';
+}
+$("stuFila").onclick = async e => {
+  const b = e.target.closest("button[data-stu]"); if (!b) return;
+  if (!b.dataset.ok && !confirm("Recusar este CSV?")) return;
+  b.disabled = true;
+  await api("POST", { studioDecide: b.dataset.stu, aprova: !!b.dataset.ok }).then(() => aviso(b.dataset.ok ? "CSV aplicado no episódio." : "CSV recusado.")).catch(er => alert(er.message));
+  studio();
+};
+$("stuCopia").onclick = () => { navigator.clipboard?.writeText($("stuLink").value); aviso("Link copiado."); };
+$("stuNovo").onclick = async () => { if (!confirm("Trocar o link? O antigo para de funcionar na hora.")) return; await api("POST", { studioNovoLink: true }).catch(er => alert(er.message)); studio(); };
 
 // ---------- momentos: revisão antes de ir pro site ----------
 let mo = [];
