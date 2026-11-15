@@ -382,8 +382,9 @@ async function gerarSh() {
   const extras = [["Média", f(t.media)], ["Episódios", String(x.eps.length)]];
   if (!V) {
     // ---------- horizontal: capa à esquerda; à direita nome, pico, plataformas, média e episódios, logo no canto ----------
-    const cw = 780, ch = H - P * 2;
-    desenhaCapa(P, P, cw, ch, 24);
+    // a arte inteira (16:9, sem cortar as laterais), no meio da altura
+    const cw = 780, ch = cw * 9 / 16;
+    desenhaCapa(P, (H - ch) / 2, cw, ch, 24);
     const X = P + cw + 72, CW = W - X - P;
     txt(corta(t.nome, `700 30px "Inter Tight", Inter`, CW), X, 96, `700 30px "Inter Tight", Inter`, "#ededed", -.5);
     txt(x.rotPico, X, 140, "500 22px Inter", "#8a8a8a", 4);
