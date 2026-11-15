@@ -87,10 +87,12 @@ module.exports = ({ DADOS, HIST, DB, R, E, env, aoVivo, limpaCache }) => {
     if (aprova) aplica(item);
     s.fila = s.fila.filter(x => x.id !== id); grava(s);
   }
-  // episódios que a equipe pode escolher: os com vídeo no YouTube que já acabaram, do mais novo pro mais velho
-  const episodiosEnvio = () => Object.entries(R()).filter(([id, r]) => /^[\w-]{11}$/.test(id) && r.fimLive && id !== aoVivo())
-    .map(([id, r]) => ({ id, titulo: E().lista.find(e => e.id === id)?.titulo || r.titulo, data: r.inicioLive, temStudio: doStudio(r) }))
-    .sort((a, b) => (b.data || "").localeCompare(a.data || ""));
+  // episódios que ainda esperam o CSV: lives com vídeo no YouTube que o site mediu pela API (amostras), já acabadas e sem CSV do Studio
+  // (as temporadas antigas já têm o CSV do canal); os que já estão na fila aparecem marcados como enviados
+  const episodiosEnvio = () => { const naFila = new Set((le().fila || []).map(x => x.ep));
+    return Object.entries(R()).filter(([id, r]) => /^[\w-]{11}$/.test(id) && r.fimLive && r.amostras && !doStudio(r) && id !== aoVivo())
+      .map(([id, r]) => ({ id, titulo: E().lista.find(e => e.id === id)?.titulo || r.titulo, data: r.inicioLive, naFila: naFila.has(id) }))
+      .sort((a, b) => (b.data || "").localeCompare(a.data || "")); };
 
   // ---- limpeza diária (30 dias) ----
   function limpeza() {

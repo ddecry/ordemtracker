@@ -4,89 +4,104 @@
 <title>Enviar CSV | Ordem Tracker</title>
 <link rel="icon" type="image/png" href="/rn-preto.png" media="(prefers-color-scheme: light)">
 <link rel="icon" type="image/png" href="/rn-branco.png" media="(prefers-color-scheme: dark)">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700;800&display=swap" rel="stylesheet">
 <script>
 (() => { let t = null; try { t = localStorage.getItem("tema"); } catch {}
   document.documentElement.dataset.tema = t || (matchMedia("(prefers-color-scheme: light)").matches ? "claro" : "escuro"); })();
 </script>
 <style>
-/* página da equipe do canal: manda o CSV de espectadores simultâneos do YouTube Studio de um episódio */
-:root{--bg:#121212;--panel:#181818;--panel2:#242424;--line:#2a2a2a;--tx:#ededed;--mut:#8a8a8a;--red:#ef4444;--verde:#22c55e;--rn:url(/rn-branco.png)}
-:root[data-tema="claro"]{--bg:#f3f3f3;--panel:#fff;--panel2:#e7e7e7;--line:#ddd;--tx:#151515;--mut:#6e6e6e;--rn:url(/rn-preto.png)}
+/* página da equipe do canal: episódios que ainda não têm o CSV do YouTube Studio, cada linha recebe o seu arquivo */
+:root{--bg:#121212;--panel:#181818;--panel2:#242424;--line:#2a2a2a;--line2:#3a3a3a;--tx:#ededed;--mut:#8a8a8a;--yt:#ff2b2b;--red:#ef4444;--green:#22c55e;--rn:url(/rn-branco.png)}
+:root[data-tema="claro"]{--bg:#f3f3f3;--panel:#fff;--panel2:#e7e7e7;--line:#ddd;--line2:#cfcfcf;--tx:#151515;--mut:#6e6e6e;--green:#16a34a;--rn:url(/rn-preto.png)}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 Inter,sans-serif}
-.top{display:flex;align-items:center;gap:14px;height:60px;padding:0 16px;border-bottom:1px solid var(--line)}
-.top .rn-logo{width:44px;height:44px;background:var(--rn) center/contain no-repeat}
-.top b{font-weight:600}
-main{max-width:560px;margin:0 auto;padding:28px 16px 60px}
-h1{font-size:22px;margin:0 0 6px}
-p{color:var(--mut);margin:0 0 20px}
-label{display:block;font-size:13px;font-weight:600;color:var(--mut);margin:0 0 6px}
-select{width:100%;background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:10px;padding:11px 12px;font:inherit;margin-bottom:18px}
-.arq{display:grid;place-items:center;gap:6px;text-align:center;border:1.5px dashed var(--line);border-radius:14px;padding:28px 16px;cursor:pointer;background:var(--panel);transition:border-color .15s}
-.arq:hover,.arq.sobre{border-color:var(--mut)}
-.arq b{font-weight:600}
-.arq small{color:var(--mut)}
-.arq input{display:none}
-button{margin-top:18px;width:100%;padding:12px;border:0;border-radius:10px;background:var(--tx);color:var(--bg);font:600 15px Inter,sans-serif;cursor:pointer}
-button:disabled{opacity:.4;cursor:default}
-#msg{margin-top:16px;padding:12px 14px;border-radius:10px;background:var(--panel2);display:none}
-#msg.on{display:block}
-#msg.ok{border-left:3px solid var(--verde)}
-#msg.erro{border-left:3px solid var(--red)}
-.ajuda{margin-top:28px;font-size:14px;color:var(--mut)}
-.ajuda ol{padding-left:20px;margin:6px 0 0}
-.tem{color:var(--verde)}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.mut{color:var(--mut)}
+[hidden]{display:none!important}
+.top{display:flex;align-items:center;gap:1.2em;height:56px;max-width:860px;margin:0 auto;padding:0 16px;font-weight:500}
+.rn-logo{display:block;width:62px;height:62px;margin:0 -10px;background:var(--rn) center/contain no-repeat}
+.sp{flex:1}
+.tbtn{display:inline-flex;align-items:center;justify-content:center;background:none;border:0;padding:8px;margin:0 -8px;color:var(--mut);cursor:pointer;transition:color .2s}
+.tbtn:hover{color:var(--tx)}
+.tbtn svg{width:20px;height:20px}
+:root[data-tema="claro"] .i-lua,:root:not([data-tema="claro"]) .i-sol{display:none}
+main{max-width:860px;margin:0 auto;padding:4vh 16px 64px}
+h1{display:flex;align-items:center;gap:12px;margin:0 0 3.5vh;font:700 clamp(24px,4vw,36px)/1.1 "Inter Tight",Inter,sans-serif;letter-spacing:-.02em}
+h1 img{height:24px;width:auto}
+/* lista: linhas separadas por traço, sem cartões */
+.lista{border-top:1px solid var(--line)}
+.ep{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px 18px;padding:14px 4px;border-bottom:1px solid var(--line);transition:background .15s}
+.ep.sobre{background:var(--panel)}
+.ep .capa{width:136px;aspect-ratio:16/9;border-radius:10px;object-fit:cover;background:var(--panel2);display:block}
+.ep .nome{font:600 clamp(16px,2vw,19px)/1.25 "Inter Tight",Inter,sans-serif;letter-spacing:-.005em}
+.ep .info{font-size:13.5px;color:var(--mut);margin-top:3px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+.ep .info .ok{color:var(--green);display:inline-flex;align-items:center;gap:6px}
+.ep .info .ok::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.ep .info .erro{color:var(--red)}
+.bt{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:99px;border:1px solid var(--line2);background:none;color:var(--tx);font:600 14px Inter,sans-serif;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s}
+.bt:hover{background:var(--panel2)}
+.bt svg{width:17px;height:17px}
+.bt:disabled{opacity:.5;cursor:default}
+.ep input{display:none}
+.vazio{padding:28px 4px;color:var(--mut);border-bottom:1px solid var(--line)}
+@media (max-width:560px){
+  .ep{grid-template-columns:96px minmax(0,1fr)}
+  .ep .capa{width:96px;border-radius:8px}
+  .ep .bt{grid-column:1/-1;justify-content:center;width:100%}
+}
 </style>
 </head><body>
-<div class="top"><span class="rn-logo"></span><b>Ordem Tracker</b></div>
+<div class="top">
+  <span class="rn-logo" role="img" aria-label="Ordem Tracker"></span>
+  <div class="sp"></div>
+  <button class="tbtn" id="temaBtn" aria-label="Alternar tema"><svg class="i-lua" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><svg class="i-sol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg></button>
+</div>
 <main>
-  <h1>Enviar audiência do YouTube Studio</h1>
-  <p>Mande o CSV de espectadores simultâneos de uma live. O arquivo vai para revisão e só aparece no site depois de aprovado.</p>
-  <label for="ep">Episódio</label>
-  <select id="ep"><option value="">Carregando…</option></select>
-  <label>Arquivo CSV</label>
-  <label class="arq" id="arq"><input type="file" id="file" accept=".csv,text/csv"><b id="arqNome">Escolher arquivo</b><small>ou arraste o CSV para cá (até 2 MB)</small></label>
-  <button id="enviar" disabled>Enviar para revisão</button>
-  <div id="msg" role="status"></div>
-  <div class="ajuda">
-    <b>Como tirar o arquivo do Studio</b>
-    <ol>
-      <li>YouTube Studio, abra a live e vá em Estatísticas.</li>
-      <li>No gráfico de espectadores simultâneos, exporte os dados em CSV.</li>
-      <li>O arquivo deve ter uma linha por minuto (minuto e espectadores).</li>
-    </ol>
-  </div>
+  <h1><img src="/icones/youtube.png?v=2" alt="YouTube">Dados do YouTube Studio</h1>
+  <div class="lista" id="lista"><div class="vazio">Carregando…</div></div>
 </main>
 <script>
 const $ = id => document.getElementById(id), API = location.pathname.replace(/\/$/, "") + "/api";
-let csv = null, nome = "";
-const msg = (t, tipo) => { $("msg").textContent = t; $("msg").className = "on " + tipo; };
-const pronto = () => $("enviar").disabled = !(csv && $("ep").value);
-const data = iso => iso ? new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }) : "";
-fetch(API).then(r => r.json()).then(j => {
-  $("ep").innerHTML = `<option value="">Escolha o episódio</option>` + j.episodios.map(e => `<option value="${e.id}">${e.titulo.replace(/[<>&]/g, "")} (${data(e.data)})${e.temStudio ? " ✓ já tem CSV" : ""}</option>`).join("");
-}).catch(() => msg("Não consegui carregar os episódios. Recarregue a página.", "erro"));
-$("ep").onchange = pronto;
-function pega(f) {
-  if (!f) return;
-  if (f.size > 2e6) { csv = null; pronto(); return msg("Arquivo grande demais (máximo 2 MB).", "erro"); }
-  const r = new FileReader(); r.onload = () => { csv = r.result; nome = f.name; $("arqNome").textContent = f.name; $("msg").className = ""; pronto(); }; r.readAsText(f);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+// títulos do YouTube vêm em maiúsculas ("A VIGÍLIA - EPISÓDIO 1"): cada palavra toda em maiúsculas vira "Vigília", sem o " | ..." do fim
+const titulo = t => String(t || "").replace(/^\S*\s*AO VIVO\s*\|\s*/i, "").replace(/\s*\|.*$/, "").replace(/(?<![\p{L}])(\p{Lu})(\p{Lu}+)(?![\p{L}])/gu, (m, a, b) => a + b.toLowerCase());
+const data = iso => iso ? new Date(iso).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" }) : "";
+const ICO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg>';
+$("temaBtn").onclick = () => { const n = document.documentElement.dataset.tema === "claro" ? "escuro" : "claro"; document.documentElement.dataset.tema = n; try { localStorage.setItem("tema", n); } catch {} };
+
+function linha(e) {
+  const st = e.naFila ? `<span class="ok">Enviado, em revisão</span>` : "";
+  return `<div class="ep" data-id="${esc(e.id)}">
+    <img class="capa" src="/capa/${esc(e.id)}-p.jpg" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+    <div><div class="nome">${esc(titulo(e.titulo))}</div><div class="info"><span>${data(e.data)}</span><span class="st">${st}</span></div></div>
+    <label class="bt">${ICO}<span>${e.naFila ? "Enviar outro" : "Enviar CSV"}</span><input type="file" accept=".csv,text/csv"></label>
+  </div>`;
 }
-$("file").onchange = e => pega(e.target.files[0]);
-const arq = $("arq");
-["dragenter", "dragover"].forEach(t => arq.addEventListener(t, e => { e.preventDefault(); arq.classList.add("sobre"); }));
-["dragleave", "drop"].forEach(t => arq.addEventListener(t, e => { e.preventDefault(); arq.classList.remove("sobre"); }));
-arq.addEventListener("drop", e => pega(e.dataTransfer.files[0]));
-$("enviar").onclick = async () => {
-  $("enviar").disabled = true; msg("Enviando…", "");
+function carrega() {
+  fetch(API).then(r => r.json()).then(j => {
+    const l = j.episodios || [];
+    $("lista").innerHTML = l.length ? l.map(linha).join("") : '<div class="vazio">Nenhum episódio esperando.</div>';
+  }).catch(() => { $("lista").innerHTML = '<div class="vazio">Não consegui carregar os episódios. Recarregue a página.</div>'; });
+}
+async function envia(row, f) {
+  if (!f) return;
+  const st = row.querySelector(".st"), bt = row.querySelector(".bt");
+  if (f.size > 2e6) { st.innerHTML = '<span class="erro">Arquivo grande demais (máximo 2 MB).</span>'; return; }
+  st.innerHTML = "Enviando…"; bt.style.pointerEvents = "none"; bt.style.opacity = ".5";
   try {
-    const r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ep: $("ep").value, nome, csv }) }), j = await r.json();
+    const csv = await f.text();
+    const r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ep: row.dataset.id, nome: f.name, csv }) }), j = await r.json();
     if (!r.ok) throw new Error(j.erro || "Erro " + r.status);
-    msg(`Recebido: ${j.minutos} minutos. Vai para revisão e aparece no site depois de aprovado.` + (j.aviso ? " Atenção: " + j.aviso : ""), j.aviso ? "erro" : "ok");
-    csv = null; $("file").value = ""; $("arqNome").textContent = "Escolher arquivo";
-  } catch (e) { msg(e.message, "erro"); }
-  pronto();
-};
+    st.innerHTML = `<span class="ok">Enviado, em revisão</span>` + (j.aviso ? ` <span class="erro">${esc(j.aviso)}</span>` : "");
+    bt.querySelector("span").textContent = "Enviar outro";
+  } catch (e) { st.innerHTML = `<span class="erro">${esc(e.message)}</span>`; }
+  bt.style.pointerEvents = ""; bt.style.opacity = "";
+}
+$("lista").addEventListener("change", e => { if (e.target.type === "file") { envia(e.target.closest(".ep"), e.target.files[0]); e.target.value = ""; } });
+// arrastar o arquivo direto em cima da linha do episódio
+["dragenter", "dragover"].forEach(t => $("lista").addEventListener(t, e => { const r = e.target.closest(".ep"); if (!r) return; e.preventDefault(); document.querySelectorAll(".ep.sobre").forEach(x => x !== r && x.classList.remove("sobre")); r.classList.add("sobre"); }));
+$("lista").addEventListener("dragleave", e => { const r = e.target.closest(".ep"); if (r && !r.contains(e.relatedTarget)) r.classList.remove("sobre"); });
+$("lista").addEventListener("drop", e => { const r = e.target.closest(".ep"); if (!r) return; e.preventDefault(); r.classList.remove("sobre"); envia(r, e.dataTransfer.files[0]); });
+carrega();
 </script>
 </body></html>
