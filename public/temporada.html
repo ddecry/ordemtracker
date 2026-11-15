@@ -214,6 +214,22 @@ td .nm{color:var(--mut)}
 .fb textarea,.fb input{width:100%;background:var(--panel2);color:var(--tx);border:1px solid transparent;border-radius:10px;padding:.7em .9em;font:inherit;font-size:15px;outline:0;margin-top:10px}
 .fb textarea{min-height:120px;resize:vertical}
 .fb .sbtn{margin-top:12px}
+/* compartilhar: mesma janela do painel do episódio (imagem à esquerda, botões à direita) */
+.sh-box{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:20px;display:grid;grid-template-columns:auto 240px;gap:20px;max-height:94vh;transform:translateY(10px) scale(.98);transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+.modal.on .sh-box{transform:none}
+.sh-box img{max-height:calc(94vh - 40px);max-width:52vw;border-radius:12px;display:block;background:#111}
+#shPrev.gerando{opacity:.35;filter:blur(2px);transition:opacity .2s,filter .2s}
+.sh-side{display:flex;flex-direction:column;gap:10px}
+.sh-side .rn-logo{width:8em;height:8em;margin:-1.5em 0 -1.5em -1em}
+.sh-side h3{margin:0;font:600 18px Inter,sans-serif}
+.sh-side p{margin:0;color:var(--mut);font-size:.9em;line-height:1.45}
+#shTxt{white-space:pre-line}
+.sh-fmt{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.sh-btn{display:flex;align-items:center;justify-content:center;gap:.5em;border:1px solid var(--line);background:var(--panel2);color:var(--tx);border-radius:12px;padding:.8em 1em;font:600 .95em Inter,sans-serif;cursor:pointer;text-decoration:none;transition:border-color .2s}
+.sh-btn:hover{border-color:var(--mut)}.sh-fmt .sh-btn.on{border-color:var(--tx)}
+.sh-btn.pri{background:var(--tx);color:var(--bg);border-color:var(--tx)}.sh-btn.pri:hover{opacity:.85}
+.sh-side .fechar{margin:auto 0 0;align-self:center}
+@media (max-width:700px){.sh-box{grid-template-columns:1fr;width:100%;padding:16px;gap:14px;max-height:calc(100dvh - 24px);overflow:auto}.sh-box img{max-width:100%;max-height:38dvh;margin:0 auto}.sh-side .rn-logo{display:none}}
 .toast{position:fixed;left:50%;top:76px;z-index:70;background:var(--tx);color:var(--bg);font:700 .9em Inter,sans-serif;padding:.5em .9em;border-radius:99px;transform:translateX(-50%);opacity:0;pointer-events:none;transition:opacity .25s}
 .toast.on{opacity:1}
 .carrega{display:grid;place-items:center;color:var(--mut)}
@@ -273,6 +289,19 @@ img[src*="/icones/youtube"],img[src*="/icones/twitch"],img[src*="/icones/kick"],
 <div class="strip num" id="strip"></div>
 <div class="aviso">Realitas News, projeto de fãs não oficial e sem vínculo com o Cellbit ou a Ordem Paranormal. Logos, capas e artes pertencem aos seus autores. <a href="/privacidade">Privacidade e fontes</a></div>
 
+<div class="modal" id="share"><div class="sh-box">
+  <img id="shPrev" alt="Imagem da temporada para compartilhar">
+  <div class="sh-side">
+    <span class="rn-logo" role="img" aria-label="Realitas News"></span><h3>Compartilhar</h3>
+    <p id="shTxt"></p>
+    <a class="sh-btn pri" id="shX" target="_blank" rel="noopener">Postar no X / Twitter</a>
+    <button class="sh-btn" id="shIg">Instagram e outros apps</button>
+    <div class="sh-fmt"><button class="sh-btn on" id="shH">Horizontal</button><button class="sh-btn" id="shV">Vertical 4:5</button></div>
+    <button class="sh-btn" id="shDl">Baixar imagem (PNG)</button>
+    <p id="shDica" style="font-size:.8em"></p>
+    <button class="fechar" id="shFecha">Fechar</button>
+  </div>
+</div></div>
 <div class="modal" id="janela"><div class="jan"><div class="jan-top"><h3 id="janT"></h3><div class="tabs" id="janTabs"></div><button class="fechar" id="janFecha">Fechar</button></div><div class="jan-c" id="janC"></div></div></div>
 <div class="toast" id="toast"></div>
 
@@ -312,11 +341,119 @@ fetch("/api").then(r => r.json()).then(d => {
   proximo = (d.proximos || []).find(p => new Date(p.data) > Date.now()) || null;
   if (proximo) { $("prox").hidden = false; $("prox").href = "/ep/" + (proximo.slug || proximo.id); relogio(); }
 }).catch(() => {});
+// ---------- compartilhar: PNG no mesmo layout do painel do episódio (horizontal 1600x700 pro X, vertical 4:5 pro Instagram) ----------
+const carregaImg = src => new Promise((ok, erro) => { const i = new Image(); i.onload = () => ok(i); i.onerror = erro; i.src = src; });
+const imgsSh = new Map(), uma = src => { if (!imgsSh.has(src)) imgsSh.set(src, carregaImg(src).catch(e => { imgsSh.delete(src); throw e; })); return imgsSh.get(src); };
+const blobsSh = new Map();
+let shFormato = "h", shBlob = null;
+// capa da temporada: a arte da wiki; sem ela, a do último episódio; sem nenhuma, a logo de Ordem Paranormal
+const capaSh = t => uma(`/temporadas/${t.slug}.jpg`).catch(() => uma(`/capa/${t.capa}.jpg`)).catch(() => uma("/temporadas/sem-capa.jpg")).catch(() => null);
+function dadosSh() {
+  const t = D.temporada, eps = D.episodios, prog = D.programa;
+  const topo = [...eps].sort((a, b) => b.pico - a.pico)[0];
+  const cores = { youtube: "#ff2b2b", twitch: "#9146ff", kick: "#53fc18", tiktok: "#25f4ee" };
+  const plat = ["youtube", "twitch", "kick", "tiktok"].map(p => [PLAT[p][0], eps.reduce((a, e) => a + (e.noPico?.[p] || 0), 0), cores[p]]);
+  const tot = plat.reduce((a, p) => a + p[1], 0) || 1;
+  const anos = t.ano === t.fimAno ? t.ano : t.ano + "–" + t.fimAno;
+  return { t, eps, prog, topo, plat, tot, anos, pc: v => (v / tot * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "%",
+    sub: `${prog ? "Programa" : "Temporada"} de ${anos}, ${eps.length} ${eps.length > 1 ? "episódios" : "episódio"}`, rotPico: prog ? "PICO DO PROGRAMA" : "PICO DA TEMPORADA" };
+}
+async function gerarSh() {
+  const V = shFormato === "v", x = dadosSh(), { t } = x;
+  await document.fonts.ready;
+  const W = V ? 1080 : 1600, H = V ? 1350 : 700, P = 64, S = 2, cv = document.createElement("canvas");
+  cv.width = W * S; cv.height = H * S;
+  const c = cv.getContext("2d");
+  c.scale(S, S); c.imageSmoothingQuality = "high"; c.textBaseline = "alphabetic";
+  c.fillStyle = "#121212"; c.fillRect(0, 0, W, H);
+  const arred = (x0, y0, w, h, r) => { c.beginPath(); c.roundRect(x0, y0, w, h, r); };
+  const txt = (s1, x0, y0, fonte, cor, esp = 0, alinha = "left") => { c.font = fonte; c.fillStyle = cor; c.letterSpacing = esp + "px"; c.textAlign = alinha; c.fillText(s1, x0, y0); c.letterSpacing = "0px"; c.textAlign = "left"; };
+  const cabe = (s1, peso, max, min, largura, esp = 0) => { let fz = max; c.letterSpacing = esp + "px"; while (fz > min && (c.font = `${peso} ${fz}px "Inter Tight", Inter`, c.measureText(s1).width > largura)) fz -= 2; c.letterSpacing = "0px"; return fz; };
+  const corta = (s1, fonte, largura) => { c.font = fonte; if (c.measureText(s1).width <= largura) return s1; while (s1 && c.measureText(s1 + "…").width > largura) s1 = s1.slice(0, -1); return s1.trim() + "…"; };
+  const [rn, capa] = await Promise.all([uma("/rn-branco.png").catch(() => null), capaSh(t)]);
+  const logo = (x0, y0, alt) => { if (!rn) return 0; const k = alt / .63; c.drawImage(rn, x0 - k * .02, y0 - k * .2, k, k); return k * .9; };
+  const barra = (x0, y0, w, h) => { c.save(); arred(x0, y0, w, h, h / 2); c.clip(); c.fillStyle = "#242424"; c.fillRect(x0, y0, w, h); let bx = x0; for (const [, v, cor] of x.plat) { const bw = v / x.tot * w; c.fillStyle = cor; c.fillRect(bx, y0, bw, h); bx += bw; } c.restore(); };
+  // plataforma: bolinha da cor, nome e a parte dela no pico dos episódios
+  const plataforma = (x0, y0, n, v, cor, tam) => { c.fillStyle = cor; c.beginPath(); c.arc(x0 + 7, y0 - tam - 10, 7, 0, 7); c.fill(); txt(n, x0 + 22, y0 - tam - 2, "500 24px Inter", "#8a8a8a"); txt(x.pc(v), x0, y0, `700 ${tam}px "Inter Tight", Inter`, "#ededed", -1); };
+  const desenhaCapa = (x0, y0, w, h, r) => { c.save(); arred(x0, y0, w, h, r); c.clip(); c.fillStyle = "#242424"; c.fillRect(x0, y0, w, h);
+    if (capa) { const k = Math.max(w / capa.width, h / capa.height), iw = capa.width * k, ih = capa.height * k; if (/sem-capa/.test(capa.src)) c.filter = "blur(2px) brightness(.7)"; c.drawImage(capa, x0 + (w - iw) / 2, y0 + (h - ih) / 2, iw, ih); c.filter = "none"; } c.restore(); };
+  const ondePico = x.topo ? rotulo(x.topo) : "";
+  const plats = x.plat.filter(p => p[1] > 0);
+  const extras = [["Média", f(t.media)], ["Episódios", String(x.eps.length)]];
+  if (!V) {
+    // ---------- horizontal: capa à esquerda; à direita nome, pico, plataformas, média e episódios, logo no canto ----------
+    const cw = 780, ch = H - P * 2;
+    desenhaCapa(P, P, cw, ch, 24);
+    const X = P + cw + 72, CW = W - X - P;
+    txt(corta(t.nome, `700 30px "Inter Tight", Inter`, CW), X, 96, `700 30px "Inter Tight", Inter`, "#ededed", -.5);
+    txt(x.rotPico, X, 140, "500 22px Inter", "#8a8a8a", 4);
+    txt(f(t.pico), X - 4, 254, `800 ${cabe(f(t.pico), 800, 136, 72, CW, -5)}px "Inter Tight", Inter`, "#ededed", -5);
+    txt(corta(ondePico, "500 22px Inter", CW), X, 292, "500 22px Inter", "#9a9a9a");
+    barra(X, 318, CW, 20);
+    const col = Math.min(206, CW / Math.max(1, plats.length));
+    plats.forEach(([n, v, cor], k) => plataforma(X + col * k, 428, n, v, cor, 36));
+    c.fillStyle = "#2a2a2a"; c.fillRect(X, 470, CW, 2);
+    extras.forEach(([n, v], k) => { txt(n, X + 206 * k, 524, "500 24px Inter", "#8a8a8a"); txt(v, X + 206 * k, 568, `700 38px "Inter Tight", Inter`, "#ededed", -1); });
+    const LA = 118; logo(W - P - LA / .63 * .9, H - P - LA - 4, LA);
+    txt("ordemtracker.site", X, H - P + 2, "500 18px Inter", "#5c5c5c", 1);
+  } else {
+    // ---------- vertical: nome e logo em cima, capa na largura toda, números embaixo ----------
+    const CW = W - P * 2, LA = 96, lw = LA / .63 * .9;
+    let y = P;
+    logo(W - P - lw, y - 4, LA);
+    y += 52;
+    txt(t.nome, P, y, `800 ${cabe(t.nome, 800, 62, 34, CW - lw - 24, -1)}px "Inter Tight", Inter`, "#ededed", -1);
+    y += 48;
+    txt(corta(x.sub, `600 32px "Inter Tight", Inter`, CW - lw - 24), P, y, `600 32px "Inter Tight", Inter`, "#9a9a9a");
+    y += 36;
+    const ch = CW * 9 / 16; desenhaCapa(P, y, CW, ch, 22); y += ch + 72;
+    txt(x.rotPico, P, y, "600 20px Inter", "#8a8a8a", 3);
+    y += 134;
+    txt(f(t.pico), P - 4, y, `800 ${cabe(f(t.pico), 800, 136, 70, CW, -5)}px "Inter Tight", Inter`, "#ededed", -5);
+    y += 44;
+    txt(corta(ondePico, "500 24px Inter", CW), P, y, "500 24px Inter", "#9a9a9a");
+    y += 24;
+    barra(P, y, CW, 16);
+    y += 100;
+    const col = CW / 4;
+    x.plat.forEach(([n, v, cor], k) => plataforma(P + col * k, y, n, v, cor, 42));
+    y += 76;
+    c.fillStyle = "#2a2a2a"; c.fillRect(P, y - 20, CW, 2);
+    extras.forEach(([n, v], k) => { txt(n, P + col * 2 * k, y + 22, "500 24px Inter", "#8a8a8a"); txt(v, P + col * 2 * k, y + 70, `700 44px "Inter Tight", Inter`, "#ededed", -1); });
+    txt("ordemtracker.site", W - P, Math.min(H - P * .55, y + 150), "500 17px Inter", "#5c5c5c", 1, "right");
+  }
+  return new Promise(ok => cv.toBlob(ok, "image/png"));
+}
+async function imagemSh() {
+  const k = [shFormato, D.temporada.slug, D.temporada.pico, D.temporada.media, D.episodios.length].join("|");
+  if (blobsSh.has(k)) return blobsSh.get(k);
+  const b = await gerarSh(); blobsSh.set(k, b); return b;
+}
+const nomeSh = () => "temporada-" + D.temporada.slug + (shFormato === "v" ? "-vertical" : "") + ".png";
+async function mostraSh() { $("shPrev").classList.add("gerando"); shBlob = await imagemSh(); $("shPrev").src = URL.createObjectURL(shBlob); $("shPrev").classList.remove("gerando"); }
 $("shareBtn").onclick = async () => {
-  const url = location.href, title = document.title;
-  if (navigator.share) { try { await navigator.share({ title, url }); return; } catch { return; } }
-  try { await navigator.clipboard.writeText(url); toast("Link copiado"); } catch { toast(url); }
+  if (!D) return;
+  $("share").classList.add("on");
+  try { await mostraSh(); } catch (e) { $("share").classList.remove("on"); $("shPrev").classList.remove("gerando"); toast("Não deu pra gerar a imagem"); return; }
+  const x = dadosSh(), link = location.origin + "/temporada/" + x.t.slug;
+  const plats = x.plat.filter(p => p[1] > 0).map(([n, v]) => `${n}: ${x.pc(v)}`).join("\n");
+  const texto = `${x.t.nome}, ${x.sub.charAt(0).toLowerCase() + x.sub.slice(1)}\n\n${x.prog ? "Pico do programa" : "Pico da temporada"}: ${f(x.t.pico)} pessoas assistindo ao mesmo tempo${x.topo ? " (" + rotulo(x.topo) + ")" : ""}\nMédia: ${f(x.t.media)}\n\n${plats}`;
+  $("shTxt").textContent = texto;
+  $("shX").href = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(texto + "\n\n#OrdemParanormal") + "&url=" + encodeURIComponent(link);
+  $("shDica").textContent = "";
 };
+const baixaSh = () => { const l = document.createElement("a"); l.href = URL.createObjectURL(shBlob); l.download = nomeSh(); l.click(); };
+$("shDl").onclick = baixaSh;
+// no X o link não leva imagem: baixa junto pra anexar no post
+$("shX").addEventListener("click", () => { baixaSh(); $("shDica").textContent = "A imagem foi baixada. Anexe ela no post do X."; });
+$("shIg").onclick = async () => {
+  const arq = new File([shBlob], nomeSh(), { type: "image/png" });
+  if (navigator.canShare?.({ files: [arq] })) { try { await navigator.share({ files: [arq], text: $("shTxt").textContent }); } catch {} }
+  else { baixaSh(); $("shDica").textContent = "Imagem baixada. No computador o Instagram não aceita envio direto: mande a imagem pro celular e poste por lá. No celular, este botão abre o Instagram direto."; }
+};
+for (const [id, fm] of [["shH", "h"], ["shV", "v"]]) $(id).onclick = () => { shFormato = fm; $("shH").classList.toggle("on", fm === "h"); $("shV").classList.toggle("on", fm === "v"); mostraSh(); };
+$("shFecha").onclick = () => $("share").classList.remove("on");
+$("share").onclick = e => { if (e.target.id === "share") $("share").classList.remove("on"); };
 
 // ---- janelas ----
 function abre(titulo, abas, mostra) {
