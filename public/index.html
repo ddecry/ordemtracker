@@ -429,6 +429,20 @@ body.modo-espera .main,body.modo-espera .strip,body.modo-espera .prox{display:no
 .esp-cont div{display:flex;flex-direction:column;align-items:center;min-width:2.2em}
 .esp-cont b{font:800 clamp(20px,3.1vh,32px)/1 "Inter Tight",Inter,sans-serif;letter-spacing:-.02em}
 .esp-cont span{margin-top:.6vh;color:var(--mut);font-size:.8em;letter-spacing:.1em;text-transform:uppercase}
+/* hiato (sem próximo episódio): texto simples no meio, no lugar da capa e da contagem */
+.hiato{grid-column:1/-1;display:none;flex-direction:column;align-items:center;gap:14px;text-align:center;justify-self:center;max-width:48em;padding:6vh 0}
+body.em-hiato .hiato{display:flex}
+body.em-hiato .esp-capa,body.em-hiato .esp-info,body.em-hiato .esp-sobre{display:none}
+body.em-hiato .espera{grid-template-columns:minmax(0,1fr)!important;justify-content:stretch!important}
+.h-tit{margin:0;font:700 clamp(30px,5vh,48px)/1.1 "Inter Tight",Inter,sans-serif;letter-spacing:-.02em}
+.h-frase{margin:0;max-width:40em;color:var(--mut);font:500 clamp(15px,2.2vh,20px)/1.5 "Inter Tight",Inter,sans-serif;text-wrap:balance}
+.h-curta{display:none}
+.h-num{display:flex;flex-wrap:wrap;justify-content:center;gap:1.2em 2.4em;margin:14px 0 6px}
+.h-num div{display:flex;flex-direction:column;align-items:center;gap:4px}
+.h-num b{font:700 clamp(20px,3vh,28px)/1 "Inter Tight",Inter,sans-serif;letter-spacing:-.02em}
+.h-num span{font-size:.75em;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
+.h-acoes{display:flex;gap:10px;margin-top:4px}
+@media (max-width:800px),(max-aspect-ratio:1/1){.hiato{padding:3vh 0}.h-frase{font-size:clamp(14px,4.3vw,17px);text-wrap:balance}.h-longa{display:none}.h-curta{display:inline!important}.h-num{display:grid;grid-template-columns:1fr 1fr;gap:18px 12px;width:100%}.h-acoes{width:100%}.h-acoes .sbtn{flex:1}}
 /* live no ar na página inicial: número de agora no lugar da contagem, alinhado à esquerda */
 .esp-cont .esp-vivo{align-items:flex-start}
 .esp-cont .esp-vivo b{min-width:0;text-align:left}
@@ -734,6 +748,12 @@ document.addEventListener("error", e => {
 <section class="espera" id="espera" hidden>
   <button type="button" class="rola-dica" id="rolaDica" aria-label="Ver episódios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 6 5 5 5-5"/><path d="m7 13 5 5 5-5"/></svg></button>
   <p class="esp-sobre"><b>Ordem Tracker</b>Acompanhe dados e análises das lives de Ordem&nbsp;Paranormal, com a audiência ao vivo no YouTube, na Twitch, na Kick e no TikTok.</p>
+  <div class="hiato" id="espHiato">
+    <h1 class="h-tit">Ordem Tracker</h1>
+    <p class="h-frase"><span class="h-longa">Acompanhe dados e análises das lives de Ordem&nbsp;Paranormal, com a audiência ao vivo no YouTube, na Twitch, na Kick e no TikTok.</span><span class="h-curta">Dados e audiência ao vivo das lives de Ordem&nbsp;Paranormal.</span></p>
+    <div class="h-num num" id="hNum"></div>
+    <div class="h-acoes"><a class="sbtn pri" id="hVer" href="#inicioMais">Ver as temporadas</a><a class="sbtn" href="https://cellbit.live/" target="_blank" rel="noopener">Agenda de lives</a></div>
+  </div>
   <div class="esp-capa" id="espCapa"></div>
   <div class="esp-info">
     <span class="cap" id="espRot">Próximo episódio</span>
@@ -1238,7 +1258,7 @@ async function up() {
     // página inicial é sempre o menu; com live no ar, ela fica em destaque no meio e o painel abre clicando
     const anterior = Object.entries(d.records).filter(([id, o]) => id !== d.ver && o.fimLive).sort((p, q) => (q[1].inicioLive || "").localeCompare(p[1].inicioLive || ""))[0]?.[0];
     espera = vivo && !epPedido ? { aoVivo: true, ver: d.ver, ultimo: anterior || d.ver }
-      : !vivo && !epPedido && cfg.telaInicial !== "ultimo" && (proximo || cfg.semProximo) ? { texto: cfg.semProximo, ultimo: d.ver } : null;
+      : !vivo && !epPedido && cfg.telaInicial !== "ultimo" ? { texto: cfg.semProximo, ultimo: d.ver } : null;
     document.body.classList.toggle("modo-espera", !!espera); requestAnimationFrame(ajustaLogo);
     $("espera").hidden = !espera;
     $("inicioMais").hidden = !espera;
@@ -1417,6 +1437,17 @@ const capaTemp = t => { const k = (t || "").normalize("NFD").replace(/[̀-ͯ]/g,
   const prim = Object.entries(ultimo?.records || {}).filter(([, r]) => (r.temporada || "") === t).sort((p, q) => (q[1].inicioLive || q[1].inicio || "").localeCompare(p[1].inicioLive || p[1].inicio || ""))[0];
   return prim ? `/capa/${prim[0]}.jpg` : null; };
 const dois = n => String(n).padStart(2, "0");
+// números de todo o RPG pra tela de hiato (Transcendendo e Revelando são programas à parte e ficam de fora)
+let hiatoCache = null;
+function hiato() {
+  if (!ultimo) return null;
+  if (hiatoCache?.d === ultimo) return hiatoCache.v;
+  const eps = Object.values(ultimo.records).filter(e => e.temporada && e.fimLive && !/transcend|revelando/i.test(e.temporada));
+  const v = eps.length ? { temporadas: new Set(eps.map(e => e.temporada)).size, eps: eps.length, recorde: Math.max(...eps.map(e => e.recorde || 0)),
+    horas: Math.round(eps.reduce((a, e) => a + Math.max(0, (Date.parse(e.fimLive) - Date.parse(e.inicioLive || e.inicio)) || 0), 0) / 36e5) } : null;
+  hiatoCache = { d: ultimo, v }; return v;
+}
+
 function contagem() {
   if (futuroEp) {
     const s = Math.max(0, Math.floor((new Date(futuroEp.data) - Date.now()) / 1000)), d = Math.floor(s / 86400);
@@ -1465,11 +1496,20 @@ function contagem() {
       // clicar na capa abre o painel do episódio, ainda zerado
       c.dataset.href = "/ep/" + (proximo.slug || proximo.id); c.classList.add("abre");
     } else {
-      $("espUltimo").hidden = false;
-      $("espRot").textContent = "Ordem Paranormal"; $("espTit").textContent = espera.texto; $("espCont").innerHTML = ""; $("espData").textContent = "";
-      const c = $("espCapa"); if (c.dataset.id !== espera.ultimo) { c.dataset.id = espera.ultimo; c.style.setProperty("--fundo", `url(/capa/${espera.ultimo}.jpg)`); }
-      c.classList.remove("previa", "abre"); c.dataset.img = ""; c.dataset.href = "";
+      // hiato: sem próximo episódio na agenda. Banner da última temporada de RPG (arte, pico, média e episódios) no lugar da capa e da contagem
+      const h = hiato();
+      document.body.classList.toggle("em-hiato", !!h);
+      if (h) {
+        const num = [[h.temporadas, "temporadas"], [h.eps, "episódios"], [h.horas, "horas de RPG"], [h.recorde, "recorde"]].map(([v, n]) => `<div><b>${f(v)}</b><span>${n}</span></div>`).join("");
+        if ($("hNum").dataset.k !== num) { $("hNum").innerHTML = num; $("hNum").dataset.k = num; }
+      } else {
+        $("espUltimo").hidden = false;
+        $("espRot").textContent = "Ordem Paranormal"; $("espTit").textContent = espera.texto || "Ordem Tracker"; $("espCont").innerHTML = ""; $("espData").textContent = "";
+        const c = $("espCapa"); if (c.dataset.id !== espera.ultimo) { c.dataset.id = espera.ultimo; c.style.setProperty("--fundo", `url(/capa/${espera.ultimo}.jpg)`); }
+        c.classList.remove("previa", "abre"); c.dataset.img = ""; c.dataset.href = "";
+      }
     }
+    if (proximo || espera.aoVivo) document.body.classList.remove("em-hiato");
   }
   $("prox").hidden = !proxTemp;
   if (!proxTemp) return;
@@ -1479,6 +1519,7 @@ function contagem() {
   $("proxC").textContent = (d ? d + (d > 1 ? " dias e " : " dia e ") : "") + hms;
   $("prox").href = "/ep/" + (proxTemp.slug || proxTemp.id);
 }
+$("hVer").onclick = e => { e.preventDefault(); $("inicioMais").scrollIntoView({ behavior: "smooth", block: "start" }); };
 $("espCapa").onclick = () => { const h = $("espCapa").dataset.href; if (h) location.href = h; };
 const relogio = () => { $("clock").textContent = new Date().toLocaleTimeString("pt-BR"); contagem(); };
 relogio(); setInterval(relogio, 1000);
